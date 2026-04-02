@@ -6,7 +6,16 @@ import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {T, al, COLLABS} from '~/lib/astromeda-data';
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: 'ASTROMEDA | コレクション一覧'}];
+  const title = 'ASTROMEDA | コレクション一覧';
+  const description =
+    'ASTROMEDAの全コレクション一覧。ONE PIECE・NARUTO・ヒロアカなど人気IPコラボのゲーミングPC・周辺機器を多数展開。';
+  return [
+    {title},
+    {name: 'description', content: description},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {name: 'twitter:card', content: 'summary'},
+  ];
 };
 
 export async function loader(args: Route.LoaderArgs) {

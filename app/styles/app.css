@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
 :root {
   --aside-width: 400px;
   --cart-aside-summary-height-with-discount: 300px;
@@ -7,12 +9,19 @@
   --color-dark: #000;
   --color-light: #fff;
 
-  /* Astromeda theme */
+  /* Astromeda brand colors */
+  --astro-bg: #06060C;
   --astro-cyan: #00F0FF;
   --astro-cyan-dark: #00C4CC;
   --astro-gold: #FFB300;
+  --astro-gold-dark: #FF8C00;
   --astro-red: #FF2D55;
-  --astro-bg: #06060C;
+  --astro-text: #ffffff;
+  --astro-text-50: rgba(255,255,255,.5);
+  --astro-text-25: rgba(255,255,255,.25);
+  --astro-text-12: rgba(255,255,255,.12);
+  --astro-border: rgba(255,255,255,.08);
+  --astro-overlay: rgba(6,6,12,.88);
 }
 
 /* ═══ Astromeda Global ═══ */

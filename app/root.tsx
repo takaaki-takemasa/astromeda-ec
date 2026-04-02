@@ -60,7 +60,7 @@ export function links() {
     {rel: 'preconnect', href: 'https://fonts.gstatic.com', crossOrigin: 'anonymous'},
     {
       rel: 'stylesheet',
-      href: 'https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap',
+      href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Orbitron:wght@400;700;900&family=Outfit:wght@300;400;500;600;700;800;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap',
     },
     {rel: 'icon', type: 'image/svg+xml', href: favicon},
   ];
@@ -156,7 +156,7 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <Meta />
         <Links />
       </head>
-      <body>
+      <body style={{background: '#06060C', color: '#fff'}}>
         {children}
         <ScrollRestoration nonce={nonce} />
         <Scripts nonce={nonce} />
@@ -197,15 +197,77 @@ export function ErrorBoundary() {
     errorMessage = error.message;
   }
 
+  const is404 = errorStatus === 404;
+
   return (
-    <div className="route-error">
-      <h1>Oops</h1>
-      <h2>{errorStatus}</h2>
-      {errorMessage && (
-        <fieldset>
-          <pre>{errorMessage}</pre>
-        </fieldset>
-      )}
+    <div
+      style={{
+        background: '#06060C',
+        minHeight: '100vh',
+        color: '#fff',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: "'Inter', 'Noto Sans JP', system-ui, sans-serif",
+        padding: '48px 24px',
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontSize: 'clamp(80px, 20vw, 160px)',
+          fontWeight: 700,
+          background: 'linear-gradient(135deg, #00F0FF, #00C4CC)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          lineHeight: 1,
+          marginBottom: 24,
+          fontFamily: "'Orbitron', sans-serif",
+        }}
+      >
+        {errorStatus}
+      </div>
+      <h1
+        style={{
+          fontSize: 'clamp(20px, 4vw, 32px)',
+          fontWeight: 700,
+          color: '#fff',
+          marginBottom: 12,
+        }}
+      >
+        {is404 ? 'ページが見つかりません' : 'エラーが発生しました'}
+      </h1>
+      <p
+        style={{
+          fontSize: 16,
+          color: 'rgba(255,255,255,.5)',
+          marginBottom: 32,
+          maxWidth: 480,
+          lineHeight: 1.7,
+        }}
+      >
+        {is404
+          ? 'お探しのページは存在しないか、移動した可能性があります。'
+          : errorMessage || 'サーバーでエラーが発生しました。しばらく経ってからお試しください。'}
+      </p>
+      <a
+        href="/"
+        style={{
+          display: 'inline-block',
+          padding: '14px 40px',
+          background: 'linear-gradient(135deg, #00F0FF, #00C4CC)',
+          color: '#000',
+          borderRadius: 14,
+          textDecoration: 'none',
+          fontWeight: 700,
+          fontSize: 15,
+          letterSpacing: 0.5,
+        }}
+      >
+        トップへ戻る
+      </a>
     </div>
   );
 }

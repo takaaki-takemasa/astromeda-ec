@@ -1,17 +1,16 @@
-import type {Route} from './+types/$';
 import {Link} from 'react-router';
 
-export async function loader({request}: Route.LoaderArgs) {
-  throw new Response(`${new URL(request.url).pathname} not found`, {
-    status: 404,
-  });
+interface AstroErrorBoundaryProps {
+  statusCode?: number;
+  message?: string;
 }
 
-export default function CatchAllPage() {
-  return null;
-}
+export function AstroErrorBoundary({
+  statusCode = 500,
+  message,
+}: AstroErrorBoundaryProps) {
+  const is404 = statusCode === 404;
 
-export function ErrorBoundary() {
   return (
     <div
       style={{
@@ -31,7 +30,9 @@ export function ErrorBoundary() {
         style={{
           fontSize: 'clamp(80px, 20vw, 160px)',
           fontWeight: 700,
-          background: 'linear-gradient(135deg, #00F0FF, #00C4CC)',
+          background: is404
+            ? 'linear-gradient(135deg, #00F0FF, #00C4CC)'
+            : 'linear-gradient(135deg, #FF2D55, #FF8C00)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           backgroundClip: 'text',
@@ -40,7 +41,7 @@ export function ErrorBoundary() {
           fontFamily: "'Orbitron', sans-serif",
         }}
       >
-        404
+        {statusCode}
       </div>
       <h1
         style={{
@@ -50,7 +51,7 @@ export function ErrorBoundary() {
           marginBottom: 12,
         }}
       >
-        ページが見つかりません
+        {is404 ? 'ページが見つかりません' : 'エラーが発生しました'}
       </h1>
       <p
         style={{
@@ -61,8 +62,9 @@ export function ErrorBoundary() {
           lineHeight: 1.7,
         }}
       >
-        お探しのページは存在しないか、移動した可能性があります。
-        URLを確認するか、トップページからお探しください。
+        {is404
+          ? 'お探しのページは存在しないか、移動した可能性があります。'
+          : message || 'サーバーでエラーが発生しました。しばらく経ってからお試しください。'}
       </p>
       <Link
         to="/"

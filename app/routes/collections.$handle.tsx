@@ -8,7 +8,23 @@ import type {ProductItemFragment} from 'storefrontapi.generated';
 import {T, al, COLLABS} from '~/lib/astromeda-data';
 
 export const meta: Route.MetaFunction = ({data}) => {
-  return [{title: `${data?.collection.title ?? ''} | ASTROMEDA`}];
+  const collection = data?.collection;
+  const title = `${collection?.title ?? ''} | ASTROMEDA`;
+  const description =
+    collection?.description ||
+    `${collection?.title ?? ''} - ASTROMEDAのゲーミングPCコラボレーションコレクション`;
+  const url = `https://shop.mining-base.co.jp/collections/${collection?.handle ?? ''}`;
+
+  return [
+    {title},
+    {name: 'description', content: description},
+    {property: 'og:type', content: 'website'},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {property: 'og:url', content: url},
+    {name: 'twitter:card', content: 'summary_large_image'},
+    {rel: 'canonical', href: url},
+  ];
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -177,6 +193,13 @@ export default function Collection() {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
           gap: clamp(10px, 1.5vw, 16px);
+        }
+        .astro-product-card {
+          transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .astro-product-card:hover {
+          transform: scale(1.03);
+          box-shadow: 0 16px 48px rgba(0,240,255,.1);
         }
       `}</style>
     </div>

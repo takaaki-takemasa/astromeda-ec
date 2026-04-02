@@ -16,9 +16,65 @@ import {useState} from 'react';
 import {T, al, COLLABS} from '~/lib/astromeda-data';
 
 export const meta: Route.MetaFunction = ({data}) => {
+  const product = data?.product;
+  const title = `ASTROMEDA | ${product?.title ?? ''}`;
+  const description =
+    product?.seo?.description ||
+    product?.description ||
+    `${product?.title ?? ''} - ASTROMEDAのゲーミングPC・周辺機器`;
+  const url = `https://shop.mining-base.co.jp/products/${product?.handle ?? ''}`;
+  const image =
+    product?.images?.nodes?.[0]?.url ??
+    product?.selectedOrFirstAvailableVariant?.image?.url ??
+    '';
+  const price =
+    product?.selectedOrFirstAvailableVariant?.price?.amount ?? '0';
+  const currency =
+    product?.selectedOrFirstAvailableVariant?.price?.currencyCode ?? 'JPY';
+
   return [
-    {title: `ASTROMEDA | ${data?.product.title ?? ''}`},
-    {rel: 'canonical', href: `/products/${data?.product.handle}`},
+    {title},
+    {name: 'description', content: description},
+    {property: 'og:type', content: 'product'},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {property: 'og:url', content: url},
+    ...(image ? [{property: 'og:image', content: image}] : []),
+    {name: 'twitter:card', content: 'summary_large_image'},
+    {rel: 'canonical', href: url},
+    // JSON-LD Product
+    ...(product
+      ? [
+          {
+            'script:ld+json': {
+              '@context': 'https://schema.org',
+              '@type': 'Product',
+              name: product.title,
+              description,
+              url,
+              ...(image ? {image: [image]} : {}),
+              brand: {
+                '@type': 'Brand',
+                name: product.vendor || 'ASTROMEDA',
+              },
+              offers: {
+                '@type': 'Offer',
+                url,
+                priceCurrency: currency,
+                price,
+                availability:
+                  product.selectedOrFirstAvailableVariant?.availableForSale
+                    ? 'https://schema.org/InStock'
+                    : 'https://schema.org/OutOfStock',
+                seller: {
+                  '@type': 'Organization',
+                  name: '株式会社マイニングベース',
+                },
+              },
+            },
+          },
+        ]
+      : []),
   ];
 };
 

@@ -11,12 +11,41 @@ import {PCShowcase} from '~/components/astro/PCShowcase';
 import type {RecommendedProductsQuery, RecommendedProductFragment} from 'storefrontapi.generated';
 
 export const meta: Route.MetaFunction = () => {
+  const title = 'Astromeda | アニメ×ゲーミングPC';
+  const description =
+    'ONE PIECE・NARUTO・ヒロアカなど人気IPコラボのゲーミングPC・周辺機器専門店。国内自社工場受注生産、全8色カラー、最長3年保証。';
+  const url = 'https://shop.mining-base.co.jp/';
+  const image = 'https://shop.mining-base.co.jp/cdn/shop/files/astromeda-ogp.jpg';
+
   return [
-    {title: 'ASTROMEDA | アニメ・ゲームIPコラボゲーミングPC'},
+    {title},
+    {name: 'description', content: description},
+    // OGP
+    {property: 'og:site_name', content: 'ASTROMEDA'},
+    {property: 'og:type', content: 'website'},
+    {property: 'og:title', content: title},
+    {property: 'og:description', content: description},
+    {property: 'og:url', content: url},
+    {property: 'og:image', content: image},
+    // Twitter
+    {name: 'twitter:card', content: 'summary_large_image'},
+    {name: 'twitter:title', content: title},
+    {name: 'twitter:description', content: description},
+    {name: 'twitter:image', content: image},
+    // JSON-LD
     {
-      name: 'description',
-      content:
-        '株式会社マイニングベースが手掛けるゲーミングPCブランドASTROMEDA。ONE PIECE・ヒロアカ・呪術廻戦など25タイトルのコラボレーションモデルを展開。国内自社工場受注生産、全8色カラー、最長3年保証。',
+      'script:ld+json': {
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'ASTROMEDA',
+        url,
+        description,
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: `${url}search?q={search_term_string}`,
+          'query-input': 'required name=search_term_string',
+        },
+      },
     },
   ];
 };
