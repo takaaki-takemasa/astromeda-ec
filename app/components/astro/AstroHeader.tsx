@@ -13,8 +13,8 @@ interface AstroHeaderProps {
 const NAV_ITEMS = [
   {l: 'ホーム', to: '/'},
   {l: 'ゲーミングPC', to: '/collections/astromeda'},
-  {l: 'ガジェット', to: '/collections/gadget'},
-  {l: 'グッズ', to: '/collections/goods'},
+  {l: 'コラボPC', to: '/collections/pc-collaboration'},
+  {l: '全商品', to: '/collections/all'},
 ];
 
 export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
