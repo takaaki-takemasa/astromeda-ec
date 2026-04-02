@@ -1,0 +1,44 @@
+name: Deploy to Shopify Oxygen
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: oxygen-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy to Oxygen
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Shopify Oxygen
+        run: |
+          npx shopify hydrogen deploy \
+            --build-command "npm run build" \
+            --token ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }} \
+            --force
+        env:
+          PUBLIC_STOREFRONT_ID: ${{ secrets.PUBLIC_STOREFRONT_ID }}
+          PUBLIC_STOREFRONT_API_TOKEN: ${{ secrets.PUBLIC_STOREFRONT_API_TOKEN }}
+          PUBLIC_STORE_DOMAIN: ${{ secrets.PUBLIC_STORE_DOMAIN }}
+          PUBLIC_CHECKOUT_DOMAIN: ${{ secrets.PUBLIC_CHECKOUT_DOMAIN }}
+          PRIVATE_STOREFRONT_API_TOKEN: ${{ secrets.PRIVATE_STOREFRONT_API_TOKEN }}
+          PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID: ${{ secrets.PUBLIC_CUSTOMER_ACCOUNT_API_CLIENT_ID }}
+          PUBLIC_CUSTOMER_ACCOUNT_API_URL: ${{ secrets.PUBLIC_CUSTOMER_ACCOUNT_API_URL }}
+          SHOP_ID: ${{ secrets.SHOP_ID }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
