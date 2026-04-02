@@ -52,6 +52,17 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw redirect('/collections');
   }
 
+  // Redirect legacy English handles to current Japanese handles
+  const HANDLE_REDIRECTS: Record<string, string> = {
+    gadget: 'ガジェット',
+    gadgets: 'ガジェット',
+    goods: 'グッズ',
+    pc: 'ゲーミングpc',
+  };
+  if (HANDLE_REDIRECTS[handle]) {
+    throw redirect(`/collections/${HANDLE_REDIRECTS[handle]}`, {status: 301});
+  }
+
   const [{collection}] = await Promise.all([
     storefront.query(COLLECTION_QUERY, {
       variables: {handle, ...paginationVariables},
