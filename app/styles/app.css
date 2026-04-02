@@ -126,12 +126,35 @@ body {
 
 /* Override Aside for dark theme */
 aside {
-  background: #0a0a14 !important;
+  background: #09090f !important;
   color: #fff;
+  display: flex;
+  flex-direction: column;
 }
 aside header {
   border-bottom: 1px solid rgba(255,255,255,.08) !important;
-  background: rgba(6,6,12,.95);
+  background: rgba(6,6,12,.98) !important;
+  color: #fff;
+}
+aside header h3 {
+  color: #fff;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+}
+aside header .close {
+  color: rgba(255,255,255,.6);
+  font-size: 22px;
+}
+aside header .close:hover {
+  color: #fff;
+}
+aside main {
+  margin: 0;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* Override header for Astromeda */
@@ -141,10 +164,12 @@ aside header {
   border-bottom: 1px solid rgba(255,255,255,.08);
 }
 
-/* Cart line dark theme */
+/* Cart summary override */
 .cart-summary-aside {
-  background: #0a0a14 !important;
+  background: #09090f !important;
   border-top: 1px solid rgba(255,255,255,.08) !important;
+  position: static !important;
+  width: 100% !important;
 }
 
 /* Astromeda product card */
