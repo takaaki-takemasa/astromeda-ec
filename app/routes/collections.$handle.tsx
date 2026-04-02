@@ -52,12 +52,14 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw redirect('/collections');
   }
 
-  // Redirect legacy English handles to current Japanese handles
+  // Redirect legacy/alternate handles
   const HANDLE_REDIRECTS: Record<string, string> = {
-    gadget: 'ガジェット',
-    gadgets: 'ガジェット',
-    goods: 'グッズ',
-    pc: 'ゲーミングpc',
+    gadget: 'gadgets',
+    'ガジェット': 'gadgets',
+    'グッズ': 'goods',
+    pc: 'gaming-pc',
+    'ゲーミングpc': 'gaming-pc',
+    'ゲーミングPC': 'gaming-pc',
   };
   if (HANDLE_REDIRECTS[handle]) {
     throw redirect(`/collections/${HANDLE_REDIRECTS[handle]}`, {status: 301});

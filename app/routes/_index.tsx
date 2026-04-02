@@ -184,9 +184,9 @@ export default function Homepage() {
           className="astro-cat-grid"
         >
           {[
-            {icon: '🖥', name: 'ゲーミングPC', to: '/collections/ゲーミングpc', pr: '¥199,980〜', ac: T.c},
-            {icon: '⌨️', name: 'ガジェット', to: '/collections/ガジェット', pr: '¥4,980〜', ac: '#FF6B9D'},
-            {icon: '🎁', name: 'グッズ', to: '/collections/グッズ', pr: '¥1,500〜', ac: T.g},
+            {icon: '🖥', name: 'ゲーミングPC', to: '/collections/gaming-pc', pr: '¥199,980〜', ac: T.c},
+            {icon: '⌨️', name: 'ガジェット', to: '/collections/gadgets', pr: '¥4,980〜', ac: '#FF6B9D'},
+            {icon: '🎁', name: 'グッズ', to: '/collections/goods', pr: '¥1,500〜', ac: T.g},
             {icon: '🛡️', name: '延長保証', to: '/collections/astromeda', pr: '¥9,900〜', ac: '#26C6DA'},
           ].map((c) => (
             <Link
