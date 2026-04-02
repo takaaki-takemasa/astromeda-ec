@@ -52,10 +52,6 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw redirect('/collections');
   }
 
-  if (handle === 'gadget') {
-    throw redirect('/collections/gadgets', {status: 301});
-  }
-
   const [{collection}] = await Promise.all([
     storefront.query(COLLECTION_QUERY, {
       variables: {handle, ...paginationVariables},
