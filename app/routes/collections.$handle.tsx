@@ -52,11 +52,27 @@ async function loadCriticalData({context, params, request}: Route.LoaderArgs) {
     throw redirect('/collections');
   }
 
-  const [{collection}] = await Promise.all([
-    storefront.query(COLLECTION_QUERY, {
+  // GID mapping: Shopify Storefront API cannot look up these collections by handle
+  // because their URL handles are still non-ASCII. Use node(id:) as a workaround
+  // until handles are updated to ASCII in Shopify Admin.
+  const HANDLE_TO_GID: Record<string, string> = {
+    'gaming-pc': 'gid://shopify/Collection/651565236516',
+    'gadgets':   'gid://shopify/Collection/651565269284',
+    'goods':     'gid://shopify/Collection/651565302052',
+  };
+
+  let collection;
+  if (HANDLE_TO_GID[handle]) {
+    const result = await storefront.query(COLLECTION_BY_ID_QUERY, {
+      variables: {id: HANDLE_TO_GID[handle], ...paginationVariables},
+    });
+    collection = result?.node ?? null;
+  } else {
+    const result = await storefront.query(COLLECTION_QUERY, {
       variables: {handle, ...paginationVariables},
-    }),
-  ]);
+    });
+    collection = result?.collection ?? null;
+  }
 
   if (!collection) {
     throw new Response(`Collection ${handle} not found`, {
@@ -294,6 +310,44 @@ const PRODUCT_ITEM_FRAGMENT = `#graphql
       }
       maxVariantPrice {
         ...MoneyProductItem
+      }
+    }
+  }
+` as const;
+
+const COLLECTION_BY_ID_QUERY = `#graphql
+  ${PRODUCT_ITEM_FRAGMENT}
+  query CollectionById(
+    $id: ID!
+    $country: CountryCode
+    $language: LanguageCode
+    $first: Int
+    $last: Int
+    $startCursor: String
+    $endCursor: String
+  ) @inContext(country: $country, language: $language) {
+    node(id: $id) {
+      ... on Collection {
+        id
+        handle
+        title
+        description
+        products(
+          first: $first,
+          last: $last,
+          before: $startCursor,
+          after: $endCursor
+        ) {
+          nodes {
+            ...ProductItem
+          }
+          pageInfo {
+            hasPreviousPage
+            hasNextPage
+            endCursor
+            startCursor
+          }
+        }
       }
     }
   }
