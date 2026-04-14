@@ -20,3 +20,4 @@ archive/
 # Editor temp files
 *.tmp
 *.tmp.*
+node_modules
