@@ -1,19 +1,17 @@
 import type {Route} from './+types/[robots.txt]';
-import {parseGid} from '@shopify/hydrogen';
 
-export async function loader({request, context}: Route.LoaderArgs) {
+export async function loader({request}: Route.LoaderArgs) {
   const url = new URL(request.url);
 
-  const {shop} = await context.storefront.query(ROBOTS_QUERY);
+  // shopIdは固定値（GraphQLクエリを排除してタイムアウト問題を根本解決）
+  const shopId = '74104078628';
 
-  const shopId = parseGid(shop.id).id;
   const body = robotsTxtData({url: url.origin, shopId});
 
   return new Response(body, {
     status: 200,
     headers: {
-      'Content-Type': 'text/plain',
-
+      'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': `max-age=${60 * 60 * 24}`,
     },
   });
@@ -21,8 +19,74 @@ export async function loader({request, context}: Route.LoaderArgs) {
 
 function robotsTxtData({url, shopId}: {shopId?: string; url?: string}) {
   const sitemapUrl = url ? `${url}/sitemap.xml` : undefined;
+  const llmsUrl = url ? `${url}/llms.txt` : undefined;
+
+  // ── Phase 1: 全AIボット許可（GEO対策） ──
+  // 各AIサービスのクローラーを明示的にAllow
+  const aiCrawlers = [
+    // OpenAI / ChatGPT
+    'GPTBot',
+    'ChatGPT-User',
+    // Anthropic / Claude
+    'ClaudeBot',
+    'Claude-Web',
+    // Google AI
+    'Google-Extended',
+    'GoogleOther',
+    'GoogleOther-Image',
+    'GoogleOther-Video',
+    // Microsoft / Bing / Copilot
+    'Bingbot',
+    'BingPreview',
+    // Perplexity
+    'PerplexityBot',
+    // Meta AI
+    'FacebookBot',
+    'Meta-ExternalAgent',
+    'Meta-ExternalFetcher',
+    // Apple
+    'Applebot',
+    'Applebot-Extended',
+    // Amazon / Alexa
+    'Amazonbot',
+    // X (Twitter) / Grok
+    'Twitterbot',
+    // Cohere
+    'cohere-ai',
+    // AI2 / Semantic Scholar
+    'AI2Bot',
+    'Ai2Bot-Dolma',
+    // Common Crawl (AI学習データソース)
+    'CCBot',
+    // Brave Search
+    'Brave',
+    // You.com
+    'YouBot',
+    // Neeva
+    'NeevaBot',
+    // Diffbot (AI構造化データ)
+    'Diffbot',
+    // Bytedance / TikTok
+    'Bytespider',
+    // Yandex (IndexNow対応)
+    'YandexBot',
+  ];
+
+  const aiRules = aiCrawlers.map(bot =>
+    `User-agent: ${bot}\nAllow: /`
+  ).join('\n\n');
 
   return `
+# ═══════════════════════════════════════════════
+# ASTROMEDA EC — robots.txt
+# AI Generative Engine Optimization (GEO) 対応
+# 最終更新: 2026/04/07
+# ═══════════════════════════════════════════════
+
+# ── AI Crawlers: 全許可（${aiCrawlers.length}ボット） ──
+${aiRules}
+
+# ── 一般クローラー ──
 User-agent: *
 ${generalDisallowRules({sitemapUrl, shopId})}
 
@@ -38,9 +102,11 @@ Disallow: /*?*oseid=*
 Disallow: /*preview_theme_id*
 Disallow: /*preview_script_id*
 
+# ── スパムボット: ブロック ──
 User-agent: Nutch
 Disallow: /
 
+# ── SEOツール: レート制限 ──
 User-agent: AhrefsBot
 Crawl-delay: 10
 ${generalDisallowRules({sitemapUrl, shopId})}
@@ -52,8 +118,14 @@ ${generalDisallowRules({sitemapUrl, shopId})}
 User-agent: MJ12bot
 Crawl-Delay: 10
 
+User-agent: SemrushBot
+Crawl-delay: 10
+
 User-agent: Pinterest
 Crawl-delay: 1
+
+# ── AI用テキストファイル ──
+${llmsUrl ? `# LLMs.txt: ${llmsUrl}` : ''}
 `.trim();
 }
 
@@ -107,11 +179,3 @@ Disallow: /.well-known/shopify/monorail
 ${sitemapUrl ? `Sitemap: ${sitemapUrl}` : ''}`;
 }
 
-const ROBOTS_QUERY = `#graphql
-  query StoreRobots($country: CountryCode, $language: LanguageCode)
-   @inContext(country: $country, language: $language) {
-    shop {
-      id
-    }
-  }
-` as const;

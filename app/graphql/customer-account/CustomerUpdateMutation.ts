@@ -14,6 +14,15 @@ export const CUSTOMER_UPDATE_MUTATION = `#graphql
         phoneNumber {
           phoneNumber
         }
+        metafields(identifiers: [
+          {namespace: "facts", key: "birth_date"},
+          {namespace: "custom", key: "gender"},
+          {namespace: "custom", key: "referral_source"}
+        ]) {
+          key
+          namespace
+          value
+        }
       }
       userErrors {
         code

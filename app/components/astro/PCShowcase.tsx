@@ -1,213 +1,195 @@
-import {useState} from 'react';
+import React, {useMemo} from 'react';
 import {Link} from 'react-router';
-import {T, al, fl, yen, PC_COLORS, PC_TIERS} from '~/lib/astromeda-data';
+import {T, al, yen, PC_COLORS, PC_TIERS, PAGE_WIDTH} from '~/lib/astromeda-data';
+import {optimizeImageUrl, generateSrcSet} from '~/lib/cache-headers';
 
 interface PCShowcaseProps {
-  vw: number;
+  colorImages: Record<string, string>; // カラー名 → 画像URL
 }
 
-const SCENES = [
-  'White Edition — Pure Clean Build',
-  'Black Edition — Stealth Dark Build',
-  'Pink Edition — Rose Gaming Setup',
-  'Purple Edition — Royal Violet Build',
-  'Blue Edition — Ocean Gaming Setup',
-  'Red Edition — Flame Racing Build',
-  'Green Edition — Forest Gaming Setup',
-  'Orange Edition — Sunset Hot Build',
-];
-
-export function PCShowcase({vw}: PCShowcaseProps) {
-  const [pcC, setPcC] = useState(0);
-  const [pcAn, setPcAn] = useState(0);
-  const sp = vw < 768;
-  const c = PC_COLORS[pcC];
-
+function PCShowcaseComponent({colorImages}: PCShowcaseProps) {
   return (
-    <section
-      style={{
-        margin: `0 ${fl(16, 48, vw)}px ${fl(16, 28, vw)}px`,
-        borderRadius: fl(16, 22, vw),
-        border: `1px solid ${al(c.h, c.d ? 0.3 : 0.15)}`,
-        overflow: 'hidden',
-        background: `linear-gradient(165deg, ${al(c.h, 0.06)}, transparent 55%)`,
-        transition: 'background .6s, border-color .6s',
-        position: 'relative',
-      }}
-    >
+    <section style={{...PAGE_WIDTH, paddingBottom: 'clamp(20px, 2.8vw, 32px)'}}>
       <div
         style={{
-          padding: `${fl(14, 28, vw)}px ${fl(14, 36, vw)}px 0`,
           display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'baseline',
+          gap: 10,
+          marginBottom: 'clamp(16px, 1.8vw, 20px)',
         }}
       >
-        <div>
-          <div
-            className="ph"
-            style={{fontSize: fl(13, 24, vw), fontWeight: 900, color: T.tx, letterSpacing: 3}}
-          >
-            GAMING PC
-          </div>
-          <div style={{fontSize: fl(9, 11, vw), color: T.t4, marginTop: 2}}>
-            全8色 × 25タイトルコラボ × 国内受注生産
-          </div>
-        </div>
-        {!sp && (
-          <Link
-            to="/collections/all"
-            className="cta"
-            style={{padding: '12px 28px', fontSize: fl(11, 13, vw), textDecoration: 'none'}}
-          >
-            詳しく見る →
-          </Link>
-        )}
+        <span
+          className="ph"
+          style={{fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 900, color: T.tx}}
+        >
+          全8色カラー
+        </span>
+        <span style={{fontSize: 'clamp(10px, 1.2vw, 12px)', color: T.t4}}>
+          COLOR EDITIONS
+        </span>
       </div>
 
-      {/* Color dots */}
-      <div
-        style={{
-          padding: `${fl(10, 16, vw)}px ${fl(14, 36, vw)}px`,
-          display: 'flex',
-          gap: fl(6, 9, vw),
-          flexWrap: 'wrap',
-        }}
-      >
-        {PC_COLORS.map((cl, i) => {
-          const act = i === pcC;
+      <div className="pc-color-grid">
+        {PC_COLORS.map((c, i) => {
+          const imgUrl = colorImages[c.n] || c.img || null;
           return (
-            <button
-              key={cl.n}
-              type="button"
-              onClick={() => {
-                if (i !== pcC) {
-                  setPcC(i);
-                  setPcAn((k) => k + 1);
-                }
-              }}
-              title={cl.n}
+            <Link
+              key={c.n}
+              to={`/setup/${c.slug}`}
+              className="pc-color-card"
+              aria-label={`${c.n} Edition の詳細を見る`}
               style={{
-                width: fl(30, 42, vw),
-                height: fl(30, 42, vw),
-                borderRadius: '50%',
-                border: 'none',
-                cursor: 'pointer',
-                background: cl.h,
-                outline: act
-                  ? `2px solid ${cl.d ? '#888' : cl.h}`
-                  : '2px solid transparent',
-                outlineOffset: 3,
-                transform: act ? 'scale(1.15)' : 'scale(1)',
-                transition: 'transform .3s, outline .3s, box-shadow .3s',
-                boxShadow: act
-                  ? `0 0 24px ${al(cl.g, 0.3)}`
-                  : '0 2px 8px rgba(0,0,0,.4)',
-                position: 'relative',
+                border: `1px solid ${al(c.h, c.d ? 0.3 : 0.12)}`,
+                textDecoration: 'none',
               }}
-            />
+            >
+              {/* Image area */}
+              <div
+                style={{
+                  aspectRatio: '16/10',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  background: imgUrl
+                    ? T.bg
+                    : `linear-gradient(160deg, ${al(c.h, 0.25)}, ${T.bg} 65%)`,
+                }}
+              >
+                {imgUrl ? (
+                  <img
+                    src={optimizeImageUrl(imgUrl, 600)}
+                    srcSet={generateSrcSet(imgUrl, [300, 480, 600, 900, 1200])}
+                    sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                    alt={`${c.n} Edition`}
+                    width={600}
+                    height={375}
+                    loading={i < 4 ? 'eager' : 'lazy'}
+                    decoding="async"
+                    {...(i < 2 ? {fetchPriority: 'high' as const} : {})}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                ) : (
+                  <div
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      background: `radial-gradient(circle at 35% 40%, ${al(c.h, 0.35)}, transparent 55%)`,
+                    }}
+                  />
+                )}
+                {/* Bottom gradient overlay */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: imgUrl
+                      ? 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.85))'
+                      : 'linear-gradient(180deg, transparent 20%, rgba(0,0,0,.75))',
+                  }}
+                />
+                {/* Text overlay */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    bottom: 'clamp(8px, 1.2vw, 14px)',
+                    left: 'clamp(10px, 1.5vw, 16px)',
+                    right: 'clamp(10px, 1.5vw, 16px)',
+                    zIndex: 1,
+                  }}
+                >
+                  {/* Color dot + name */}
+                  <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                    <span
+                      style={{
+                        width: 'clamp(10px, 1.2vw, 14px)',
+                        height: 'clamp(10px, 1.2vw, 14px)',
+                        borderRadius: '50%',
+                        background: c.h,
+                        border: c.d ? `1px solid ${al(T.tx, 0.3)}` : 'none',
+                        boxShadow: `0 0 8px ${al(c.g, 0.4)}`,
+                        flexShrink: 0,
+                        display: 'inline-block',
+                      }}
+                    />
+                    <span
+                      style={{
+                        fontSize: 'clamp(11px, 1.4vw, 16px)',
+                        fontWeight: 900,
+                        color: T.tx,
+                        textShadow: '0 2px 8px rgba(0,0,0,.8)',
+                      }}
+                    >
+                      {c.n}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Link>
           );
         })}
       </div>
 
-      {/* PC desk scene (gradient placeholder) */}
-      <div style={{padding: `0 ${fl(14, 36, vw)}px ${fl(14, 28, vw)}px`}}>
-        <div
-          key={pcAn}
-          style={{
-            animation: 'pcIn .6s cubic-bezier(.16,1,.3,1)',
-            width: '100%',
-            height: fl(200, 280, vw),
-            background: `linear-gradient(180deg, ${al(c.h, 0.08)}, ${T.bg})`,
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          <div
-            style={{
-              textAlign: 'center',
-              padding: fl(16, 24, vw),
-            }}
-          >
-            <div
-              className="ph"
-              style={{
-                fontSize: fl(14, 20, vw),
-                fontWeight: 900,
-                color: c.h,
-                textShadow: `0 0 40px ${al(c.g, 0.5)}`,
-                marginBottom: 8,
-              }}
-            >
-              {c.n} EDITION
-            </div>
-            <div style={{fontSize: fl(10, 12, vw), color: T.t4}}>{SCENES[pcC]}</div>
-          </div>
-        </div>
-      </div>
-
-      {sp && (
-        <div style={{padding: '0 14px 14px'}}>
-          <Link
-            to="/collections/all"
-            className="cta"
-            style={{
-              display: 'block',
-              width: '100%',
-              padding: '12px',
-              fontSize: fl(10, 12, vw),
-              textDecoration: 'none',
-              textAlign: 'center',
-              boxSizing: 'border-box',
-            }}
-          >
-            ゲーミングPCを見る →
-          </Link>
-        </div>
-      )}
+      <style dangerouslySetInnerHTML={{__html: `
+        .pc-color-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: clamp(8px, 1.2vw, 14px);
+        }
+        @media (min-width: 768px) {
+          .pc-color-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        @media (min-width: 1200px) {
+          .pc-color-grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+        .pc-color-card {
+          border-radius: clamp(10px, 1.4vw, 16px);
+          overflow: hidden;
+          transition: transform .2s, box-shadow .2s;
+          display: block;
+        }
+        .pc-color-card:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 8px 24px rgba(0,0,0,.4);
+        }
+      `}} />
     </section>
   );
 }
 
-// Tier cards component for PC page
-export function PCTierCards({vw}: {vw: number}) {
-  const sp = vw < 768;
+export const PCShowcase = React.memo(PCShowcaseComponent);
+PCShowcase.displayName = 'PCShowcase';
 
+// Tier cards component — 9-4: Shopifyリアル価格対応（フォールバック: PC_TIERS静的値）
+interface PCTierCardsProps {
+  tierPrices?: Record<string, number>; // e.g. { GAMER: 199980, STREAMER: 405440 }
+}
+
+function PCTierCardsComponent({tierPrices = {}}: PCTierCardsProps) {
   return (
-    <div
-      style={
-        sp
-          ? {
-              display: 'flex',
-              gap: 10,
-              overflowX: 'auto',
-              marginBottom: 20,
-              paddingBottom: 4,
-            }
-          : {
-              display: 'grid',
-              gridTemplateColumns: vw < 900 ? '1fr 1fr' : '1fr 1fr 1fr',
-              gap: 14,
-              marginBottom: 28,
-            }
-      }
-    >
-      {PC_TIERS.map((t) => (
+    <div className="pc-tier-grid">
+      {PC_TIERS.map((t) => {
+        const realPrice = tierPrices[t.tier] || t.price;
+        return (
         <div
           key={t.tier}
+          className="pc-tier-card"
           style={{
             background: T.bgC,
-            borderRadius: fl(14, 18, vw),
+            borderRadius: 'clamp(14px, 1.6vw, 18px)',
             border: t.pop
               ? `2px solid ${al(T.c, 0.2)}`
               : `1px solid ${T.bd}`,
-            padding: `${fl(14, 22, vw)}px`,
+            padding: 'clamp(14px, 2vw, 22px)',
             position: 'relative',
             overflow: 'hidden',
-            minWidth: sp ? 180 : undefined,
-            flexShrink: sp ? 0 : undefined,
           }}
         >
           {t.pop && (
@@ -226,13 +208,13 @@ export function PCTierCards({vw}: {vw: number}) {
             style={{
               display: 'flex',
               justifyContent: 'space-between',
-              marginBottom: fl(8, 10, vw),
+              marginBottom: 'clamp(8px, 1.1vw, 10px)',
             }}
           >
             <span
               className="ph"
               style={{
-                fontSize: fl(11, 14, vw),
+                fontSize: 'clamp(11px, 1.3vw, 14px)',
                 fontWeight: 900,
                 color: t.pop ? T.c : T.t5,
               }}
@@ -256,9 +238,9 @@ export function PCTierCards({vw}: {vw: number}) {
           </div>
           <div
             style={{
-              fontSize: fl(9, 10, vw),
+              fontSize: 'clamp(9px, 1vw, 10px)',
               color: T.t4,
-              marginBottom: fl(8, 12, vw),
+              marginBottom: 'clamp(8px, 1.1vw, 12px)',
             }}
           >
             {t.gpu} / {t.cpu} / {t.ram}
@@ -266,23 +248,24 @@ export function PCTierCards({vw}: {vw: number}) {
           <div
             className="ph"
             style={{
-              fontSize: fl(18, 26, vw),
+              fontSize: 'clamp(18px, 2.5vw, 26px)',
               fontWeight: 900,
               color: T.c,
-              marginBottom: fl(8, 12, vw),
+              marginBottom: 'clamp(8px, 1.1vw, 12px)',
             }}
           >
-            {yen(t.price)}
-            <span style={{fontSize: fl(9, 11, vw), color: T.t4, fontWeight: 500}}>〜</span>
+            {yen(realPrice)}
+            <span style={{fontSize: 'clamp(9px, 1vw, 11px)', color: T.t4, fontWeight: 500}}>〜</span>
           </div>
           <Link
             to="/collections/astromeda"
             className="cta"
+            aria-label={`${t.tier}ティアの詳細を見る`}
             style={{
               display: 'block',
               width: '100%',
-              padding: `${fl(10, 14, vw)}px`,
-              fontSize: fl(10, 13, vw),
+              padding: 'clamp(10px, 1.3vw, 14px)',
+              fontSize: 'clamp(10px, 1.2vw, 13px)',
               textDecoration: 'none',
               textAlign: 'center',
               boxSizing: 'border-box',
@@ -291,7 +274,43 @@ export function PCTierCards({vw}: {vw: number}) {
             この構成で見る →
           </Link>
         </div>
-      ))}
+        );
+      })}
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .pc-tier-grid {
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          margin-bottom: 20px;
+          padding-bottom: 4px;
+        }
+        .pc-tier-card {
+          min-width: 180px;
+          flex-shrink: 0;
+        }
+        @media (min-width: 768px) {
+          .pc-tier-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 28px;
+            overflow-x: visible;
+            padding-bottom: 0;
+          }
+          .pc-tier-card {
+            min-width: unset;
+          }
+        }
+        @media (min-width: 900px) {
+          .pc-tier-grid {
+            grid-template-columns: 1fr 1fr 1fr;
+          }
+        }
+      `}} />
     </div>
   );
 }
+
+export const PCTierCards = React.memo(PCTierCardsComponent);
+PCTierCards.displayName = 'PCTierCards';

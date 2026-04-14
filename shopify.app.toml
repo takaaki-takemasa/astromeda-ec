@@ -1,0 +1,20 @@
+# Astromeda Cart Transform — Shopify App Configuration
+# カスタマイズ価格をカート合計に反映するCart Transform拡張
+
+name = "Astromeda Cart Transform"
+client_id = "573c291525d9e13ed79e7119dba74b22"
+application_url = "https://shopify.dev/apps/default-app-home"
+embedded = true
+
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
+
+[webhooks]
+api_version = "2026-07"
+
+[access_scopes]
+scopes = ""
+
+[auth]
+redirect_urls = ["https://shopify.dev/apps/default-app-home/api/auth"]

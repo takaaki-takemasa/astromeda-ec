@@ -1,9 +1,60 @@
-import {useState} from 'react';
+import React, {useState, useRef, useEffect} from 'react';
 import {Link, useLocation} from 'react-router';
 import {Suspense} from 'react';
 import {Await} from 'react-router';
-import {T, al, fl} from '~/lib/astromeda-data';
+import {T, al} from '~/lib/astromeda-data';
+import {PredictiveSearch} from '~/components/astro/PredictiveSearch';
 import type {CartApiQueryFragment} from 'storefrontapi.generated';
+
+/**
+ * ============================================================
+ * SVGアイコンシステム（神経系接続 — 視覚信号の統一インターフェース）
+ * ============================================================
+ */
+const IconSearch = React.memo(function IconSearch({size = 20, color = 'currentColor'}: {size?: number; color?: string}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+});
+IconSearch.displayName = 'IconSearch';
+
+const IconCart = React.memo(function IconCart({size = 20, color = 'currentColor'}: {size?: number; color?: string}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="8" cy="21" r="1" /><circle cx="19" cy="21" r="1" /><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12" />
+    </svg>
+  );
+});
+IconCart.displayName = 'IconCart';
+
+const IconUser = React.memo(function IconUser({size = 20, color = 'currentColor'}: {size?: number; color?: string}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+});
+IconUser.displayName = 'IconUser';
+
+const IconMenu = React.memo(function IconMenu({size = 20, color = 'currentColor'}: {size?: number; color?: string}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <line x1="4" x2="20" y1="12" y2="12" /><line x1="4" x2="20" y1="6" y2="6" /><line x1="4" x2="20" y1="18" y2="18" />
+    </svg>
+  );
+});
+IconMenu.displayName = 'IconMenu';
+
+const IconX = React.memo(function IconX({size = 20, color = 'currentColor'}: {size?: number; color?: string}) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+    </svg>
+  );
+});
+IconX.displayName = 'IconX';
 
 interface AstroHeaderProps {
   cart: Promise<CartApiQueryFragment | null>;
@@ -12,14 +63,21 @@ interface AstroHeaderProps {
 
 const NAV_ITEMS = [
   {l: 'ホーム', to: '/'},
-  {l: 'ゲーミングPC', to: '/collections/gaming-pc'},
+  {l: 'ゲーミングPC', to: '/collections/astromeda'},
   {l: 'ガジェット', to: '/collections/gadgets'},
   {l: 'グッズ', to: '/collections/goods'},
 ];
 
-export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
+function AstroHeaderComponent({cart, isLoggedIn}: AstroHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
+
+  // Close menus on navigation
+  useEffect(() => {
+    setMenuOpen(false);
+    setSearchOpen(false);
+  }, [location.pathname]);
 
   return (
     <>
@@ -28,7 +86,7 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
           position: 'sticky',
           top: 0,
           zIndex: 100,
-          background: 'rgba(6,6,12,.92)',
+          background: al(T.bg, 0.92),
           backdropFilter: 'blur(20px) saturate(1.5)',
           borderBottom: `1px solid ${T.bd}`,
           display: 'flex',
@@ -92,20 +150,24 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
             gap: 'clamp(8px, 1.5vw, 16px)',
           }}
         >
-          {/* Search */}
-          <Link
-            to="/search"
+          {/* Search toggle */}
+          <button
+            type="button"
+            onClick={() => setSearchOpen((o) => !o)}
             style={{
-              color: T.t4,
-              textDecoration: 'none',
-              fontSize: 18,
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: searchOpen ? T.c : T.t4,
               display: 'flex',
               alignItems: 'center',
+              padding: 4,
             }}
             aria-label="検索"
+            aria-expanded={searchOpen}
           >
-            🔍
-          </Link>
+            <IconSearch size={20} />
+          </button>
 
           {/* Cart */}
           <Link
@@ -120,7 +182,7 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
             }}
             aria-label="カート"
           >
-            🛒
+            <IconCart size={20} color={T.t4} />
             <Suspense fallback={null}>
               <Await resolve={cart}>
                 {(cartData) => {
@@ -133,7 +195,7 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
                         top: -6,
                         right: -8,
                         background: T.c,
-                        color: '#000',
+                        color: T.bg,
                         borderRadius: '50%',
                         width: 16,
                         height: 16,
@@ -168,7 +230,7 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
                   }}
                   aria-label="アカウント"
                 >
-                  👤
+                  <IconUser size={20} color={T.t4} />
                 </Link>
               )}
             </Await>
@@ -189,10 +251,13 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
             }}
             aria-label="メニュー"
           >
-            {menuOpen ? '✕' : '☰'}
+            {menuOpen ? <IconX size={20} color={T.tx} /> : <IconMenu size={20} color={T.tx} />}
           </button>
         </div>
       </header>
+
+      {/* Predictive search dropdown */}
+      {searchOpen && <PredictiveSearch onClose={() => setSearchOpen(false)} variant="overlay" />}
 
       {/* Mobile menu */}
       {menuOpen && (
@@ -203,7 +268,7 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(6,6,12,.96)',
+            background: al(T.bg, 0.96),
             backdropFilter: 'blur(20px)',
             zIndex: 99,
             display: 'flex',
@@ -241,15 +306,31 @@ export function AstroHeader({cart, isLoggedIn}: AstroHeaderProps) {
           >
             検索
           </Link>
+          <Link
+            to="/admin"
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: T.t3,
+              textDecoration: 'none',
+              padding: '20px 0 8px',
+              marginTop: 'auto',
+            }}
+          >
+            管理画面
+          </Link>
         </div>
       )}
 
-      <style>{`
+      <style dangerouslySetInnerHTML={{__html: `
         @media (min-width: 768px) {
           .astro-desktop-nav { display: flex !important; }
           .astro-mobile-menu-toggle { display: none !important; }
         }
-      `}</style>
+      `}} />
     </>
   );
 }
+
+export const AstroHeader = React.memo(AstroHeaderComponent);
+AstroHeader.displayName = 'AstroHeader';

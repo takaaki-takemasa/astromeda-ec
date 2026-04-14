@@ -10,10 +10,12 @@ export async function loader({
     storefront,
     request,
     params,
-    locales: ['EN-US', 'EN-CA', 'FR-CA'],
+    // 日本市場単一ロケール（将来の多言語化時にlocale配列を拡張可能）
+    locales: ['JA-JP'],
     getLink: ({type, baseUrl, handle, locale}) => {
-      if (!locale) return `${baseUrl}/${type}/${handle}`;
-      return `${baseUrl}/${locale}/${type}/${handle}`;
+      // JA-JP単一ロケールのため、ロケールプレフィックスなしのURLを生成
+      // 将来EN-USなど追加時は locale prefix を付与する分岐を追加
+      return `${baseUrl}/${type}/${handle}`;
     },
   });
 

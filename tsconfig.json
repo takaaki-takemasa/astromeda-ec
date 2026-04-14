@@ -4,6 +4,8 @@
     "app/**/*.ts",
     "app/**/*.tsx",
     "app/**/*.d.ts",
+    "agents/**/*.ts",
+    "agents/**/*.d.ts",
     "*.ts",
     "*.tsx",
     "*.d.ts",

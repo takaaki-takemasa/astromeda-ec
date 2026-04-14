@@ -1,0 +1,22 @@
+query RunInput {
+  cart {
+    lines {
+      id
+      quantity
+      cost {
+        amountPerQuantity {
+          amount
+          currencyCode
+        }
+      }
+      merchandise {
+        ... on ProductVariant {
+          id
+        }
+      }
+      attribute(key: "_customization_surcharge") {
+        value
+      }
+    }
+  }
+}

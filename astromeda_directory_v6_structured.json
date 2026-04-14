@@ -1,0 +1,566 @@
+{
+  "metadata": {
+    "file": "Astromeda_ディレクトリ構造v6_Phase2GHI対応.xlsx",
+    "total_entries": 92,
+    "phase_breakdown": {
+      "Phase 1 (Existing)": 56,
+      "Phase 2-H": 14,
+      "Phase 2-G": 14,
+      "Phase 2-I": 8
+    }
+  },
+  "entries": [
+    {
+      "path": "Commander (#1)",
+      "agent_component": "",
+      "change_notes": "L0",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "集客チームリード (#2)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "転換チームリード (#3)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "LTVチームリード (#4)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "基盤チームリード (#5)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "情報チームリード (#6)",
+      "agent_component": "★v11: 6体統括に更新",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "SEO Content Dir. (#7)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Content Writer (#8)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Quality Auditor (#9)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Image Generator (#10)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "SNS Manager (#11)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Ads Manager (#12)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "SEO News Monitor (#13)",
+      "agent_component": "",
+      "change_notes": "集客",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "UX (#14)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Conversion Opt. (#15)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Cart Recovery (#16)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Review Manager (#17)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Cross-Sell Engine (#18)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "CS Bot (#19)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Campaign Tracking (#20)",
+      "agent_component": "",
+      "change_notes": "転換",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "CRM Manager (#21)",
+      "agent_component": "",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Customer Intelligence (#22)",
+      "agent_component": "",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Pricing Strategist (#23)",
+      "agent_component": "",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Shipping Tracker (#24)",
+      "agent_component": "",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Inventory Monitor (#25)",
+      "agent_component": "",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Business Analyst (#26)",
+      "agent_component": "★v11: 検証Widget追加",
+      "change_notes": "LTV",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Auth Manager (#27)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Infra Manager (#28)",
+      "agent_component": "★v11: サンドボックス管理",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Deploy Manager (#29)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Performance Opt. (#30)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Error Monitor (#31)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Analytics Agent (#32)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Self-Improvement (#33)",
+      "agent_component": "★v11: Validator/Auditor入力",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Product Catalog (#34)",
+      "agent_component": "",
+      "change_notes": "基盤",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "AI Tech Radar (#35)",
+      "agent_component": "★v11: →Validator出力追加",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Security Sentinel (#36)",
+      "agent_component": "★v11: →Auditor出力追加",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "AI Innovation Scout (#37)",
+      "agent_component": "★v11: →Validator出力追加",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Notification Dispatcher (#38)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "★AI Capability Validator (#39)",
+      "agent_component": "★v11 新規",
+      "change_notes": "偵察→実証",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "★AI Security Auditor (#40)",
+      "agent_component": "★v11 新規",
+      "change_notes": "脅威→診断",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Agent Bus (I-1)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Cascade Engine (I-2)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Notification Bus (I-3)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Agent Registry (R-1)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Blueprint Store (R-2)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Agent Factory (R-3)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "Pipeline Connector (R-4)",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "型定義",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "設定",
+      "agent_component": "",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "統計分析エンジン",
+      "agent_component": "★v11 新規",
+      "change_notes": "t検定/CI/Cohen's d",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "反復実行エンジン",
+      "agent_component": "★v11 新規",
+      "change_notes": "Round 1-2制御",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "サンドボックス管理",
+      "agent_component": "★v11 新規",
+      "change_notes": "環境構築/解放",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "攻撃実行エンジン",
+      "agent_component": "★v11 新規",
+      "change_notes": "Layer 1反復攻撃",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "脆弱性マッパー",
+      "agent_component": "★v11 新規",
+      "change_notes": "CVSS+マトリクス",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "検証型定義",
+      "agent_component": "★v11 新規",
+      "change_notes": "",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "種別",
+      "agent_component": "説明",
+      "change_notes": "Phase",
+      "phase": "Phase 1 (Existing)"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★外部API接続プロバイダー基盤",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★基底インターフェース定義（connect/disconnect/healthCheck）",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★スタブ実装（Slackログ出力のみ/接続前のデフォルト）",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★SNSプロバイダー群",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★X (Twitter) API v2 プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Instagram / Meta Graph API プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★TikTok Content Posting API プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★広告プロバイダー群",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Google Ads API v17 プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Meta Marketing API プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★LINE Messaging + Ads API プロバイダー",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★外部APIクライアント（データ収集用）",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★GA4 Data API v1beta クライアント",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Google Search Console API v3 クライアント",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★競合PC7メーカー公式サイトデータ取得",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★AI検索エンジン推薦順位チェッカー",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Amazon PA-API 5.0 クライアント（ガジェット用）",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★楽天商品検索API クライアント（ガジェット用）",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★承認ワークフロー基盤",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★承認キュー管理/タイムアウト処理",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Slack Block Kit承認UI/ボタン応答",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★承認パターン分析/プロンプト改善提案",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★承認済みコンテンツのみ外部API送信を許可",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★フィードバック記録型定義",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★データベーススキーマ・マイグレーション",
+      "change_notes": "Ph2-G/I",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★全テーブル型定義（6テーブル）",
+      "change_notes": "Ph2-G/I",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★SQLマイグレーションファイル",
+      "change_notes": "Ph2-G/I",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★GA4日次データテーブル",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★GSC検索順位テーブル",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★AI推薦順位テーブル",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★競合データテーブル",
+      "change_notes": "Ph2-G",
+      "phase": "Phase 2-G"
+    },
+    {
+      "path": "file",
+      "agent_component": "★フィードバック記録テーブル",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "file",
+      "agent_component": "★承認キューテーブル",
+      "change_notes": "Ph2-I",
+      "phase": "Phase 2-I"
+    },
+    {
+      "path": "dir",
+      "agent_component": "★Provider認証設定",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★APIキー管理（環境変数経由）",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    },
+    {
+      "path": "file",
+      "agent_component": "★Provider登録・切替設定",
+      "change_notes": "Ph2-H",
+      "phase": "Phase 2-H"
+    }
+  ]
+}

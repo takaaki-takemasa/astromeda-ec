@@ -1,0 +1,34 @@
+# Astromeda AI Agent System — Docker（胎盤=栄養供給インフラ）
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# 依存関係インストール
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+# エージェントコード
+COPY agents/ ./agents/
+COPY tsconfig.json ./
+
+# ビルド（TypeScript → JavaScript）
+RUN npx tsc --project agents/tsconfig.json --outDir dist/agents || true
+
+# 本番実行
+FROM node:20-alpine AS production
+WORKDIR /app
+
+COPY --from=base /app/node_modules ./node_modules
+COPY --from=base /app/dist ./dist
+COPY --from=base /app/agents ./agents
+COPY --from=base /app/package.json ./
+
+ENV NODE_ENV=production
+ENV PORT=8080
+
+EXPOSE 8080
+
+# ヘルスチェックエンドポイント
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
+
+CMD ["node", "--experimental-specifier-resolution=node", "dist/agents/agent-server.js"]

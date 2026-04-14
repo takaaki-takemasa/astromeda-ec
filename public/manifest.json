@@ -1,0 +1,28 @@
+{
+  "name": "ASTROMEDA by Mining Base",
+  "short_name": "ASTROMEDA",
+  "description": "ゲーミングPCブランド ASTROMEDA 公式ストア。26タイトルのIPコラボPC、全8色カラー、受注生産。",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#06060C",
+  "theme_color": "#00F0FF",
+  "orientation": "portrait-primary",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "games"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

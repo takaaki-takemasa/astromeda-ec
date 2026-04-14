@@ -12,6 +12,15 @@ export const CUSTOMER_FRAGMENT = `#graphql
         ...Address
       }
     }
+    metafields(identifiers: [
+      {namespace: "facts", key: "birth_date"},
+      {namespace: "custom", key: "gender"},
+      {namespace: "custom", key: "referral_source"}
+    ]) {
+      key
+      namespace
+      value
+    }
   }
   fragment Address on CustomerAddress {
     id

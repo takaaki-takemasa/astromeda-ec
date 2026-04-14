@@ -64,7 +64,7 @@ export function HeaderMenu({
           style={activeLinkStyle}
           to="/"
         >
-          Home
+          ホーム
         </NavLink>
       )}
       {(menu || FALLBACK_HEADER_MENU).items.map((item) => {
@@ -103,9 +103,9 @@ function HeaderCtas({
     <nav className="header-ctas" role="navigation">
       <HeaderMenuMobileToggle />
       <NavLink prefetch="intent" to="/account" style={activeLinkStyle}>
-        <Suspense fallback="Sign in">
-          <Await resolve={isLoggedIn} errorElement="Sign in">
-            {(isLoggedIn) => (isLoggedIn ? 'Account' : 'Sign in')}
+        <Suspense fallback="ログイン">
+          <Await resolve={isLoggedIn} errorElement="ログイン">
+            {(isLoggedIn) => (isLoggedIn ? 'アカウント' : 'ログイン')}
           </Await>
         </Suspense>
       </NavLink>
@@ -121,6 +121,7 @@ function HeaderMenuMobileToggle() {
     <button
       className="header-menu-mobile-toggle reset"
       onClick={() => open('mobile')}
+      aria-label="メニュー"
     >
       <h3>☰</h3>
     </button>
@@ -131,7 +132,7 @@ function SearchToggle() {
   const {open} = useAside();
   return (
     <button className="reset" onClick={() => open('search')}>
-      Search
+      検索
     </button>
   );
 }
@@ -154,7 +155,7 @@ function CartBadge({count}: {count: number | null}) {
         } as CartViewPayload);
       }}
     >
-      Cart {count === null ? <span>&nbsp;</span> : count}
+      カート {count === null ? <span>&nbsp;</span> : count}
     </a>
   );
 }
@@ -176,42 +177,42 @@ function CartBanner() {
 }
 
 const FALLBACK_HEADER_MENU = {
-  id: 'gid://shopify/Menu/199655587896',
+  id: 'gid://shopify/Menu/astromeda',
   items: [
     {
-      id: 'gid://shopify/MenuItem/461609500728',
+      id: 'home',
       resourceId: null,
       tags: [],
-      title: 'Collections',
+      title: 'ホーム',
       type: 'HTTP',
-      url: '/collections',
+      url: '/',
       items: [],
     },
     {
-      id: 'gid://shopify/MenuItem/461609533496',
+      id: 'gaming-pc',
       resourceId: null,
       tags: [],
-      title: 'Blog',
+      title: 'ゲーミングPC',
       type: 'HTTP',
-      url: '/blogs/journal',
+      url: '/collections/astromeda',
       items: [],
     },
     {
-      id: 'gid://shopify/MenuItem/461609566264',
+      id: 'gadgets',
       resourceId: null,
       tags: [],
-      title: 'Policies',
+      title: 'ガジェット',
       type: 'HTTP',
-      url: '/policies',
+      url: '/collections/gadgets',
       items: [],
     },
     {
-      id: 'gid://shopify/MenuItem/461609599032',
-      resourceId: 'gid://shopify/Page/92591030328',
+      id: 'goods',
+      resourceId: null,
       tags: [],
-      title: 'About',
-      type: 'PAGE',
-      url: '/pages/about',
+      title: 'グッズ',
+      type: 'HTTP',
+      url: '/collections/goods',
       items: [],
     },
   ],

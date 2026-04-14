@@ -1,0 +1,436 @@
+ASTROMEDA EC POST-REMEDIATION AUDIT — DETAILED FINDINGS
+======================================================
+Date: 2026-04-11
+Codebase: /sessions/nifty-festive-ramanujan/mnt/astromeda-ec
+
+
+===============================================================================
+1. SECURITY AUDIT RESULTS (Score: 68/100)
+===============================================================================
+
+✓ PASSED CHECKS:
+  - String(error) vulnerability: 0 instances (FIXED from previous)
+  - GraphQL proxy guards: ALL 3 layers present
+    - Depth limit: 10 levels max
+    - Introspection: BLOCKED (__schema, __type)
+    - Mutations: BLOCKED
+  - GraphQL body size limit: 100KB
+  - GraphQL request timeout: 10 seconds
+  - AppError RFC 7807: 100% complete with 9 factory methods
+  - as any in security files: 0 (admin-auth.ts, csrf-middleware.ts, graphql-guard.ts clean)
+  - Admin auth coverage: 19/20 routes protected
+  - GraphQL test coverage: 217 lines (graphql-guard.test.ts)
+
+✗ FAILED CHECKS:
+  1. CSRF Token Verification Gap: 13/20 admin routes protected (65%)
+
+     PROTECTED (13):
+       ✓ api.admin.ai.ts
+       ✓ api.admin.andon.ts
+       ✓ api.admin.approvals.ts
+       ✓ api.admin.banners.ts
+       ✓ api.admin.campaigns.ts
+       ✓ api.admin.content.ts
+       ✓ api.admin.password.ts
+       ✓ api.admin.pipelines.ts
+       ✓ api.admin.psi.ts
+       ✓ api.admin.quick-actions.ts
+       ✓ api.admin.reports.ts
+       ✓ api.admin.revenue.ts
+       ✓ api.admin.users.ts
+
+     MISSING CSRF GUARD (7):
+       ✗ api.admin.logout.ts — logout functionality unprotected
+       ✗ api.admin.scheduler.ts — task scheduling unprotected
+       ✗ api.admin.seo.ts — SEO settings unprotected
+       ✗ api.admin.status.ts — status unprotected
+       ✗ api.admin.stream.ts — stream management unprotected
+       ✗ api.admin.system-download.ts — download functionality unprotected
+       ✗ api.admin.system-upload.ts — upload functionality unprotected
+
+     ACTION: Add 1 line to each: const csrfError = await verifyCsrfForAdmin(request, context.env);
+
+  2. Rate Limiting Deployment: Implemented but UNUSED
+
+     Rate limiter module: app/lib/rate-limiter.ts (300+ lines)
+     Presets defined:
+       - public: 60 req/min
+       - admin: 120 req/min
+       - submit: 5 req/min
+       - internal: 30 req/min
+       - auth: 10 req/min
+
+     ACTUALLY USED IN:
+       - api.error-report.ts (1 route)
+       - reviews.submit.tsx (1 route)
+
+     MISSING RATE LIMITING (11 public APIs):
+       ✗ api.predictive-search.tsx — vulnerable to DoS
+       ✗ api.recommendations.tsx — vulnerable to DoS
+       ✗ api.newsletter.ts — vulnerable to DoS
+       ✗ api.notify.ts — vulnerable to DoS
+       ✗ api.metrics.ts — vulnerable to DoS
+       ✗ api.health.ts — vulnerable to DoS (admin endpoint but should be limited)
+       ✗ api.indexnow.ts — vulnerable to DoS
+       ✗ api.admin.ai.ts — should use admin preset
+       ✗ api.admin.banners.ts — should use admin preset
+       ✗ api.admin.content.ts — should use admin preset
+       ✗ api.admin.psi.ts — should use admin preset
+
+     ACTION: Wrap each route with: const rateLimitError = await checkRateLimit(request, RATE_LIMIT_PRESETS.public);
+
+  3. Fetch Timeout Coverage: 21/25 protected (84%)
+
+     PROTECTED (19 AbortController, 2 AbortSignal.timeout):
+       ✓ api.$version.[graphql.json].tsx — 10s timeout
+       ✓ admin.go-live.tsx — uses controller
+       ✓ admin.staging-test.tsx (1/2 calls) — uses controller
+       ✓ admin.users.tsx (1/4 calls) — uses controller
+       ✓ admin._index.tsx (1/2 calls) — uses controller
+       ✓ api.admin.banners.ts — AbortController
+       ✓ api.indexnow.ts — AbortController
+       ✓ admin.geo-dashboard.tsx — AbortSignal.timeout(3000)
+       ✓ checkout-tester.ts (2 calls) — AbortController
+       ✓ error-reporter.ts — AbortController
+       ✓ ga4-server.ts — AbortController
+       ✓ webhook-register.ts (2 calls) — AbortController
+       And more...
+
+     UNPROTECTED (4):
+       ✗ admin.staging-test.tsx — Line ~250: fetch(endpoint, { ... }) without AbortController
+       ✗ admin.users.tsx — Lines ~400-450: 3 fetch() calls without signal
+       ✗ admin._index.tsx — Line ~350: fetch('/api/admin/andon', {...}) without signal
+       ✗ api.admin.psi.ts — Line ~180: fetch(PSI_API_URL...) — no AbortController
+
+     ACTION: Add AbortController to 4 unprotected fetch() calls
+
+
+===============================================================================
+2. TEST QUALITY AUDIT (Score: 28/100)
+===============================================================================
+
+CURRENT STATE:
+  Total app files: 269 (TS/TSX)
+  Total test files: 19
+  Coverage ratio: 7% (CRITICAL GAP)
+
+TEST FILES BY LOCATION:
+  app/lib/__tests__:
+    ✓ admin-auth.test.ts (163 lines) — GOOD coverage
+    ✓ app-error.test.ts (120+ lines)
+    ✓ audit-log.test.ts (100+ lines)
+    ✓ circuit-breaker.test.ts (120+ lines)
+    ✓ cors.test.ts (80+ lines)
+    ✓ csrf-middleware.test.ts (145 lines) — GOOD coverage
+    ✓ graphql-guard.test.ts (217 lines) — EXCELLENT coverage
+    ✓ heart-integration.test.ts
+    ✓ kv-storage.test.ts (189 lines) — GOOD coverage
+    ✓ rate-limiter.test.ts (201 lines) — GOOD coverage
+    ✓ rbac.test.ts
+    ✓ security-headers.test.ts
+    ✓ storefront-client.test.ts
+    ✓ api-schemas.test.ts
+    ✓ account-lockout.test.ts
+
+  app/lib (direct):
+    ✓ error-reporter.test.ts (50+ lines)
+    ✓ hydration-safety.test.ts (50+ lines)
+    ✓ qr-code.test.ts (50+ lines)
+
+  app/routes/__tests__:
+    ✓ api.metrics.test.ts (1 file only)
+
+MISSING TESTS (CRITICAL GAPS):
+  1. Session Module (app/lib/session.ts)
+     - Handles authentication state ← CRITICAL to test
+     - ~300 lines, untested
+     - Recommendation: 50-100 line test suite covering:
+       - Session initialization
+       - Token expiry handling
+       - Cookie validation
+       - Logout flow
+
+  2. Route Handlers
+     - 30+ route files with 0 tests
+     - Missing: checkout flow, cart updates, product filtering
+     - Impact: Unknown bugs in main user flows
+     - Recommendation: 100+ lines covering top 5 routes
+
+  3. Component Tests
+     - 81 component files
+     - 0 component tests
+     - Impact: UI rendering bugs undetected
+     - Recommendation: Start with 5 critical components (200+ lines):
+       - CollabGrid.tsx
+       - PCShowcase.tsx
+       - CartUpsell.tsx
+       - ReviewStars.tsx
+       - Header.tsx
+
+  4. E2E Tests
+     - 0 end-to-end tests
+     - Critical user paths untested
+     - Recommendation: 200+ lines covering:
+       - Product search → add to cart → checkout
+       - User login → profile update
+       - Admin operations
+
+  5. Error Boundary Tests
+     - AppError handling not validated in components
+     - Recommendation: 50 lines testing error boundaries
+
+
+===============================================================================
+3. ERROR HANDLING AUDIT (Score: 62/100)
+===============================================================================
+
+✓ WHAT'S GOOD:
+  - AppError class: Complete RFC 7807 implementation
+  - 9 factory methods all working
+  - Type guard (AppError.isAppError) present
+  - Error chaining via .cause field
+  - toResponse() and toProblemDetails() conversion methods
+
+✗ WHAT'S BAD:
+  Usage patterns show inconsistency:
+    - throw AppError.*: 40 instances (55%)
+    - throw new Error: 50 instances (45%)
+    - Adoption ratio: Only 55% using AppError
+
+  Catch block safety: Only 3/206 catch blocks (1%) use safe patterns
+
+  Most catch blocks patterns:
+    - Implicit error responses (no AppError wrapping)
+    - Raw Error re-throwing (no cause tracking)
+    - String error messages (no structured data)
+
+SPECIFIC EXAMPLES OF UNSAFE PATTERNS:
+
+  File: app/routes/api.admin.banners.ts
+    Line ~150: catch (error) { ... } — raw error handling
+    Should be: catch (error) { throw AppError.from(error); }
+
+  File: app/routes/products.$handle.tsx
+    Line ~200: try/catch with implicit response
+    Should use: AppError.from() + .toResponse()
+
+  File: app/lib/checkout-tester.ts
+    Multiple catch blocks without error categorization
+
+ACTION PLAN:
+  1. Create standardized error handling template
+  2. Refactor 10 highest-risk routes with AppError.from()
+  3. Add error context to AppError instances (requestId, userId, etc.)
+
+
+===============================================================================
+4. TYPESCRIPT SAFETY (Score: 74/100)
+===============================================================================
+
+TYPE-UNSAFE PATTERNS:
+  Total: 44 instances
+
+  BREAKDOWN:
+    - any type annotations: 1 instance (EXCELLENT)
+    - as any casts: 43 instances
+      ├─ In tests (__tests__/): ~25 (for mocking — ACCEPTABLE)
+      ├─ contextEnv as any in routes: 7 (UNNECESSARY)
+      └─ Other utilities: 11 (REVIEW NEEDED)
+
+  @ts-ignore directives: 0 (EXCELLENT)
+  @ts-expect-error directives: 0 (EXCELLENT)
+
+PROBLEM AREAS:
+
+  1. contextEnv Type Looseness
+     Files: api.admin.* routes (7 instances)
+     Example: const auth = await verifyAdminAuth(request, contextEnv as any);
+     Root cause: contextEnv type is too loose
+     Solution: Improve Env interface definition in types/
+
+  2. Test Mocking
+     Files: app/lib/__tests__/*.test.ts (25 instances)
+     Example: (AppSession.init as any).mockResolvedValue(...)
+     This is ACCEPTABLE for test mocking
+
+  3. Generic Utilities
+     Files: app/lib/product-helpers.ts, variants.ts (11 instances)
+     Could be improved with better generic type parameters
+
+
+===============================================================================
+5. API PROTECTION AUDIT (Score: 58/100)
+===============================================================================
+
+RATE LIMITING STATUS: IMPLEMENTED BUT UNUSED
+  Module exists: app/lib/rate-limiter.ts
+  Presets defined: 5 categories
+  Routes using it: 2/15 public APIs (13%)
+
+  IMPACT: All 13 unprotected public APIs vulnerable to brute-force/DoS
+  FIX: 1-2 hours to wrap routes with checkRateLimit()
+
+CSRF PROTECTION STATUS: PARTIALLY DEPLOYED
+  Middleware exists: app/lib/csrf-middleware.ts (110 lines, tested)
+  Routes protected: 13/20 admin routes (65%)
+  Missing from: 7 critical routes (logout, password, uploads, etc.)
+
+  IMPACT: CSRF attacks possible on 7 POST/PUT/DELETE operations
+  FIX: 5 minutes to add verifyCsrfForAdmin() to 7 routes
+
+TIMEOUT PROTECTION STATUS: GOOD (84%)
+  fetch() calls: 25 total
+  With AbortController: 19
+  With AbortSignal.timeout(): 2
+  Without timeout: 4
+
+  IMPACT: 4 requests could hang indefinitely
+  FIX: 15 minutes to add AbortController to 4 calls
+
+GRAPHQL PROXY STATUS: EXCELLENT
+  ✓ Query depth limit: 10 levels
+  ✓ Introspection blocked
+  ✓ Mutations blocked
+  ✓ Header sanitization
+  ✓ Body size limit: 100KB
+  ✓ Request timeout: 10 seconds
+  ✓ Test coverage: 217 lines
+
+  NO ACTION NEEDED
+
+
+===============================================================================
+6. PERFORMANCE AUDIT (Score: 82/100)
+===============================================================================
+
+React Optimization Status: GOOD
+  React.memo usage: 24 instances
+  useMemo usage: 18 hooks
+  useCallback usage: 43 hooks
+
+  Distribution: Well-distributed across high-use components
+  Examples:
+    ✓ CollabGrid uses React.memo (prevents unnecessary renders)
+    ✓ ReviewStars uses useMemo (expensive star calculation)
+    ✓ CartUpsell uses useCallback (event handler optimization)
+
+Memory Management: GOOD
+  Map cleanup patterns: 9 instances of .delete/.clear()
+  Examples:
+    ✓ InMemoryKV enforceLimit() prevents unbounded growth
+    ✓ Rate limiter cleanup interval (5 minutes)
+    ✓ Error reporter batching prevents memory buildup
+
+Bundle & Assets: EXCELLENT
+  ✓ All images via Shopify API (no local storage)
+  ✓ Lighthouse Performance score: 99/100
+  ✓ Core Web Vitals:
+    - LCP: 2.0s (green)
+    - INP: 126ms (green)
+    - CLS: 0.0 (green)
+  ✓ No unused imports detected
+
+MINOR RECOMMENDATIONS:
+  - Add lazy loading for routes >100KB
+  - Consider code splitting for admin routes
+
+
+===============================================================================
+7. ARCHITECTURE AUDIT (Score: 91/100)
+===============================================================================
+
+CORE MODULES IMPLEMENTED (12/12):
+  ✓ AppError (RFC 7807)               — 441 lines, complete
+  ✓ KV Storage Adapter                — 200+ lines, tested
+  ✓ Feature Flags                      — 150+ lines
+  ✓ CORS Utility                       — 68 lines, with validation
+  ✓ Rate Limiter                       — 300+ lines, tested
+  ✓ GraphQL Guard                      — 250+ lines, tested
+  ✓ CSRF Middleware                    — 110+ lines, tested
+  ✓ Admin Auth                         — 400+ lines, tested
+  ✓ Session Management                 — 300+ lines, UNTESTED ← gap
+  ✓ Error Reporter                     — 400+ lines, with batching
+  ✓ Audit Log                          — 250+ lines
+  ✓ Circuit Breaker                    — 200+ lines
+
+DESIGN PATTERNS:
+  ✓ Medical metaphor naming (consistent across all modules)
+  ✓ Modular separation of concerns
+  ✓ Type safety with generics
+  ✓ Graceful degradation (KV → InMemory fallback)
+  ✓ Error chaining with .cause
+
+GAPS:
+  1. Session module untested (only critical module without tests)
+  2. Cross-module integration could be tighter
+  3. No dependency injection pattern (modules import directly)
+
+
+===============================================================================
+PRIORITIZED FIX LIST
+===============================================================================
+
+CRITICAL (MUST FIX BEFORE PRODUCTION):
+
+  1. [5 min] Add CSRF guard to 7 missing routes
+     Files: api.admin.logout, password, scheduler, seo, status, stream, system-*
+     Code: Add 1 line to each: const csrfError = await verifyCsrfForAdmin(request, context.env);
+
+  2. [15 min] Add timeout to 4 fetch() calls
+     Files: admin.staging-test (2), admin.users (1), api.admin.psi (1)
+     Code: Wrap with AbortController or AbortSignal.timeout()
+
+  3. [1 hour] Wrap 13 unprotected public APIs with rate limiting
+     Files: api.predictive-search, recommendations, newsletter, metrics, etc.
+     Code: Wrap routes with: const rl = await checkRateLimit(request, RATE_LIMIT_PRESETS.public);
+
+  4. [2 hours] Add session.test.ts (50-100 lines)
+     Critical gap: Auth state handling untested
+
+HIGH PRIORITY (1-2 DAYS):
+
+  5. Refactor catch blocks in 10 high-risk routes with AppError.from()
+  6. Add route handler tests for top 5 critical paths
+  7. Improve contextEnv typing to eliminate 7 as any casts
+
+MEDIUM PRIORITY (3-5 DAYS):
+
+  8. Add component tests (5 critical components)
+  9. Add E2E tests for checkout flow
+  10. Refactor error boundaries with AppError handling
+
+OPTIONAL (POLISH):
+
+  11. Add lazy loading to admin routes
+  12. Tighten cross-module dependencies
+  13. Add more granular GraphQL query logging
+
+
+===============================================================================
+DEPLOYMENT READINESS
+===============================================================================
+
+Current State: 66/100 (MODERATE)
+
+Safe to Deploy if:
+  ✓ CSRF fixes applied (1 day)
+  ✓ Rate limiting wired up (1 day)
+  ✓ Fetch timeouts added (15 min)
+
+Recommended Pre-Deployment Checklist:
+  [ ] All 7 CSRF routes protected
+  [ ] All fetch() calls have timeout
+  [ ] session.test.ts passing
+  [ ] Admin routes with rate limiting
+  [ ] No console errors in QA
+  [ ] Lighthouse scores maintained (99 Performance)
+
+Timeline to Production Hardening:
+  - Week 1: Fix CSRF + rate limiting + timeouts (2 days, then deploy v1)
+  - Week 1-2: Add session tests + error handling refactoring (2 days)
+  - Week 2: Add route handler + component tests (3 days)
+  - Week 2-3: Add E2E tests (2 days)
+  - Total for hardening: 5 days after v1 launch
+
+
+===============================================================================

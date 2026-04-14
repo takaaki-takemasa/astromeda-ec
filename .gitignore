@@ -10,3 +10,13 @@ build
 .react-router
 
 .shopify
+
+# Large binary assets (use Shopify CDN instead)
+PC_image/
+
+# Legacy test archive
+archive/
+
+# Editor temp files
+*.tmp
+*.tmp.*

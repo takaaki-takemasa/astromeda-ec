@@ -3,36 +3,64 @@ import type {Route} from './+types/collections._index';
 import {getPaginationVariables, Image} from '@shopify/hydrogen';
 import type {CollectionFragment} from 'storefrontapi.generated';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
-import {T, al, COLLABS} from '~/lib/astromeda-data';
+import {AppError} from '~/lib/app-error';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {STORE_URL} from '~/lib/astromeda-data';
 
 export const meta: Route.MetaFunction = () => {
-  const title = 'ASTROMEDA | コレクション一覧';
-  const description =
-    'ASTROMEDAの全コレクション一覧。ONE PIECE・NARUTO・ヒロアカなど人気IPコラボのゲーミングPC・周辺機器を多数展開。';
+  const url = `${STORE_URL}/collections`;
+  const title = 'ASTROMEDA | アニメ・ゲームIPコラボゲーミングPC';
   return [
     {title},
-    {name: 'description', content: description},
-    {property: 'og:title', content: title},
-    {property: 'og:description', content: description},
+    {name: 'description', content: '25タイトル以上のアニメ・ゲームIPコラボゲーミングPC。ONE PIECE、NARUTO、呪術廻戦、ストリートファイター6など人気タイトルとのコラボモデルを展開。国内自社工場で受注生産。'},
+    {tagName: 'link' as const, rel: 'canonical', href: url},
+    {property: 'og:url', content: url},
     {name: 'twitter:card', content: 'summary'},
+    {name: 'twitter:title', content: title},
   ];
 };
 
 export async function loader(args: Route.LoaderArgs) {
+  // Start fetching non-critical data without blocking time to first byte
   const deferredData = loadDeferredData(args);
+
+  // Await the critical data required to render initial state of the page
   const criticalData = await loadCriticalData(args);
+
   return {...deferredData, ...criticalData};
 }
 
+/**
+ * Load data necessary for rendering content above the fold. This is the critical data
+ * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
+ */
 async function loadCriticalData({context, request}: Route.LoaderArgs) {
-  const paginationVariables = getPaginationVariables(request, {pageBy: 12});
-  const [{collections}] = await Promise.all([
-    context.storefront.query(COLLECTIONS_QUERY, {variables: paginationVariables}),
-  ]);
+  const paginationVariables = getPaginationVariables(request, {
+    pageBy: 50,
+  });
+
+  let collections;
+  try {
+    const [result] = await Promise.all([
+      context.storefront.query(COLLECTIONS_QUERY, {
+        variables: paginationVariables,
+      }),
+    ]);
+    collections = result.collections;
+  } catch (error) {
+    process.env.NODE_ENV === 'development' && console.error('[collections._index] Storefront API error:', error);
+    throw AppError.externalApi('コレクション一覧の取得に失敗しました');
+  }
+
   return {collections};
 }
 
-function loadDeferredData({context: _context}: Route.LoaderArgs) {
+/**
+ * Load data for rendering content below the fold. This data is deferred and will be
+ * fetched after the initial page load. If it's unavailable, the page should still 200.
+ * Make sure to not throw any errors here, as it will cause the page to 500.
+ */
+function loadDeferredData({context}: Route.LoaderArgs) {
   return {};
 }
 
@@ -40,53 +68,28 @@ export default function Collections() {
   const {collections} = useLoaderData<typeof loader>();
 
   return (
-    <div
-      style={{
-        background: T.bg,
-        minHeight: '100vh',
-        color: T.tx,
-        fontFamily: "'Outfit', 'Noto Sans JP', system-ui, sans-serif",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: 'clamp(24px, 3vw, 48px) clamp(16px, 4vw, 48px) clamp(16px, 2vw, 24px)',
-          borderBottom: `1px solid ${T.t1}`,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: T.t4,
-            letterSpacing: 3,
-            marginBottom: 8,
-          }}
-        >
-          COLLECTIONS
-        </div>
-        <h1
-          className="ph"
-          style={{
-            fontSize: 'clamp(20px, 3vw, 32px)',
-            fontWeight: 900,
-            color: T.tx,
-            margin: 0,
-          }}
-        >
-          全コレクション
+    <div style={{minHeight: '100vh', padding: '2rem 1rem'}}>
+      <div style={{maxWidth: 1200, margin: '0 auto'}}>
+        <h1 style={{
+          fontSize: 'clamp(1.5rem, 4vw, 2.5rem)',
+          fontWeight: 700,
+          textAlign: 'center',
+          marginBottom: '0.5rem',
+          background: 'linear-gradient(135deg, #00f0ff, #a855f7)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+        }}>
+          IP COLLABORATION
         </h1>
-      </div>
-
-      {/* Grid */}
-      <div style={{padding: 'clamp(20px, 3vw, 40px) clamp(16px, 4vw, 48px)'}}>
+        <p style={{textAlign: 'center', color: '#888', marginBottom: '2rem', fontSize: '0.9rem'}}>
+          25タイトル以上のアニメ・ゲームIPコラボモデル
+        </p>
         <PaginatedResourceSection<CollectionFragment>
           connection={collections}
-          resourcesClassName="astro-collections-grid"
+          resourcesClassName="collections-grid"
         >
           {({node: collection, index}) => (
-            <CollectionCard
+            <CollectionItem
               key={collection.id}
               collection={collection}
               index={index}
@@ -94,116 +97,68 @@ export default function Collections() {
           )}
         </PaginatedResourceSection>
       </div>
-
-      <style>{`
-        .astro-collections-grid {
-          display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-          gap: clamp(12px, 2vw, 20px);
-        }
-        @media (max-width: 480px) {
-          .astro-collections-grid {
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-          }
-        }
-      `}</style>
     </div>
   );
 }
 
-function CollectionCard({
+function CollectionItem({
   collection,
   index,
 }: {
   collection: CollectionFragment;
   index: number;
 }) {
-  const collabData = COLLABS.find((c) => c.shop === collection.handle);
-  const accent = collabData?.accent ?? T.c;
-
   return (
     <Link
+      key={collection.id}
       to={`/collections/${collection.handle}`}
       prefetch="intent"
-      className="astro-product-card"
-      style={{textDecoration: 'none', display: 'block'}}
+      style={{
+        display: 'block',
+        position: 'relative',
+        borderRadius: 12,
+        overflow: 'hidden',
+        aspectRatio: '16/9',
+        background: collection?.image
+          ? undefined
+          : 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+        border: '1px solid rgba(255,255,255,0.08)',
+        transition: 'transform 0.2s, box-shadow 0.2s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,240,255,0.15)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
     >
-      {/* Image */}
-      <div
-        style={{
-          aspectRatio: '4/3',
-          overflow: 'hidden',
-          background: `linear-gradient(160deg, ${al(accent, 0.15)}, ${T.bg})`,
-          position: 'relative',
-        }}
-      >
-        {collection.image ? (
-          <Image
-            alt={collection.image.altText || collection.title}
-            aspectRatio="4/3"
-            data={collection.image}
-            loading={index < 6 ? 'eager' : 'lazy'}
-            sizes="(min-width: 768px) 25vw, 50vw"
-            style={{width: '100%', height: '100%', objectFit: 'cover'}}
-          />
-        ) : (
-          <div
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: 32,
-            }}
-          >
-            🖥
-          </div>
-        )}
-        {collabData?.tag && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 8,
-              left: 8,
-              fontSize: 8,
-              fontWeight: 900,
-              padding: '2px 8px',
-              borderRadius: 4,
-              background: collabData.tag === 'NEW' ? T.r : '#FF9500',
-              color: '#fff',
-              letterSpacing: 1,
-            }}
-          >
-            {collabData.tag}
-          </div>
-        )}
-      </div>
-
-      {/* Info */}
-      <div style={{padding: 'clamp(10px, 1.2vw, 14px)'}}>
-        <div
-          style={{
-            fontSize: 'clamp(11px, 1.3vw, 13px)',
-            fontWeight: 800,
-            color: T.tx,
-            lineHeight: 1.3,
-            marginBottom: 4,
-          }}
-        >
+      {collection?.image ? (
+        <Image
+          alt={collection.image.altText || collection.title}
+          data={collection.image}
+          loading={index < 6 ? 'eager' : 'lazy'}
+          sizes="(min-width: 768px) 33vw, 50vw"
+          style={{width: '100%', height: '100%', objectFit: 'cover'}}
+        />
+      ) : null}
+      <div style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '2rem 1rem 1rem',
+        background: 'linear-gradient(transparent, rgba(0,0,0,0.85))',
+      }}>
+        <h3 style={{
+          fontSize: 'clamp(0.85rem, 2vw, 1.1rem)',
+          fontWeight: 600,
+          color: '#fff',
+          margin: 0,
+        }}>
           {collection.title}
-        </div>
-        <div
-          style={{
-            fontSize: 10,
-            color: accent,
-            fontWeight: 700,
-            letterSpacing: 1,
-          }}
-        >
-          コレクションを見る →
-        </div>
+        </h3>
       </div>
     </Link>
   );
@@ -215,7 +170,11 @@ const COLLECTIONS_QUERY = `#graphql
     title
     handle
     image {
-      id url altText width height
+      id
+      url
+      altText
+      width
+      height
     }
   }
   query StoreCollections(
@@ -226,11 +185,25 @@ const COLLECTIONS_QUERY = `#graphql
     $last: Int
     $startCursor: String
   ) @inContext(country: $country, language: $language) {
-    collections(first: $first, last: $last, before: $startCursor, after: $endCursor) {
-      nodes { ...Collection }
+    collections(
+      first: $first,
+      last: $last,
+      before: $startCursor,
+      after: $endCursor
+    ) {
+      nodes {
+        ...Collection
+      }
       pageInfo {
-        hasNextPage hasPreviousPage startCursor endCursor
+        hasNextPage
+        hasPreviousPage
+        startCursor
+        endCursor
       }
     }
   }
 ` as const;
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
+}

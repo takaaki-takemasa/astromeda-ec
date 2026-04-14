@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>オフライン — ASTROMEDA</title>
+  <meta name="description" content="ASTROMEDA ゲーミングPC - 現在オフライン状態です">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: linear-gradient(135deg, #06060C 0%, #0a0a14 100%);
+      color: #E0E0E0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      text-align: center;
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 480px;
+      animation: fadeIn 0.6s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .logo {
+      font-size: 4rem;
+      margin-bottom: 1.5rem;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.8;
+        transform: scale(1.05);
+      }
+    }
+
+    h1 {
+      color: #00F0FF;
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .subtitle {
+      color: #888;
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+      line-height: 1.6;
+    }
+
+    p {
+      line-height: 1.6;
+      margin-bottom: 2rem;
+      color: #999;
+      font-size: 1rem;
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 1rem;
+      flex-direction: column;
+      margin-top: 2rem;
+    }
+
+    .retry-btn,
+    .home-btn {
+      display: inline-block;
+      padding: 14px 32px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: all 0.3s ease;
+      text-align: center;
+    }
+
+    .retry-btn {
+      background: #00F0FF;
+      color: #06060C;
+    }
+
+    .retry-btn:hover {
+      background: #00D4E0;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px rgba(0, 240, 255, 0.3);
+    }
+
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+
+    .home-btn {
+      background: transparent;
+      color: #00F0FF;
+      border: 1px solid #00F0FF;
+    }
+
+    .home-btn:hover {
+      background: rgba(0, 240, 255, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .home-btn:active {
+      transform: translateY(0);
+    }
+
+    .status-info {
+      margin-top: 3rem;
+      padding: 1.5rem;
+      background: rgba(0, 240, 255, 0.05);
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    .status-info strong {
+      color: #00F0FF;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 1.5rem;
+      }
+
+      .container {
+        max-width: 100%;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .logo {
+        font-size: 3rem;
+      }
+
+      .action-buttons {
+        flex-direction: column;
+      }
+
+      .retry-btn,
+      .home-btn {
+        width: 100%;
+      }
+    }
+
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: linear-gradient(135deg, #06060C 0%, #0a0a14 100%);
+        color: #E0E0E0;
+      }
+    }
+
+    /* Accessibility */
+    @media (prefers-reduced-motion: reduce) {
+      .container,
+      .logo {
+        animation: none;
+      }
+
+      .retry-btn:hover,
+      .home-btn:hover {
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo" aria-hidden="true">⚡</div>
+    <h1>ASTROMEDA</h1>
+    <div class="subtitle">ゲーミング PC</div>
+    <p>現在オフライン状態です。<br>インターネット接続を確認して、再度アクセスしてください。</p>
+
+    <div class="action-buttons">
+      <button
+        type="button"
+        class="retry-btn"
+        onclick="location.reload(); return false;"
+      >
+        再接続する
+      </button>
+      <a href="/" class="home-btn">トップページへ</a>
+    </div>
+
+    <div class="status-info">
+      <strong>ネットワーク接続をご確認ください</strong><br>
+      WiFi またはモバイルネットワークの接続状態をお確かめください。
+      <br><br>
+      <small>
+        キャッシュされた情報は表示されます。<br>
+        最新情報は接続後にリロードしてください。
+      </small>
+    </div>
+  </div>
+
+  <script>
+    // Simple connection detection
+    window.addEventListener('online', function () {
+      // Optionally auto-reload when reconnected
+      // location.reload();
+    });
+
+    // Service Worker status indicator (optional enhancement)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(function () {
+        console.log('Service Worker is ready');
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+■ 別PCセットアップ手順
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+USBに入れるもの: astromeda-ec_完全版.zip（これ1つ）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【やること】
+1. USBからzipをデスクトップにコピーして解凍
+2. Coworkを開いてastromeda-ecフォルダを接続
+3. 下の指示をCoworkに送信（1回で全部やってくれる）
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+↓ Coworkに送る指示（この枠の中を全部コピペ）↓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+astromeda-ecのセットアップとデプロイを全部やって。手順はこの順番で:
+
+1. Node.jsが入っているか確認。なければwingetかダウンロードでインストールして。
+2. npx shopify auth login を実行して。ブラウザが開いたら教えて、私がログインする。
+3. npm run build を実行。エラーが出たらCLAUDE.mdを読んで修正して再ビルド。
+4. ビルド成功したら npx shopify hydrogen deploy --build-command "npm run build" --force --entry server を実行。
+5. Preview URLを教えて。本番切り替えはしないで。
+
+禁止: npm installはしない。.envは変更しない。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+↑ ここまで ↑
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+途中でブラウザが開いたら takaaki.takemasa@mng-base.com でログインする。
+それ以外は全てCoworkが自動でやる。

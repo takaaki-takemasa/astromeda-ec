@@ -269,7 +269,7 @@ function SearchResultsPredictiveEmpty({
 
   return (
     <p>
-      No results found for <q>{term.current}</q>
+      「{term.current}」の検索結果はありません
     </p>
   );
 }

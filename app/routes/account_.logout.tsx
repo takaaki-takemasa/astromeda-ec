@@ -1,5 +1,6 @@
 import {redirect} from 'react-router';
 import type {Route} from './+types/account_.logout';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 
 // if we don't implement this, /account/logout will get caught by account.$.tsx to do login
 export async function loader() {
@@ -8,4 +9,8 @@ export async function loader() {
 
 export async function action({context}: Route.ActionArgs) {
   return context.customerAccount.logout();
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

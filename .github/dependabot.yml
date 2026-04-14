@@ -1,0 +1,44 @@
+# Dependabot — H-020: 依存関係自動更新
+# 医学メタファー: 予防接種スケジュール
+# 脆弱性のあるパッケージを自動検出し、PRで更新提案する。
+
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 10
+    reviewers:
+      - "takaaki-takemasa"
+    labels:
+      - "dependencies"
+      - "security"
+    # セキュリティアップデートは即時対応
+    allow:
+      - dependency-type: "all"
+    # メジャーバージョンアップは慎重に
+    versioning-strategy: "increase-if-necessary"
+    groups:
+      # Shopify関連パッケージはまとめて更新
+      shopify:
+        patterns:
+          - "@shopify/*"
+      # React/Router関連
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "react-router"
+          - "@react-router/*"
+      # ビルドツール
+      build:
+        patterns:
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "tailwindcss"
+          - "@tailwindcss/*"

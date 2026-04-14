@@ -6,9 +6,13 @@ import type {
   OrderQuery,
 } from 'customer-accountapi.generated';
 import {CUSTOMER_ORDER_QUERY} from '~/graphql/customer-account/CustomerOrderQuery';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 
 export const meta: Route.MetaFunction = ({data}) => {
-  return [{title: `Order ${data?.order?.name}`}];
+  return [
+    {title: `ASTROMEDA | 注文 ${data?.order?.name}`},
+    {name: 'robots', content: 'noindex, nofollow'},
+  ];
 };
 
 export async function loader({params, context}: Route.LoaderArgs) {
@@ -39,7 +43,7 @@ export async function loader({params, context}: Route.LoaderArgs) {
   const discountApplications = order.discountApplications.nodes;
 
   // Get fulfillment status from first fulfillment node
-  const fulfillmentStatus = order.fulfillments.nodes[0]?.status ?? 'N/A';
+  const fulfillmentStatus = order.fulfillments.nodes[0]?.status ?? '未発送';
 
   // Get first discount value with proper type checking
   const firstDiscount = discountApplications[0]?.value;
@@ -83,20 +87,20 @@ export default function OrderRoute() {
   } = useLoaderData<typeof loader>();
   return (
     <div className="account-order">
-      <h2>Order {order.name}</h2>
-      <p>Placed on {new Date(order.processedAt!).toDateString()}</p>
+      <h2>注文 {order.name}</h2>
+      <p>注文日: {new Date(order.processedAt ?? '').toLocaleDateString('ja-JP')}</p>
       {order.confirmationNumber && (
-        <p>Confirmation: {order.confirmationNumber}</p>
+        <p>確認番号: {order.confirmationNumber}</p>
       )}
       <br />
       <div>
         <table>
           <thead>
             <tr>
-              <th scope="col">Product</th>
-              <th scope="col">Price</th>
-              <th scope="col">Quantity</th>
-              <th scope="col">Total</th>
+              <th scope="col">商品</th>
+              <th scope="col">価格</th>
+              <th scope="col">数量</th>
+              <th scope="col">合計</th>
             </tr>
           </thead>
           <tbody>
@@ -110,57 +114,57 @@ export default function OrderRoute() {
               discountPercentage) && (
               <tr>
                 <th scope="row" colSpan={3}>
-                  <p>Discounts</p>
+                  <p>割引</p>
                 </th>
                 <th scope="row">
-                  <p>Discounts</p>
+                  <p>割引</p>
                 </th>
                 <td>
                   {discountPercentage ? (
                     <span>-{discountPercentage}% OFF</span>
                   ) : (
-                    discountValue && <Money data={discountValue!} />
+                    discountValue && <Money data={discountValue} />
                   )}
                 </td>
               </tr>
             )}
             <tr>
               <th scope="row" colSpan={3}>
-                <p>Subtotal</p>
+                <p>小計</p>
               </th>
               <th scope="row">
-                <p>Subtotal</p>
+                <p>小計</p>
               </th>
               <td>
-                <Money data={order.subtotal!} />
+                {order.subtotal && <Money data={order.subtotal} />}
               </td>
             </tr>
             <tr>
               <th scope="row" colSpan={3}>
-                Tax
+                消費税
               </th>
               <th scope="row">
-                <p>Tax</p>
+                <p>消費税</p>
               </th>
               <td>
-                <Money data={order.totalTax!} />
+                {order.totalTax && <Money data={order.totalTax} />}
               </td>
             </tr>
             <tr>
               <th scope="row" colSpan={3}>
-                Total
+                合計
               </th>
               <th scope="row">
-                <p>Total</p>
+                <p>合計</p>
               </th>
               <td>
-                <Money data={order.totalPrice!} />
+                {order.totalPrice && <Money data={order.totalPrice} />}
               </td>
             </tr>
           </tfoot>
         </table>
         <div>
-          <h3>Shipping Address</h3>
+          <h3>配送先住所</h3>
           {order?.shippingAddress ? (
             <address>
               <p>{order.shippingAddress.name}</p>
@@ -176,9 +180,9 @@ export default function OrderRoute() {
               )}
             </address>
           ) : (
-            <p>No shipping address defined</p>
+            <p>配送先住所が未設定です</p>
           )}
-          <h3>Status</h3>
+          <h3>ステータス</h3>
           <div>
             <p>{fulfillmentStatus}</p>
           </div>
@@ -187,7 +191,7 @@ export default function OrderRoute() {
       <br />
       <p>
         <a target="_blank" href={order.statusPageUrl} rel="noreferrer">
-          View Order Status →
+          注文状況を確認 →
         </a>
       </p>
     </div>
@@ -201,7 +205,7 @@ function OrderLineRow({lineItem}: {lineItem: OrderLineItemFullFragment}) {
         <div>
           {lineItem?.image && (
             <div>
-              <Image data={lineItem.image} width={96} height={96} />
+              <Image data={lineItem.image} alt={lineItem.image.altText || lineItem.title} width={96} height={96} />
             </div>
           )}
           <div>
@@ -211,12 +215,16 @@ function OrderLineRow({lineItem}: {lineItem: OrderLineItemFullFragment}) {
         </div>
       </td>
       <td>
-        <Money data={lineItem.price!} />
+        {lineItem.price && <Money data={lineItem.price} />}
       </td>
       <td>{lineItem.quantity}</td>
       <td>
-        <Money data={lineItem.totalDiscount!} />
+        {lineItem.totalDiscount && <Money data={lineItem.totalDiscount} />}
       </td>
     </tr>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

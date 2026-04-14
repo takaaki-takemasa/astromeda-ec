@@ -1,5 +1,8 @@
+import {useEffect, useRef} from 'react';
 import {type FetcherWithComponents} from 'react-router';
 import {CartForm, type OptimisticCartLineInput} from '@shopify/hydrogen';
+import {useToast} from '~/components/astro/ToastProvider';
+import {trackAddToCart} from '~/lib/ga4-ecommerce';
 
 export function AddToCartButton({
   analytics,
@@ -7,45 +10,84 @@ export function AddToCartButton({
   disabled,
   lines,
   onClick,
+  productName,
 }: {
   analytics?: unknown;
   children: React.ReactNode;
   disabled?: boolean;
   lines: Array<OptimisticCartLineInput>;
   onClick?: () => void;
+  productName?: string;
 }) {
   return (
     <CartForm route="/cart" inputs={{lines}} action={CartForm.ACTIONS.LinesAdd}>
       {(fetcher: FetcherWithComponents<unknown>) => (
-        <>
-          <input name="analytics" type="hidden" value={JSON.stringify(analytics)} />
-          <button
-            type="submit"
-            onClick={onClick}
-            disabled={disabled ?? fetcher.state !== 'idle'}
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: disabled
-                ? 'rgba(255,255,255,0.06)'
-                : 'linear-gradient(135deg, #00F0FF, #00C4CC)',
-              color: disabled ? 'rgba(255,255,255,0.3)' : '#000',
-              border: 'none',
-              borderRadius: 12,
-              cursor: disabled ? 'not-allowed' : 'pointer',
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: 800,
-              fontSize: 15,
-              letterSpacing: 1,
-              transition: 'all 0.2s',
-              position: 'relative' as const,
-              overflow: 'hidden',
-            }}
-          >
-            {fetcher.state !== 'idle' ? '追加中...' : children}
-          </button>
-        </>
+        <AddToCartInner
+          fetcher={fetcher}
+          analytics={analytics}
+          disabled={disabled}
+          onClick={onClick}
+          productName={productName}
+        >
+          {children}
+        </AddToCartInner>
       )}
     </CartForm>
+  );
+}
+
+/** Inner component to use hooks inside CartForm render prop */
+function AddToCartInner({
+  fetcher,
+  analytics,
+  disabled,
+  onClick,
+  productName,
+  children,
+}: {
+  fetcher: FetcherWithComponents<unknown>;
+  analytics?: unknown;
+  disabled?: boolean;
+  onClick?: () => void;
+  productName?: string;
+  children: React.ReactNode;
+}) {
+  const {cartSuccess, cartError} = useToast();
+  const prevState = useRef(fetcher.state);
+
+  useEffect(() => {
+    // Detect transition from loading/submitting → idle (action completed)
+    if (prevState.current !== 'idle' && fetcher.state === 'idle') {
+      if (fetcher.data?.errors?.length) {
+        cartError();
+      } else {
+        cartSuccess(productName);
+        // GA4 add_to_cart イベント（社会ネットワーク層 — カート追加行動の記録）
+        if (productName) {
+          trackAddToCart({
+            id: productName,
+            title: productName,
+          });
+        }
+      }
+    }
+    prevState.current = fetcher.state;
+  }, [fetcher.state, fetcher.data, cartSuccess, cartError, productName]);
+
+  return (
+    <>
+      <input
+        name="analytics"
+        type="hidden"
+        value={JSON.stringify(analytics)}
+      />
+      <button
+        type="submit"
+        onClick={onClick}
+        disabled={disabled ?? fetcher.state !== 'idle'}
+      >
+        {children}
+      </button>
+    </>
   );
 }

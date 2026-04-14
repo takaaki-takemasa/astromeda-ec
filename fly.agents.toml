@@ -1,0 +1,48 @@
+# Astromeda AI Agent System — Fly.io デプロイ設定（子宮=生存環境）
+#
+# 医学メタファー: 子宮は胎児の生存環境。
+# Fly.io は AIエージェントシステムの稼働基盤。
+# ECサイト(Oxygen)とは分離して独立稼働する。
+
+app = "astromeda-agents"
+primary_region = "nrt"  # 東京リージョン（ユーザーに最も近い）
+
+[build]
+  dockerfile = "docs/Dockerfile.agents"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  TZ = "Asia/Tokyo"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "suspend"      # アイドル時はサスペンド（コスト削減）
+  auto_start_machines = true          # リクエスト時に自動復帰
+  min_machines_running = 1            # 最低1台は常時稼働
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "requests"
+    hard_limit = 250
+    soft_limit = 200
+
+[[vm]]
+  size = "shared-cpu-2x"    # 2 shared vCPU, 512MB RAM
+  memory = "1gb"             # 1GB RAM（エージェント47体に十分）
+  cpu_kind = "shared"
+
+[checks]
+  [checks.health]
+    grace_period = "30s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    port = 8080
+    timeout = "5s"
+    type = "http"
+
+[metrics]
+  port = 9091
+  path = "/metrics"

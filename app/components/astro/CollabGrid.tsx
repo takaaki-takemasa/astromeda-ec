@@ -1,237 +1,234 @@
-import {useState} from 'react';
+import React, {useMemo} from 'react';
 import {Link} from 'react-router';
-import {T, al, fl, nameFs, FEATURED, REMAINING} from '~/lib/astromeda-data';
+import {T, al, COLLABS, PAGE_WIDTH} from '~/lib/astromeda-data';
+import {optimizeImageUrl, generateSrcSet} from '~/lib/cache-headers';
 
-interface CollabGridProps {
-  vw: number;
+interface ShopifyCollection {
+  id: string;
+  title: string;
+  handle: string;
+  image?: {
+    id?: string;
+    url: string;
+    altText?: string;
+    width?: number;
+    height?: number;
+  } | null;
+  products?: {
+    nodes: Array<{id: string}>;
+  };
 }
 
-export function CollabGrid({vw}: CollabGridProps) {
-  const [expanded, setExpanded] = useState(false);
-  const sp = vw < 768;
+interface CollabGridProps {
+  collections?: ShopifyCollection[] | null;
+}
+
+// Build a map of handle -> collection image from Shopify data
+function buildImageMap(collections: ShopifyCollection[] | null | undefined): Map<string, ShopifyCollection> {
+  const map = new Map<string, ShopifyCollection>();
+  if (!collections) return map;
+  for (const col of collections) {
+    if (col.handle) {
+      map.set(col.handle, col);
+    }
+  }
+  return map;
+}
+
+function findShopifyCollection(
+  shopHandle: string,
+  imageMap: Map<string, ShopifyCollection>,
+): ShopifyCollection | undefined {
+  return imageMap.get(shopHandle);
+}
+
+function CollabGridComponent({collections}: CollabGridProps) {
+  const imageMap = useMemo(() => buildImageMap(collections), [collections]);
+
+  const renderCard = useMemo(
+    () => (cb: (typeof COLLABS)[0], index: number) => {
+    const shopifyCol = findShopifyCollection(cb.shop, imageMap);
+    const hasImage = shopifyCol?.image?.url;
+
+    return (
+      <Link
+        key={cb.id}
+        to={`/collections/${shopifyCol?.handle ?? cb.shop}`}
+        className="collab-card"
+        aria-label={`${cb.name} コレクションを見る`}
+        style={{
+          border: `1px solid ${al(cb.accent, 0.12)}`,
+          textDecoration: 'none',
+        }}
+      >
+        {/* Image area */}
+        <div
+          style={{
+            aspectRatio: '1/1',
+            position: 'relative',
+            overflow: 'hidden',
+            background: hasImage
+              ? T.bg
+              : `linear-gradient(160deg, ${al(cb.accent, 0.25)}, ${T.bg} 65%)`,
+          }}
+        >
+          {hasImage ? (
+            <img
+              src={optimizeImageUrl(shopifyCol?.image?.url ?? '', 300, 65)}
+              srcSet={generateSrcSet(shopifyCol?.image?.url ?? '', [200, 300, 480, 600], 65)}
+              alt={shopifyCol?.image?.altText || cb.name}
+              width={300}
+              height={300}
+              loading={index < 6 ? 'eager' : 'lazy'}
+              fetchPriority={index < 3 ? 'high' : 'auto'}
+              decoding={index < 6 ? 'sync' : 'async'}
+              sizes="(min-width: 1024px) 20vw, (min-width: 768px) 33vw, 50vw"
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                display: 'block',
+              }}
+            />
+          ) : (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: `radial-gradient(circle at 35% 40%, ${al(cb.accent, 0.3)}, transparent 55%)`,
+              }}
+            />
+          )}
+          {/* Bottom gradient overlay — hidden on mobile via CSS */}
+          <div
+            className="collab-gradient-overlay"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: hasImage
+                ? 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,.85))'
+                : 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.75))',
+            }}
+          />
+          {/* Text overlay — hidden on mobile via CSS */}
+          <div
+            className="collab-text-overlay"
+            style={{
+              position: 'absolute',
+              bottom: 10,
+              left: 12,
+              right: 12,
+              zIndex: 1,
+            }}
+          >
+            {cb.tag && (
+              <div
+                style={{
+                  display: 'inline-block',
+                  fontSize: 7,
+                  fontWeight: 900,
+                  padding: '2px 7px',
+                  borderRadius: 4,
+                  background: cb.tag === 'NEW' ? T.r : cb.tag === 'HOT' ? '#FF6B00' : '#FF9500',
+                  color: T.tx,
+                  letterSpacing: 1,
+                  marginBottom: 4,
+                }}
+              >
+                {cb.tag}
+              </div>
+            )}
+            <div
+              style={{
+                fontSize: 'clamp(10px, 1.4vw, 16px)',
+                fontWeight: 900,
+                color: T.tx,
+                textShadow: '0 2px 12px rgba(0,0,0,.8)',
+                lineHeight: 1.25,
+              }}
+            >
+              {cb.name}
+            </div>
+            <div
+              className="collab-category-count"
+              style={{
+                fontSize: 10,
+                color: al(T.tx, 0.5),
+                marginTop: 3,
+              }}
+            >
+              {cb.cats.split(',').length}カテゴリ
+            </div>
+          </div>
+        </div>
+      </Link>
+    );
+    },
+    [imageMap],
+  );
 
   return (
-    <section style={{padding: `0 ${fl(16, 48, vw)}px ${fl(20, 32, vw)}px`}}>
+    <section style={{...PAGE_WIDTH, paddingBottom: 'clamp(20px, 2.8vw, 32px)'}}>
       <div
         style={{
           display: 'flex',
           alignItems: 'baseline',
           gap: 10,
-          marginBottom: fl(16, 20, vw),
+          marginBottom: 'clamp(16px, 1.8vw, 20px)',
         }}
       >
         <span
           className="ph"
-          style={{fontSize: fl(14, 18, vw), fontWeight: 900, color: T.tx}}
+          style={{fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 900, color: T.tx}}
         >
           IP COLLABS
         </span>
-        <span style={{fontSize: fl(10, 12, vw), color: T.t4}}>
-          {FEATURED.length + (expanded ? REMAINING.length : 0)}タイトル表示中
+        <span style={{fontSize: 'clamp(10px, 1.2vw, 12px)', color: T.t4}}>
+          {COLLABS.length}タイトル
         </span>
       </div>
 
-      {/* Featured grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: sp
-            ? '1fr 1fr'
-            : 'repeat(3, 1fr)',
-          gap: fl(10, 14, vw),
-          marginBottom: fl(14, 20, vw),
-        }}
-      >
-        {FEATURED.map((cb) => (
-          <Link
-            key={cb.id}
-            to={`/collections/${cb.shop}`}
-            className="collab-card"
-            style={{
-              border: `1px solid ${al(cb.accent, 0.12)}`,
-              textDecoration: 'none',
-            }}
-          >
-            {/* Image area with gradient placeholder */}
-            <div
-              style={{
-                aspectRatio: sp ? '1/1' : '16/9',
-                background: `linear-gradient(160deg, ${al(cb.accent, 0.25)}, ${T.bg} 65%)`,
-                position: 'relative',
-                overflow: 'hidden',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: `radial-gradient(circle at 35% 40%, ${al(cb.accent, 0.3)}, transparent 55%)`,
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.75))',
-                }}
-              />
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: sp ? 8 : 10,
-                  left: sp ? 8 : 12,
-                  right: sp ? 8 : 12,
-                  zIndex: 1,
-                }}
-              >
-                {cb.tag && (
-                  <div
-                    style={{
-                      display: 'inline-block',
-                      fontSize: sp ? 6 : 7,
-                      fontWeight: 900,
-                      padding: '2px 7px',
-                      borderRadius: 4,
-                      background: cb.tag === 'NEW' ? T.r : '#FF9500',
-                      color: T.tx,
-                      letterSpacing: 1,
-                      marginBottom: sp ? 3 : 4,
-                    }}
-                  >
-                    {cb.tag}
-                  </div>
-                )}
-                <div
-                  style={{
-                    fontSize: nameFs(cb.name, fl(sp ? 11 : 13, sp ? 13 : 16, vw), fl(sp ? 8 : 10, sp ? 10 : 12, vw)),
-                    fontWeight: 900,
-                    color: T.tx,
-                    textShadow: '0 2px 12px rgba(0,0,0,.8)',
-                    lineHeight: 1.25,
-                  }}
-                >
-                  {cb.name}
-                </div>
-                {!sp && (
-                  <div style={{fontSize: 10, color: 'rgba(255,255,255,.5)', marginTop: 3}}>
-                    {cb.cats.split(',').length}カテゴリ
-                  </div>
-                )}
-              </div>
-            </div>
-          </Link>
-        ))}
+      <div className="collab-grid">
+        {COLLABS.map((cb, i) => renderCard(cb, i))}
       </div>
 
-      {/* Expand button */}
-      <div style={{textAlign: 'center'}}>
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          style={{
-            padding: sp ? '12px 20px' : '14px 40px',
-            borderRadius: 14,
-            border: `1px solid ${T.t2}`,
-            background: expanded ? al(T.c, 0.06) : 'transparent',
-            cursor: 'pointer',
-            color: T.t5,
-            fontSize: fl(10, 12, vw),
-            fontWeight: 700,
-            letterSpacing: 1,
-            transition: 'background .3s, border-color .3s',
-            width: sp ? '100%' : 'auto',
-          }}
-        >
-          {expanded
-            ? '閉じる ▲'
-            : `すべてのコラボを見る（+${REMAINING.length}タイトル）▼`}
-        </button>
-
-        {expanded && (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: sp ? '1fr 1fr' : 'repeat(4, 1fr)',
-              gap: fl(8, 12, vw),
-              marginTop: fl(12, 16, vw),
-            }}
-          >
-            {REMAINING.map((cb) => (
-              <Link
-                key={cb.id}
-                to={`/collections/${cb.shop}`}
-                className="collab-card"
-                style={{
-                  border: `1px solid ${al(cb.accent, 0.08)}`,
-                  textDecoration: 'none',
-                }}
-              >
-                <div
-                  style={{
-                    aspectRatio: '16/9',
-                    background: `linear-gradient(160deg, ${al(cb.accent, 0.2)}, ${T.bg} 65%)`,
-                    position: 'relative',
-                    overflow: 'hidden',
-                  }}
-                >
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: `radial-gradient(circle at 35% 40%, ${al(cb.accent, 0.25)}, transparent 55%)`,
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.7))',
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      bottom: 8,
-                      left: 10,
-                      right: 10,
-                      zIndex: 1,
-                    }}
-                  >
-                    {cb.tag && (
-                      <div
-                        style={{
-                          display: 'inline-block',
-                          fontSize: 6,
-                          fontWeight: 900,
-                          padding: '2px 5px',
-                          borderRadius: 3,
-                          background: cb.tag === 'NEW' ? T.r : '#FF9500',
-                          color: T.tx,
-                          letterSpacing: 0.5,
-                          marginBottom: 3,
-                        }}
-                      >
-                        {cb.tag}
-                      </div>
-                    )}
-                    <div
-                      style={{
-                        fontSize: nameFs(cb.name, fl(11, 13, vw), fl(8, 10, vw)),
-                        fontWeight: 800,
-                        color: T.tx,
-                        textShadow: '0 2px 10px rgba(0,0,0,.8)',
-                        lineHeight: 1.25,
-                      }}
-                    >
-                      {cb.name}
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        .collab-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: clamp(10px, 1.3vw, 14px);
+        }
+        .collab-card {
+          border-radius: clamp(10px, 1.4vw, 14px);
+          overflow: hidden;
+          background: ${T.bgC};
+          transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+          display: block;
+          content-visibility: auto;
+          contain-intrinsic-size: auto 300px;
+        }
+        .collab-card:hover {
+          transform: translateY(-3px);
+          border-color: rgba(0, 240, 255, .2) !important;
+          box-shadow: 0 8px 24px rgba(0, 0, 0, .4);
+        }
+        @media (min-width: 768px) {
+          .collab-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        .collab-category-count {
+          display: none;
+        }
+        @media (min-width: 768px) {
+          .collab-category-count {
+            display: block;
+          }
+        }
+      `}} />
     </section>
   );
 }
+
+export const CollabGrid = React.memo(CollabGridComponent);
+CollabGrid.displayName = 'CollabGrid';

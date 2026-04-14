@@ -1,0 +1,11 @@
+diff --git a/node_modules/@shopify/hydrogen/dist/vite/chunk-FAQ7TVHC.js b/node_modules/@shopify/hydrogen/dist/vite/chunk-FAQ7TVHC.js
+index 5efc79c..7debd13 100644
+--- a/node_modules/@shopify/hydrogen/dist/vite/chunk-FAQ7TVHC.js
++++ b/node_modules/@shopify/hydrogen/dist/vite/chunk-FAQ7TVHC.js
+@@ -1,5 +1,5 @@
+ // src/vite/compat-date.ts
+-var COMPAT_DATE = "2025-04-01";
++var COMPAT_DATE = "2025-03-10";
+ function getCompatDate() {
+   return COMPAT_DATE;
+ }

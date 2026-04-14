@@ -3,6 +3,11 @@ import type {Route} from './+types/search';
 import {getPaginationVariables, Analytics} from '@shopify/hydrogen';
 import {SearchForm} from '~/components/SearchForm';
 import {SearchResults} from '~/components/SearchResults';
+import {T, al} from '~/lib/astromeda-data';
+import {Breadcrumb} from '~/components/astro/Breadcrumb';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {trackSearch} from '~/lib/ga4-ecommerce';
+import {useEffect} from 'react';
 import {
   type RegularSearchReturn,
   type PredictiveSearchReturn,
@@ -14,7 +19,15 @@ import type {
 } from 'storefrontapi.generated';
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: `Hydrogen | Search`}];
+  const title = '検索 | ASTROMEDA ゲーミングPC';
+  const description = 'ASTROMEDAの商品を検索。ゲーミングPC、IPコラボモデル、ガジェット、グッズを簡単に見つけられます。';
+  return [
+    {title},
+    {name: 'description', content: description},
+    {name: 'robots', content: 'noindex'},
+    {name: 'twitter:card', content: 'summary'},
+    {name: 'twitter:title', content: title},
+  ];
 };
 
 export async function loader({request, context}: Route.LoaderArgs) {
@@ -25,12 +38,12 @@ export async function loader({request, context}: Route.LoaderArgs) {
       ? predictiveSearch({request, context})
       : regularSearch({request, context});
 
-  searchPromise.catch((error: Error) => {
-    console.error(error);
-    return {term: '', result: null, error: error.message};
+  const safeSearchPromise = searchPromise.catch((error: Error) => {
+    console.error('[search] Error:', error);
+    return {type: isPredictive ? 'predictive' as const : 'regular' as const, term: url.searchParams.get('q') ?? '', result: null, error: '検索処理中にエラーが発生しました'};
   });
 
-  return await searchPromise;
+  return await safeSearchPromise;
 }
 
 /**
@@ -38,41 +51,201 @@ export async function loader({request, context}: Route.LoaderArgs) {
  */
 export default function SearchPage() {
   const {type, term, result, error} = useLoaderData<typeof loader>();
+
+  // GA4 search イベント（社会ネットワーク層 — 検索行動の記録）
+  useEffect(() => {
+    if (term) trackSearch(term);
+  }, [term]);
+
   if (type === 'predictive') return null;
 
   return (
-    <div className="search">
-      <h1>Search</h1>
-      <SearchForm>
-        {({inputRef}) => (
-          <>
-            <input
-              defaultValue={term}
-              name="q"
-              placeholder="Search…"
-              ref={inputRef}
-              type="search"
-            />
-            &nbsp;
-            <button type="submit">Search</button>
-          </>
-        )}
-      </SearchForm>
-      {error && <p style={{color: 'red'}}>{error}</p>}
-      {!term || !result?.total ? (
-        <SearchResults.Empty />
-      ) : (
-        <SearchResults result={result} term={term}>
-          {({articles, pages, products, term}) => (
-            <div>
-              <SearchResults.Products products={products} term={term} />
-              <SearchResults.Pages pages={pages} term={term} />
-              <SearchResults.Articles articles={articles} term={term} />
+    <div
+      style={{
+        background: T.bg,
+        minHeight: '100vh',
+        fontFamily: "'Outfit','Noto Sans JP',system-ui,sans-serif",
+        color: T.tx,
+      }}
+    >
+      <Breadcrumb items={[{label: 'ホーム', to: '/'}, {label: '検索'}]} />
+
+      <div
+        style={{
+          maxWidth: 1000,
+          margin: '0 auto',
+          padding: 'clamp(16px, 3vw, 32px) clamp(16px, 4vw, 48px)',
+        }}
+      >
+        <h1
+          className="ph"
+          style={{
+            fontSize: 'clamp(20px, 3vw, 28px)',
+            fontWeight: 900,
+            marginBottom: 20,
+          }}
+        >
+          検索
+        </h1>
+
+        <SearchForm>
+          {({inputRef}) => (
+            <div
+              style={{
+                display: 'flex',
+                gap: 10,
+                marginBottom: 28,
+              }}
+            >
+              <input
+                defaultValue={term}
+                name="q"
+                placeholder="商品を検索..."
+                ref={inputRef}
+                type="search"
+                maxLength={200}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  borderRadius: 12,
+                  border: `1px solid ${al(T.c, 0.2)}`,
+                  background: T.bgC,
+                  color: T.tx,
+                  fontSize: 'clamp(13px, 1.5vw, 15px)',
+                  outline: 'none',
+                  fontFamily: 'inherit',
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: 12,
+                  border: 'none',
+                  background: `linear-gradient(135deg, ${T.c}, ${T.cD})`,
+                  color: T.bg,
+                  fontWeight: 700,
+                  fontSize: 'clamp(12px, 1.4vw, 14px)',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                検索
+              </button>
             </div>
           )}
-        </SearchResults>
-      )}
-      <Analytics.SearchView data={{searchTerm: term, searchResults: result}} />
+        </SearchForm>
+
+        {error && (
+          <p style={{color: T.r, marginBottom: 16}}>{error}</p>
+        )}
+
+        {!term || !result?.total ? (
+          <div>
+            {term ? (
+              <SearchResults.Empty />
+            ) : (
+              <SearchEmptyState />
+            )}
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                fontSize: 13,
+                color: T.t4,
+                marginBottom: 20,
+              }}
+            >
+              「{term}」の検索結果: {result.total}件
+            </div>
+            <SearchResults result={result} term={term}>
+              {({articles, pages, products, term}) => (
+                <div>
+                  <SearchResults.Products products={products} term={term} />
+                  <SearchResults.Pages pages={pages} term={term} />
+                  <SearchResults.Articles articles={articles} term={term} />
+                </div>
+              )}
+            </SearchResults>
+          </>
+        )}
+        <Analytics.SearchView data={{searchTerm: term, searchResults: result}} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * 検索未入力時のガイド表示（感覚系 — ユーザーへの誘導）
+ */
+function SearchEmptyState() {
+  const categories = [
+    {label: 'ゲーミングPC', query: 'ゲーミングPC', icon: '🖥️'},
+    {label: 'IPコラボ', query: 'コラボ', icon: '🎮'},
+    {label: 'ガジェット', query: 'マウスパッド', icon: '⌨️'},
+    {label: 'グッズ', query: 'Tシャツ', icon: '👕'},
+  ];
+
+  return (
+    <div style={{textAlign: 'center', padding: '40px 0'}}>
+      <svg
+        width="48"
+        height="48"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={al(T.c, 0.3)}
+        strokeWidth="1.5"
+        style={{marginBottom: 16}}
+      >
+        <circle cx="11" cy="11" r="8" />
+        <path d="m21 21-4.35-4.35" />
+      </svg>
+      <p style={{color: al(T.tx, 0.5), fontSize: 14, marginBottom: 24}}>
+        キーワードを入力するか、カテゴリから探してみてください
+      </p>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+          gap: 10,
+          maxWidth: 500,
+          margin: '0 auto',
+        }}
+      >
+        {categories.map((cat) => (
+          <a
+            key={cat.query}
+            href={`/search?q=${encodeURIComponent(cat.query)}`}
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 6,
+              padding: '16px 8px',
+              borderRadius: 12,
+              background: al(T.tx, 0.03),
+              border: `1px solid ${al(T.tx, 0.06)}`,
+              textDecoration: 'none',
+              color: T.tx,
+              fontSize: 12,
+              fontWeight: 600,
+              transition: 'border-color .2s, background .2s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = al(T.c, 0.3);
+              e.currentTarget.style.background = al(T.c, 0.05);
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = al(T.tx, 0.06);
+              e.currentTarget.style.background = al(T.tx, 0.03);
+            }}
+          >
+            <span style={{fontSize: 24}}>{cat.icon}</span>
+            {cat.label}
+          </a>
+        ))}
+      </div>
     </div>
   );
 }
@@ -423,4 +596,8 @@ async function predictiveSearch({
   );
 
   return {type, term, result: {items, total}};
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

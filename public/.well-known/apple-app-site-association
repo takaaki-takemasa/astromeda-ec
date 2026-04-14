@@ -1,0 +1,23 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "PLACEHOLDER_TEAM_ID.jp.co.mining-base.astromeda",
+        "paths": [
+          "/collections/*",
+          "/products/*",
+          "/admin/*",
+          "/cart",
+          "/checkout",
+          "/account/*"
+        ]
+      }
+    ]
+  },
+  "webcredentials": {
+    "apps": [
+      "PLACEHOLDER_TEAM_ID.jp.co.mining-base.astromeda"
+    ]
+  }
+}

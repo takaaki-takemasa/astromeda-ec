@@ -17,6 +17,7 @@ import {
   DELETE_ADDRESS_MUTATION,
   CREATE_ADDRESS_MUTATION,
 } from '~/graphql/customer-account/CustomerAddressMutations';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 
 export type ActionResponse = {
   addressId?: string | null;
@@ -28,7 +29,10 @@ export type ActionResponse = {
 };
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: 'Addresses'}];
+  return [
+    {title: 'ASTROMEDA | 住所管理'},
+    {name: 'robots', content: 'noindex, nofollow'},
+  ];
 };
 
 export async function loader({context}: Route.LoaderArgs) {
@@ -118,16 +122,17 @@ export async function action({request, context}: Route.ActionArgs) {
             defaultAddress,
           };
         } catch (error: unknown) {
+          console.error('[address POST] Error:', error);
           if (error instanceof Error) {
             return data(
-              {error: {[addressId]: error.message}},
+              {error: {[addressId]: '住所の追加に失敗しました'}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            {error: {[addressId]: error}},
+            {error: {[addressId]: '住所の追加に失敗しました'}},
             {
               status: 400,
             },
@@ -168,16 +173,17 @@ export async function action({request, context}: Route.ActionArgs) {
             defaultAddress,
           };
         } catch (error: unknown) {
+          console.error('[address PUT] Error:', error);
           if (error instanceof Error) {
             return data(
-              {error: {[addressId]: error.message}},
+              {error: {[addressId]: '住所の更新に失敗しました'}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            {error: {[addressId]: error}},
+            {error: {[addressId]: '住所の更新に失敗しました'}},
             {
               status: 400,
             },
@@ -212,16 +218,17 @@ export async function action({request, context}: Route.ActionArgs) {
 
           return {error: null, deletedAddress: addressId};
         } catch (error: unknown) {
+          console.error('[address DELETE] Error:', error);
           if (error instanceof Error) {
             return data(
-              {error: {[addressId]: error.message}},
+              {error: {[addressId]: '住所の削除に失敗しました'}},
               {
                 status: 400,
               },
             );
           }
           return data(
-            {error: {[addressId]: error}},
+            {error: {[addressId]: '住所の削除に失敗しました'}},
             {
               status: 400,
             },
@@ -239,9 +246,10 @@ export async function action({request, context}: Route.ActionArgs) {
       }
     }
   } catch (error: unknown) {
+    console.error('[account.addresses] Error:', error);
     if (error instanceof Error) {
       return data(
-        {error: error.message},
+        {error: '住所管理処理中にエラーが発生しました'},
         {
           status: 400,
         },
@@ -262,18 +270,18 @@ export default function Addresses() {
 
   return (
     <div className="account-addresses">
-      <h2>Addresses</h2>
+      <h2>住所管理</h2>
       <br />
       <div>
         <div>
-          <legend>Create address</legend>
+          <legend>新しい住所を追加</legend>
           <NewAddressForm key={addresses.nodes.length} />
         </div>
         <br />
         <hr />
         <br />
         {!addresses.nodes.length ? (
-          <p>You have no addresses saved.</p>
+          <p>保存された住所はありません。</p>
         ) : (
           <ExistingAddresses
             addresses={addresses}
@@ -313,7 +321,7 @@ function NewAddressForm() {
             formMethod="POST"
             type="submit"
           >
-            {stateForMethod('POST') !== 'idle' ? 'Creating' : 'Create'}
+            {stateForMethod('POST') !== 'idle' ? '作成中...' : '作成する'}
           </button>
         </div>
       )}
@@ -327,7 +335,7 @@ function ExistingAddresses({
 }: Pick<CustomerFragment, 'addresses' | 'defaultAddress'>) {
   return (
     <div>
-      <legend>Existing addresses</legend>
+      <legend>登録済み住所</legend>
       {addresses.nodes.map((address) => (
         <AddressForm
           key={address.id}
@@ -342,14 +350,14 @@ function ExistingAddresses({
                 formMethod="PUT"
                 type="submit"
               >
-                {stateForMethod('PUT') !== 'idle' ? 'Saving' : 'Save'}
+                {stateForMethod('PUT') !== 'idle' ? '保存中...' : '保存する'}
               </button>
               <button
                 disabled={stateForMethod('DELETE') !== 'idle'}
                 formMethod="DELETE"
                 type="submit"
               >
-                {stateForMethod('DELETE') !== 'idle' ? 'Deleting' : 'Delete'}
+                {stateForMethod('DELETE') !== 'idle' ? '削除中...' : '削除する'}
               </button>
             </div>
           )}
@@ -380,113 +388,113 @@ export function AddressForm({
     <Form id={addressId}>
       <fieldset>
         <input type="hidden" name="addressId" defaultValue={addressId} />
-        <label htmlFor="firstName">First name*</label>
+        <label htmlFor="firstName">姓*</label>
         <input
-          aria-label="First name"
-          autoComplete="given-name"
+          aria-label="姓"
+          autoComplete="family-name"
           defaultValue={address?.firstName ?? ''}
           id="firstName"
           name="firstName"
-          placeholder="First name"
+          placeholder="姓"
           required
           type="text"
         />
-        <label htmlFor="lastName">Last name*</label>
+        <label htmlFor="lastName">名*</label>
         <input
-          aria-label="Last name"
-          autoComplete="family-name"
+          aria-label="名"
+          autoComplete="given-name"
           defaultValue={address?.lastName ?? ''}
           id="lastName"
           name="lastName"
-          placeholder="Last name"
+          placeholder="名"
           required
           type="text"
         />
-        <label htmlFor="company">Company</label>
+        <label htmlFor="company">会社名</label>
         <input
-          aria-label="Company"
+          aria-label="会社名"
           autoComplete="organization"
           defaultValue={address?.company ?? ''}
           id="company"
           name="company"
-          placeholder="Company"
+          placeholder="会社名"
           type="text"
         />
-        <label htmlFor="address1">Address line*</label>
+        <label htmlFor="address1">住所1*</label>
         <input
-          aria-label="Address line 1"
+          aria-label="住所1"
           autoComplete="address-line1"
           defaultValue={address?.address1 ?? ''}
           id="address1"
           name="address1"
-          placeholder="Address line 1*"
+          placeholder="住所1（番地まで）"
           required
           type="text"
         />
-        <label htmlFor="address2">Address line 2</label>
+        <label htmlFor="address2">住所2</label>
         <input
-          aria-label="Address line 2"
+          aria-label="住所2"
           autoComplete="address-line2"
           defaultValue={address?.address2 ?? ''}
           id="address2"
           name="address2"
-          placeholder="Address line 2"
+          placeholder="住所2（建物名・部屋番号）"
           type="text"
         />
-        <label htmlFor="city">City*</label>
+        <label htmlFor="city">市区町村*</label>
         <input
-          aria-label="City"
+          aria-label="市区町村"
           autoComplete="address-level2"
           defaultValue={address?.city ?? ''}
           id="city"
           name="city"
-          placeholder="City"
+          placeholder="市区町村"
           required
           type="text"
         />
-        <label htmlFor="zoneCode">State / Province*</label>
+        <label htmlFor="zoneCode">都道府県*</label>
         <input
-          aria-label="State/Province"
+          aria-label="都道府県"
           autoComplete="address-level1"
           defaultValue={address?.zoneCode ?? ''}
           id="zoneCode"
           name="zoneCode"
-          placeholder="State / Province"
+          placeholder="都道府県"
           required
           type="text"
         />
-        <label htmlFor="zip">Zip / Postal Code*</label>
+        <label htmlFor="zip">郵便番号*</label>
         <input
-          aria-label="Zip"
+          aria-label="郵便番号"
           autoComplete="postal-code"
           defaultValue={address?.zip ?? ''}
           id="zip"
           name="zip"
-          placeholder="Zip / Postal Code"
+          placeholder="郵便番号"
           required
           type="text"
         />
-        <label htmlFor="territoryCode">Country Code*</label>
+        <label htmlFor="territoryCode">国コード*</label>
         <input
-          aria-label="territoryCode"
+          aria-label="国コード"
           autoComplete="country"
-          defaultValue={address?.territoryCode ?? ''}
+          defaultValue={address?.territoryCode ?? 'JP'}
           id="territoryCode"
           name="territoryCode"
-          placeholder="Country"
+          placeholder="JP"
           required
           type="text"
           maxLength={2}
         />
-        <label htmlFor="phoneNumber">Phone</label>
+        <label htmlFor="phoneNumber">電話番号</label>
         <input
-          aria-label="Phone Number"
+          aria-label="電話番号"
           autoComplete="tel"
           defaultValue={address?.phoneNumber ?? ''}
           id="phoneNumber"
           name="phoneNumber"
-          placeholder="+16135551111"
-          pattern="^\+?[1-9]\d{3,14}$"
+          placeholder="09012345678"
+          pattern="^\+?[0-9]\d{3,14}$"
           type="tel"
         />
         <div>
@@ -496,7 +504,7 @@ export function AddressForm({
             name="defaultAddress"
             type="checkbox"
           />
-          <label htmlFor="defaultAddress">Set as default address</label>
+          <label htmlFor="defaultAddress">デフォルトの住所に設定</label>
         </div>
         {error ? (
           <p>
@@ -513,4 +521,8 @@ export function AddressForm({
       </fieldset>
     </Form>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

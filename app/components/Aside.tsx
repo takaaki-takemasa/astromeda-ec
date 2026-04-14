@@ -57,8 +57,9 @@ export function Aside({
       aria-modal
       className={`overlay ${expanded ? 'expanded' : ''}`}
       role="dialog"
+      style={expanded ? undefined : {display: 'none'}}
     >
-      <button className="close-outside" onClick={close} />
+      <button className="close-outside" onClick={close} aria-label="閉じる" type="button" />
       <aside>
         <header>
           <h3>{heading}</h3>

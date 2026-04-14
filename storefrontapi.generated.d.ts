@@ -843,6 +843,7 @@ export type ProductFragment = Pick<
   | 'title'
   | 'vendor'
   | 'handle'
+  | 'tags'
   | 'descriptionHtml'
   | 'description'
   | 'encodedVariantExistence'

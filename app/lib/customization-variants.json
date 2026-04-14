@@ -1,0 +1,200 @@
+{
+  "productId": 10415099380004,
+  "productGid": "gid://shopify/Product/10415099380004",
+  "handle": "pcカスタマイズオプション",
+  "env": "staging",
+  "variants": {
+    "CUSTOM-MEM-64GB": {
+      "id": 52790303162660,
+      "gid": "gid://shopify/ProductVariant/52790303162660",
+      "title": "メモリ: DDR5 非LED 64GB",
+      "price": "70000"
+    },
+    "CUSTOM-MEM-LED32": {
+      "id": 52790303195428,
+      "gid": "gid://shopify/ProductVariant/52790303195428",
+      "title": "メモリ: DDR5 LED 32GB",
+      "price": "35000"
+    },
+    "CUSTOM-MEM-LED64": {
+      "id": 52790303228196,
+      "gid": "gid://shopify/ProductVariant/52790303228196",
+      "title": "メモリ: DDR5 LED 64GB",
+      "price": "105000"
+    },
+    "CUSTOM-SSD1-1TB": {
+      "id": 52790303260964,
+      "gid": "gid://shopify/ProductVariant/52790303260964",
+      "title": "SSD1: 1TB NVMe Gen4",
+      "price": "20000"
+    },
+    "CUSTOM-SSD1-2TB": {
+      "id": 52790303293732,
+      "gid": "gid://shopify/ProductVariant/52790303293732",
+      "title": "SSD1: 2TB NVMe Gen4",
+      "price": "40000"
+    },
+    "CUSTOM-SSD1-4TB": {
+      "id": 52790303326500,
+      "gid": "gid://shopify/ProductVariant/52790303326500",
+      "title": "SSD1: 4TB NVMe Gen4",
+      "price": "90000"
+    },
+    "CUSTOM-SSD2-1TB": {
+      "id": 52790303359268,
+      "gid": "gid://shopify/ProductVariant/52790303359268",
+      "title": "SSD2: 1TB NVMe Gen4",
+      "price": "20000"
+    },
+    "CUSTOM-SSD2-2TB": {
+      "id": 52790303392036,
+      "gid": "gid://shopify/ProductVariant/52790303392036",
+      "title": "SSD2: 2TB NVMe Gen4",
+      "price": "40000"
+    },
+    "CUSTOM-SSD2-4TB": {
+      "id": 52790303424804,
+      "gid": "gid://shopify/ProductVariant/52790303424804",
+      "title": "SSD2: 4TB NVMe Gen4",
+      "price": "90000"
+    },
+    "CUSTOM-HDD-2TB": {
+      "id": 52790303457572,
+      "gid": "gid://shopify/ProductVariant/52790303457572",
+      "title": "HDD: 2TB",
+      "price": "10000"
+    },
+    "CUSTOM-HDD-4TB": {
+      "id": 52790303490340,
+      "gid": "gid://shopify/ProductVariant/52790303490340",
+      "title": "HDD: 4TB",
+      "price": "15000"
+    },
+    "CUSTOM-HDD-8TB": {
+      "id": 52790303523108,
+      "gid": "gid://shopify/ProductVariant/52790303523108",
+      "title": "HDD: 8TB",
+      "price": "25000"
+    },
+    "CUSTOM-HDD-10TB": {
+      "id": 52790303555876,
+      "gid": "gid://shopify/ProductVariant/52790303555876",
+      "title": "HDD: 10TB",
+      "price": "55000"
+    },
+    "CUSTOM-PSU-750": {
+      "id": 52790303588644,
+      "gid": "gid://shopify/ProductVariant/52790303588644",
+      "title": "電源: 750W BRONZE",
+      "price": "5000"
+    },
+    "CUSTOM-PSU-850": {
+      "id": 52790303621412,
+      "gid": "gid://shopify/ProductVariant/52790303621412",
+      "title": "電源: 850W GOLD",
+      "price": "13000"
+    },
+    "CUSTOM-CABLE-BLK": {
+      "id": 52790303654180,
+      "gid": "gid://shopify/ProductVariant/52790303654180",
+      "title": "ケーブル: ブラック",
+      "price": "6000"
+    },
+    "CUSTOM-CABLE-WHT": {
+      "id": 52790303686948,
+      "gid": "gid://shopify/ProductVariant/52790303686948",
+      "title": "ケーブル: ホワイト",
+      "price": "6000"
+    },
+    "CUSTOM-CABLE-PNK": {
+      "id": 52790303719716,
+      "gid": "gid://shopify/ProductVariant/52790303719716",
+      "title": "ケーブル: ピンク",
+      "price": "10000"
+    },
+    "CUSTOM-CABLE-PPL": {
+      "id": 52790303752484,
+      "gid": "gid://shopify/ProductVariant/52790303752484",
+      "title": "ケーブル: パープル",
+      "price": "10000"
+    },
+    "CUSTOM-CABLE-ORG": {
+      "id": 52790303785252,
+      "gid": "gid://shopify/ProductVariant/52790303785252",
+      "title": "ケーブル: オレンジ",
+      "price": "10000"
+    },
+    "CUSTOM-CABLE-GLD": {
+      "id": 52790303818020,
+      "gid": "gid://shopify/ProductVariant/52790303818020",
+      "title": "ケーブル: ゴールド",
+      "price": "12000"
+    },
+    "CUSTOM-MBGUARD": {
+      "id": 52790303850788,
+      "gid": "gid://shopify/ProductVariant/52790303850788",
+      "title": "マザーボードガード",
+      "price": "5000"
+    },
+    "CUSTOM-GREASE-13": {
+      "id": 52790303883556,
+      "gid": "gid://shopify/ProductVariant/52790303883556",
+      "title": "グリス: 13.2W/mK",
+      "price": "3000"
+    },
+    "CUSTOM-GREASE-16": {
+      "id": 52790303916324,
+      "gid": "gid://shopify/ProductVariant/52790303916324",
+      "title": "グリス: 16W/mK",
+      "price": "5000"
+    },
+    "CUSTOM-AIO": {
+      "id": 52790303949092,
+      "gid": "gid://shopify/ProductVariant/52790303949092",
+      "title": "Microsoft Office",
+      "price": "35000"
+    },
+    "CUSTOM-WIFI5": {
+      "id": 52790303981860,
+      "gid": "gid://shopify/ProductVariant/52790303981860",
+      "title": "WiFi5 BT4.2",
+      "price": "3980"
+    },
+    "CUSTOM-WIFI6E": {
+      "id": 52790304014628,
+      "gid": "gid://shopify/ProductVariant/52790304014628",
+      "title": "WiFi6E BT5.2",
+      "price": "6480"
+    },
+    "CUSTOM-WIN11PRO": {
+      "id": 52790304047396,
+      "gid": "gid://shopify/ProductVariant/52790304047396",
+      "title": "Windows 11 Pro",
+      "price": "10000"
+    },
+    "CUSTOM-KB-EN": {
+      "id": 52790304080164,
+      "gid": "gid://shopify/ProductVariant/52790304080164",
+      "title": "キーボード: English",
+      "price": "3000"
+    },
+    "CUSTOM-KB-CN": {
+      "id": 52790304112932,
+      "gid": "gid://shopify/ProductVariant/52790304112932",
+      "title": "キーボード: 中国語",
+      "price": "3000"
+    },
+    "CUSTOM-KB-KR": {
+      "id": 52790304145700,
+      "gid": "gid://shopify/ProductVariant/52790304145700",
+      "title": "キーボード: 韓国語",
+      "price": "3000"
+    },
+    "CUSTOM-ASSEMBLY": {
+      "id": 52790304178468,
+      "gid": "gid://shopify/ProductVariant/52790304178468",
+      "title": "組立手数料",
+      "price": "3300"
+    }
+  }
+}

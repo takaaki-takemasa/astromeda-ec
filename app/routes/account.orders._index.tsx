@@ -23,6 +23,7 @@ import type {
   OrderItemFragment,
 } from 'customer-accountapi.generated';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 
 type OrdersLoaderData = {
   customer: CustomerOrdersFragment;
@@ -30,7 +31,10 @@ type OrdersLoaderData = {
 };
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: 'Orders'}];
+  return [
+    {title: 'ASTROMEDA | 注文履歴'},
+    {name: 'robots', content: 'noindex, nofollow'},
+  ];
 };
 
 export async function loader({request, context}: Route.LoaderArgs) {
@@ -97,18 +101,18 @@ function EmptyOrders({hasFilters = false}: {hasFilters?: boolean}) {
     <div>
       {hasFilters ? (
         <>
-          <p>No orders found matching your search.</p>
+          <p>条件に一致する注文が見つかりませんでした。</p>
           <br />
           <p>
-            <Link to="/account/orders">Clear filters →</Link>
+            <Link to="/account/orders">フィルターをクリア →</Link>
           </p>
         </>
       ) : (
         <>
-          <p>You haven&apos;t placed any orders yet.</p>
+          <p>まだ注文がありません。</p>
           <br />
           <p>
-            <Link to="/collections">Start Shopping →</Link>
+            <Link to="/collections">お買い物を始める →</Link>
           </p>
         </>
       )}
@@ -156,22 +160,22 @@ function OrderSearchForm({
       aria-label="Search orders"
     >
       <fieldset className="order-search-fieldset">
-        <legend className="order-search-legend">Filter Orders</legend>
+        <legend className="order-search-legend">注文を検索</legend>
 
         <div className="order-search-inputs">
           <input
             type="search"
             name={ORDER_FILTER_FIELDS.NAME}
-            placeholder="Order #"
-            aria-label="Order number"
+            placeholder="注文番号"
+            aria-label="注文番号"
             defaultValue={currentFilters.name || ''}
             className="order-search-input"
           />
           <input
             type="search"
             name={ORDER_FILTER_FIELDS.CONFIRMATION_NUMBER}
-            placeholder="Confirmation #"
-            aria-label="Confirmation number"
+            placeholder="確認番号"
+            aria-label="確認番号"
             defaultValue={currentFilters.confirmationNumber || ''}
             className="order-search-input"
           />
@@ -179,7 +183,7 @@ function OrderSearchForm({
 
         <div className="order-search-buttons">
           <button type="submit" disabled={isSearching}>
-            {isSearching ? 'Searching' : 'Search'}
+            {isSearching ? '検索中' : '検索'}
           </button>
           {hasFilters && (
             <button
@@ -190,7 +194,7 @@ function OrderSearchForm({
                 formRef.current?.reset();
               }}
             >
-              Clear
+              クリア
             </button>
           )}
         </div>
@@ -207,16 +211,20 @@ function OrderItem({order}: {order: OrderItemFragment}) {
         <Link to={`/account/orders/${btoa(order.id)}`}>
           <strong>#{order.number}</strong>
         </Link>
-        <p>{new Date(order.processedAt).toDateString()}</p>
+        <p>{order.processedAt ? new Date(order.processedAt).toDateString() : 'Unknown'}</p>
         {order.confirmationNumber && (
-          <p>Confirmation: {order.confirmationNumber}</p>
+          <p>確認番号: {order.confirmationNumber}</p>
         )}
         <p>{order.financialStatus}</p>
         {fulfillmentStatus && <p>{fulfillmentStatus}</p>}
         <Money data={order.totalPrice} />
-        <Link to={`/account/orders/${btoa(order.id)}`}>View Order →</Link>
+        <Link to={`/account/orders/${btoa(order.id)}`}>注文詳細を見る →</Link>
       </fieldset>
       <br />
     </>
   );
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

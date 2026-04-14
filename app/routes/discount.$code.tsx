@@ -1,5 +1,6 @@
 import {redirect} from 'react-router';
 import type {Route} from './+types/discount.$code';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 
 /**
  * Automatically applies a discount found on the url
@@ -45,4 +46,8 @@ export async function loader({request, context, params}: Route.LoaderArgs) {
     status: 303,
     headers,
   });
+}
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
 }

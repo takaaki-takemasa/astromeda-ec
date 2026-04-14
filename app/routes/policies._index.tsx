@@ -1,9 +1,32 @@
 import {useLoaderData, Link} from 'react-router';
 import type {Route} from './+types/policies._index';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {AppError} from '~/lib/app-error';
 import type {PoliciesQuery, PolicyItemFragment} from 'storefrontapi.generated';
+import {STORE_URL} from '~/lib/astromeda-data';
+
+export const meta: Route.MetaFunction = () => {
+  const url = `${STORE_URL}/policies`;
+  const title = 'ASTROMEDA | ご利用規約・ポリシー';
+  return [
+    {title},
+    {name: 'description', content: 'ASTROMEDAのプライバシーポリシー、利用規約、返品・配送ポリシーなど。'},
+    {tagName: 'link' as const, rel: 'canonical', href: url},
+    {property: 'og:url', content: url},
+    {name: 'twitter:card', content: 'summary'},
+    {name: 'twitter:title', content: title},
+    {name: 'robots', content: 'noindex'},
+  ];
+};
 
 export async function loader({context}: Route.LoaderArgs) {
-  const data: PoliciesQuery = await context.storefront.query(POLICIES_QUERY);
+  let data: PoliciesQuery;
+  try {
+    data = await context.storefront.query(POLICIES_QUERY);
+  } catch (error) {
+    process.env.NODE_ENV === 'development' && console.error('[policies._index] Storefront API error:', error);
+    throw AppError.externalApi('ポリシーデータの取得に失敗しました');
+  }
 
   const shopPolicies = data.shop;
   const policies: PolicyItemFragment[] = [
@@ -15,7 +38,7 @@ export async function loader({context}: Route.LoaderArgs) {
   ].filter((policy): policy is PolicyItemFragment => policy != null);
 
   if (!policies.length) {
-    throw new Response('No policies found', {status: 404});
+    throw AppError.notFound('ポリシーが見つかりません');
   }
 
   return {policies};
@@ -67,3 +90,7 @@ const POLICIES_QUERY = `#graphql
     }
   }
 ` as const;
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
+}

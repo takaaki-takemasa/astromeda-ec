@@ -1,0 +1,65 @@
+# DG-05: Cloudflare Workers / Oxygen 設定
+# Shopify Hydrogen はOxygen上で動作するが、wrangler.tomlで
+# KV Namespaceバインディングを定義しておくことで
+# ローカル開発(miniflare)とOxygen本番の両方で使える
+
+name = "astromeda-ec"
+compatibility_date = "2024-01-01"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BR-01 & BR-02: KV Namespace Configuration
+# ═══════════════════════════════════════════════════════════════════════════
+# 医学メタファー: 骨格系の記憶領域
+# KVはエージェント状態、フラグ、レート制限を永続化する骨格記憶装置。
+#
+# セットアップ手順:
+# 1. Cloudflareダッシュボードにログイン
+# 2. Workers & Pages → KV タブ → 「Create namespace」
+# 3. 2つのnamespaceを作成:
+#    - astromeda-ec-kv-prod（本番用）
+#    - astromeda-ec-kv-preview（プレビュー用）
+# 4. 各namespaceのIDをダッシュボードからコピー
+# 5. 下記のREPLACE_WITH_*を実際のIDで置き換え
+# 6. npx tsx scripts/validate-env.ts で検証
+#
+# Oxygen環境では自動的にこのKVバインディングが有効化される。
+# ローカル開発(miniflare)ではmemoryバックアップを使用。
+# ═══════════════════════════════════════════════════════════════════════════
+
+[[kv_namespaces]]
+binding = "KV_STORE"
+id = "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID"
+preview_id = "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# BR-03: D1 Database Configuration (Phase 2)
+# ═══════════════════════════════════════════════════════════════════════════
+# 医学メタファー: 脳脊髄液（CSF）— 神経系の栄養供給・メッセージ仲介
+# D1はSQLiteベースの低遅延DBで、エージェント状態・監査ログ・メトリクスを永続化。
+#
+# セットアップ手順:
+# 1. wrangler d1 create astromeda-ec-db
+# 2. コマンドのoutputでdatabase_idを確認
+# 3. 下記のREPLACE_*を置き換え
+# 4. wrangler d1 migrations create init_schema
+# 5. app/db/migrations/0001_init.sql を作成（テーブルスキーマ）
+# 6. wrangler d1 migrations apply astromeda-ec-db
+#
+# 備考: Hydrogen環境ではDB接続はserver.tsで初期化される。
+#      D1バインディングはenv.DBから自動で参照される。
+# ═══════════════════════════════════════════════════════════════════════════
+
+[[d1_databases]]
+binding = "DB"
+database_name = "astromeda-ec-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+# プレビュー環境用D1（分離推奨）
+[[d1_databases]]
+binding = "DB_PREVIEW"
+database_name = "astromeda-ec-db-preview"
+database_id = "REPLACE_WITH_D1_PREVIEW_DATABASE_ID"
+
+[vars]
+# 環境変数（シークレットはwrangler secret putで設定）
+NODE_ENV = "production"

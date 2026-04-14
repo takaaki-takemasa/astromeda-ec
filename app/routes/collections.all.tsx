@@ -3,10 +3,22 @@ import {useLoaderData} from 'react-router';
 import {getPaginationVariables, Image, Money} from '@shopify/hydrogen';
 import {PaginatedResourceSection} from '~/components/PaginatedResourceSection';
 import {ProductItem} from '~/components/ProductItem';
+import {AppError} from '~/lib/app-error';
+import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {STORE_URL} from '~/lib/astromeda-data';
 import type {CollectionItemFragment} from 'storefrontapi.generated';
 
 export const meta: Route.MetaFunction = () => {
-  return [{title: `Hydrogen | Products`}];
+  return [
+    {title: '全商品一覧 | ASTROMEDA ゲーミングPC'},
+    {name: 'description', content: 'ASTROMEDAの全商品一覧。ゲーミングPC、ガジェット、グッズを一覧で検索。'},
+    // 9-18: canonical + og:url 追加
+    {tagName: 'link' as const, rel: 'canonical', href: `${STORE_URL}/collections`},
+    {property: 'og:title', content: '全商品一覧 | ASTROMEDA'},
+    {property: 'og:url', content: `${STORE_URL}/collections`},
+    {property: 'og:type', content: 'website'},
+    {name: 'twitter:card', content: 'summary'},
+  ];
 };
 
 export async function loader(args: Route.LoaderArgs) {
@@ -29,12 +41,18 @@ async function loadCriticalData({context, request}: Route.LoaderArgs) {
     pageBy: 8,
   });
 
-  const [{products}] = await Promise.all([
-    storefront.query(CATALOG_QUERY, {
-      variables: {...paginationVariables},
-    }),
-    // Add other queries here, so that they are loaded in parallel
-  ]);
+  let products;
+  try {
+    const [result] = await Promise.all([
+      storefront.query(CATALOG_QUERY, {
+        variables: {...paginationVariables},
+      }),
+    ]);
+    products = result.products;
+  } catch (error) {
+    process.env.NODE_ENV === 'development' && console.error('[collections.all] Storefront API error:', error);
+    throw AppError.externalApi('商品一覧の取得に失敗しました');
+  }
   return {products};
 }
 
@@ -120,3 +138,7 @@ const CATALOG_QUERY = `#graphql
   }
   ${COLLECTION_ITEM_FRAGMENT}
 ` as const;
+
+export function ErrorBoundary() {
+  return <RouteErrorBoundary />;
+}

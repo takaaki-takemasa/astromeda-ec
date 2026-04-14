@@ -204,7 +204,7 @@ export default [
       '@typescript-eslint/no-empty-function': 'off',
       '@typescript-eslint/no-empty-interface': 'off',
       '@typescript-eslint/no-empty-object-type': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-non-null-asserted-optional-chain': 'off',
       '@typescript-eslint/no-unused-vars': 'off',
@@ -212,6 +212,12 @@ export default [
       '@typescript-eslint/no-misused-promises': 'error',
       'react/prop-types': 'off',
       'import/no-unresolved': ['error', {ignore: ['^virtual:']}],
+      // P12: T109 - File size rule to keep modules manageable
+      'max-lines': ['warn', {
+        max: 500,
+        skipBlankLines: true,
+        skipComments: true,
+      }],
     },
   },
   {
@@ -222,12 +228,14 @@ export default [
       },
     },
   },
+  // テスト用設定: vitest (globals: true) は jest互換API を提供
+  // eslint-plugin-jest は vitest globals と互換性あり
   ...compat.extends('plugin:jest/recommended').map((config) => ({
     ...config,
-    files: ['**/*.test.*'],
+    files: ['**/*.test.*', '**/__tests__/**'],
   })),
   {
-    files: ['**/*.test.*'],
+    files: ['**/*.test.*', '**/__tests__/**'],
     plugins: {
       jest,
     },
@@ -236,6 +244,19 @@ export default [
         ...globals.node,
         ...globals.jest,
       },
+    },
+    settings: {
+      jest: {
+        version: 27, // vitest is compatible with jest 27+
+      },
+    },
+    rules: {
+      // vitest の vi.fn() 等は jest/no-mocks-import に引っかかるため無効化
+      'jest/no-mocks-import': 'off',
+      // vitest固有のimportを許可
+      'import/no-extraneous-dependencies': 'off',
+      // vitest-specific rules (not all jest rules apply)
+      'jest/no-deprecated-functions': 'off',
     },
   },
   {
