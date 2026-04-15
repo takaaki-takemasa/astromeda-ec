@@ -3,11 +3,43 @@ import {Link} from 'react-router';
 import {T, al, yen, PC_COLORS, PC_TIERS, PAGE_WIDTH} from '~/lib/astromeda-data';
 import {optimizeImageUrl, generateSrcSet} from '~/lib/cache-headers';
 
-interface PCShowcaseProps {
-  colorImages: Record<string, string>; // カラー名 → 画像URL
+export interface MetaColorModel {
+  id: string;
+  handle: string;
+  name: string;
+  slug: string;
+  image?: string | null;
+  colorCode: string;
+  sortOrder: number;
+  isActive: boolean;
 }
 
-function PCShowcaseComponent({colorImages}: PCShowcaseProps) {
+interface PCShowcaseProps {
+  colorImages: Record<string, string>; // カラー名 → 画像URL
+  metaColors?: MetaColorModel[] | null;
+}
+
+// YIQ 輝度判定: R*299+G*587+B*114)/1000 > 128 なら明色
+function isLightColor(hex: string): boolean {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return false;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) return false;
+  return (r * 299 + g * 587 + b * 114) / 1000 > 128;
+}
+
+function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
+  const activeMetaColors = useMemo(() => {
+    if (!metaColors || metaColors.length === 0) return null;
+    const filtered = metaColors.filter((m) => m.isActive);
+    if (filtered.length === 0) return null;
+    return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [metaColors]);
+
+  const titleCount = activeMetaColors ? activeMetaColors.length : 8;
+
   return (
     <section style={{...PAGE_WIDTH, paddingBottom: 'clamp(20px, 2.8vw, 32px)'}}>
       <div
@@ -22,7 +54,7 @@ function PCShowcaseComponent({colorImages}: PCShowcaseProps) {
           className="ph"
           style={{fontSize: 'clamp(14px, 1.6vw, 18px)', fontWeight: 900, color: T.tx}}
         >
-          全8色カラー
+          全{titleCount}色カラー
         </span>
         <span style={{fontSize: 'clamp(10px, 1.2vw, 12px)', color: T.t4}}>
           COLOR EDITIONS
@@ -30,7 +62,101 @@ function PCShowcaseComponent({colorImages}: PCShowcaseProps) {
       </div>
 
       <div className="pc-color-grid">
-        {PC_COLORS.map((c, i) => {
+        {activeMetaColors
+          ? activeMetaColors.map((c, i) => {
+              const imgUrl = c.image || colorImages[c.name] || null;
+              const isDark = !isLightColor(c.colorCode);
+              return (
+                <Link
+                  key={c.id}
+                  to={`/setup/${c.slug}`}
+                  className="pc-color-card"
+                  aria-label={`${c.name} Edition の詳細を見る`}
+                  style={{
+                    border: `1px solid ${al(c.colorCode, isDark ? 0.3 : 0.12)}`,
+                    textDecoration: 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      aspectRatio: '16/10',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      background: imgUrl
+                        ? T.bg
+                        : `linear-gradient(160deg, ${al(c.colorCode, 0.25)}, ${T.bg} 65%)`,
+                    }}
+                  >
+                    {imgUrl ? (
+                      <img
+                        src={optimizeImageUrl(imgUrl, 600)}
+                        srcSet={generateSrcSet(imgUrl, [300, 480, 600, 900, 1200])}
+                        sizes="(min-width: 1024px) 25vw, (min-width: 640px) 33vw, 50vw"
+                        alt={`${c.name} Edition`}
+                        width={600}
+                        height={375}
+                        loading={i < 4 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        {...(i < 2 ? {fetchPriority: 'high' as const} : {})}
+                        style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: `radial-gradient(circle at 35% 40%, ${al(c.colorCode, 0.35)}, transparent 55%)`,
+                        }}
+                      />
+                    )}
+                    <div
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: imgUrl
+                          ? 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.85))'
+                          : 'linear-gradient(180deg, transparent 20%, rgba(0,0,0,.75))',
+                      }}
+                    />
+                    <div
+                      style={{
+                        position: 'absolute',
+                        bottom: 'clamp(8px, 1.2vw, 14px)',
+                        left: 'clamp(10px, 1.5vw, 16px)',
+                        right: 'clamp(10px, 1.5vw, 16px)',
+                        zIndex: 1,
+                      }}
+                    >
+                      <div style={{display: 'flex', alignItems: 'center', gap: 6}}>
+                        <span
+                          style={{
+                            width: 'clamp(10px, 1.2vw, 14px)',
+                            height: 'clamp(10px, 1.2vw, 14px)',
+                            borderRadius: '50%',
+                            background: c.colorCode,
+                            border: isLightColor(c.colorCode) ? `1px solid ${al(T.tx, 0.3)}` : 'none',
+                            boxShadow: `0 0 20px ${c.colorCode}66`,
+                            flexShrink: 0,
+                            display: 'inline-block',
+                          }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 'clamp(11px, 1.4vw, 16px)',
+                            fontWeight: 900,
+                            color: T.tx,
+                            textShadow: '0 2px 8px rgba(0,0,0,.8)',
+                          }}
+                        >
+                          {c.name}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          : PC_COLORS.map((c, i) => {
           const imgUrl = colorImages[c.n] || c.img || null;
           return (
             <Link
@@ -130,7 +256,7 @@ function PCShowcaseComponent({colorImages}: PCShowcaseProps) {
               </div>
             </Link>
           );
-        })}
+            })}
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `

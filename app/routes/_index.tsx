@@ -13,6 +13,7 @@ import {CollabGrid} from '~/components/astro/CollabGrid';
 import type {MetaCollab} from '~/components/astro/CollabGrid';
 import {setAdminEnv, getAdminClient} from '../../agents/core/shopify-admin.js';
 import {PCShowcase} from '~/components/astro/PCShowcase';
+import type {MetaColorModel} from '~/components/astro/PCShowcase';
 // ScrollReveal removed: causes opacity:0 issues when CSS files return 503 from Shopify CDN
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import {preloadImage, optimizeImageUrl} from '~/lib/cache-headers';
@@ -100,8 +101,10 @@ export async function loader({context}: Route.LoaderArgs) {
     }
   })();
 
-  // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner）
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult] = await Promise.allSettled([
+  // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
+  const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
+    Promise.resolve([]);
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -113,13 +116,11 @@ export async function loader({context}: Route.LoaderArgs) {
     context.storefront
       .query(CATEGORY_IMAGES_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     // Metaobject: IP バナー（CollabGrid 用）
-    adminClient
-      ? adminClient.getMetaobjects('astromeda_ip_banner', 100)
-      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+    adminClient ? adminClient.getMetaobjects('astromeda_ip_banner', 100) : emptyMo(),
     // Metaobject: ヒーローバナー（HeroSlider 用）
-    adminClient
-      ? adminClient.getMetaobjects('astromeda_hero_banner', 50)
-      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+    adminClient ? adminClient.getMetaobjects('astromeda_hero_banner', 50) : emptyMo(),
+    // Metaobject: PC カラーモデル（PCShowcase 用）
+    adminClient ? adminClient.getMetaobjects('astromeda_pc_color_model', 100) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -128,6 +129,7 @@ export async function loader({context}: Route.LoaderArgs) {
   const catImagesRaw = catResult.status === 'fulfilled' ? catResult.value : null;
   const ipBannerRaw = ipBannerResult.status === 'fulfilled' ? ipBannerResult.value : [];
   const heroBannerRaw = heroBannerResult.status === 'fulfilled' ? heroBannerResult.value : [];
+  const pcColorModelRaw = pcColorModelResult.status === 'fulfilled' ? pcColorModelResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -165,6 +167,20 @@ export async function loader({context}: Route.LoaderArgs) {
       isActive: f['is_active'] === 'true',
       startAt: f['start_at'] || null,
       endAt: f['end_at'] || null,
+    };
+  });
+
+  const metaColors: MetaColorModel[] = pcColorModelRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      name: f['name'] || '',
+      slug: f['slug'] || '',
+      image: f['image'] || null,
+      colorCode: f['color_code'] || '#888888',
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
     };
   });
 
@@ -337,6 +353,7 @@ export async function loader({context}: Route.LoaderArgs) {
     firstHeroImageUrl,
     metaCollabs,
     metaBanners,
+    metaColors,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -509,6 +526,7 @@ export default function Homepage() {
       <div style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)'}}>
         <PCShowcase
           colorImages={(data.pcColorProducts as Record<string, string>) ?? {}}
+          metaColors={data.metaColors}
         />
         {/* PCTierCards（GAMER/STREAMER/CREATOR）は削除済み */}
       </div>
