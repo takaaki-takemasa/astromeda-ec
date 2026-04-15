@@ -25,7 +25,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Run linter
         run: npm run lint
@@ -70,7 +70,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Deploy to Staging
         run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
@@ -112,7 +112,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
 
       - name: Deploy to Production
         run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
