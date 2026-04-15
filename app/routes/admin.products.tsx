@@ -70,7 +70,13 @@ export async function loader({ context }: Route.LoaderArgs) {
       cache: context.storefront.CacheShort(),
     });
 
-    const productList = (products?.nodes || []) as Product[];
+    // GraphQL connection ({nodes:[...]}) を Product 型の配列形状にフラット化
+    // 未フラット化だと getThumbnail(product.images) で images[0].url が TypeError → SSR crash
+    const productList = ((products?.nodes || []) as Array<Record<string, unknown>>).map((p) => ({
+      ...p,
+      images: (p.images as {nodes?: unknown[]} | undefined)?.nodes || [],
+      variants: (p.variants as {nodes?: unknown[]} | undefined)?.nodes || [],
+    })) as unknown as Product[];
     const totalProducts = productList.length;
     const totalVariants = productList.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
 
