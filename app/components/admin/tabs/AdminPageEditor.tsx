@@ -12,6 +12,8 @@ import {useSearchParams} from 'react-router';
 import {T, al} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {PCShowcase} from '~/components/astro/PCShowcase';
+import {CollabGrid} from '~/components/astro/CollabGrid';
+import {HeroSlider} from '~/components/astro/HeroSlider';
 
 // ══════════════════════════════════════════════════════════
 // 型定義
@@ -68,7 +70,33 @@ interface FooterConfig {
   isActive: boolean;
 }
 
-type SubTab = 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs';
+interface IpBanner {
+  id: string;
+  handle: string;
+  name: string;
+  shopHandle: string;
+  image: string | null;
+  tagline: string | null;
+  label: string | null;
+  sortOrder: number;
+  featured: boolean;
+}
+
+interface HeroBanner {
+  id: string;
+  handle: string;
+  title: string;
+  subtitle: string | null;
+  image: string | null;
+  linkUrl: string | null;
+  ctaLabel: string | null;
+  sortOrder: number;
+  active: boolean;
+  startAt: string | null;
+  endAt: string | null;
+}
+
+type SubTab = 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners';
 
 type Toast = {id: number; message: string; type: 'success' | 'error'};
 
@@ -307,7 +335,7 @@ async function apiGet<T>(endpoint: string): Promise<T | null> {
 // メインコンポーネント
 // ══════════════════════════════════════════════════════════
 
-const VALID_SUB_TABS: SubTab[] = ['color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs'];
+const VALID_SUB_TABS: SubTab[] = ['color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners'];
 
 export default function AdminPageEditor() {
   const [searchParams] = useSearchParams();
@@ -326,6 +354,8 @@ export default function AdminPageEditor() {
   const {toasts, push} = useToasts();
 
   const tabs: Array<{key: SubTab; label: string}> = [
+    {key: 'ip_banners', label: 'IPコラボ'},
+    {key: 'hero_banners', label: 'ヒーローバナー'},
     {key: 'color_models', label: 'カラーモデル'},
     {key: 'category_cards', label: 'カテゴリカード'},
     {key: 'product_shelves', label: '商品棚'},
@@ -365,6 +395,8 @@ export default function AdminPageEditor() {
         ))}
       </div>
 
+      {subTab === 'ip_banners' && <IpBannersSection pushToast={push} />}
+      {subTab === 'hero_banners' && <HeroBannersSection pushToast={push} />}
       {subTab === 'color_models' && <ColorModelsSection pushToast={push} />}
       {subTab === 'category_cards' && <CategoryCardsSection pushToast={push} />}
       {subTab === 'product_shelves' && <ProductShelvesSection pushToast={push} />}
@@ -1990,6 +2022,501 @@ function FooterConfigForm({
                 links: links.filter((l) => l.label.trim() !== '' && l.url.trim() !== ''),
                 sortOrder,
                 isActive,
+              })
+            }
+            style={btn(true)}
+            disabled={saving}
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// IpBannersSection (astromeda_ip_banner) — Sprint 4 Part C
+// ══════════════════════════════════════════════════════════
+
+function IpBannersSection({pushToast}: SectionProps) {
+  const [items, setItems] = useState<IpBanner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<IpBanner | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await apiGet<{collabs: IpBanner[]}>('/api/admin/homepage');
+    setItems(res?.collabs || []);
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleSave = async (form: Partial<IpBanner> & {handle?: string}, isCreate: boolean) => {
+    setSaving(true);
+    const body: Record<string, unknown> = isCreate
+      ? {
+          action: 'create_collab',
+          handle: form.handle || '',
+          name: form.name || '',
+          shopHandle: form.shopHandle || '',
+          featured: form.featured ?? true,
+          sortOrder: form.sortOrder ?? 0,
+          image: form.image || undefined,
+          tagline: form.tagline || undefined,
+          label: form.label || undefined,
+        }
+      : {
+          action: 'update_collab',
+          metaobjectId: form.id,
+          name: form.name,
+          shopHandle: form.shopHandle,
+          featured: form.featured,
+          sortOrder: form.sortOrder,
+          image: form.image || undefined,
+          tagline: form.tagline || undefined,
+          label: form.label || undefined,
+        };
+    const res = await apiPost('/api/admin/homepage', body);
+    setSaving(false);
+    if (res.success) {
+      pushToast('保存しました', 'success');
+      setEditing(null);
+      setCreating(false);
+      await load();
+    } else {
+      pushToast(`失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('このエントリを削除しますか？')) return;
+    const res = await apiPost('/api/admin/homepage', {action: 'delete_collab', metaobjectId: id});
+    if (res.success) {
+      pushToast('削除しました', 'success');
+      await load();
+    } else {
+      pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const modalOpen = creating || editing !== null;
+  const initial: Partial<IpBanner> = creating ? {sortOrder: 0, featured: true} : editing || {};
+
+  return (
+    <div style={cardStyle}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
+        <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>IPコラボバナー ({items.length})</div>
+        <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+      </div>
+      {loading ? (
+        <div style={{textAlign: 'center', padding: 40}}><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 30}}>エントリがありません（フロントは COLLABS 26件フォールバック使用中）</div>
+      ) : (
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr>
+              <th style={thStyle}>IP名</th>
+              <th style={thStyle}>コレクション</th>
+              <th style={thStyle}>ラベル</th>
+              <th style={thStyle}>順</th>
+              <th style={thStyle}>状態</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr key={c.id}>
+                <td style={tdStyle}>{c.name}</td>
+                <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shopHandle}</td>
+                <td style={tdStyle}>{c.label || '—'}</td>
+                <td style={tdStyle}>{c.sortOrder}</td>
+                <td style={tdStyle}>{c.featured ? '✓' : '—'}</td>
+                <td style={{...tdStyle, textAlign: 'right'}}>
+                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {modalOpen && (
+        <IpBannerForm
+          initial={initial}
+          isCreate={creating}
+          saving={saving}
+          onCancel={() => {
+            setEditing(null);
+            setCreating(false);
+          }}
+          onSubmit={(form) => handleSave(form, creating)}
+        />
+      )}
+    </div>
+  );
+}
+
+function IpBannerForm({
+  initial,
+  isCreate,
+  saving,
+  onCancel,
+  onSubmit,
+}: {
+  initial: Partial<IpBanner>;
+  isCreate: boolean;
+  saving: boolean;
+  onCancel: () => void;
+  onSubmit: (form: Partial<IpBanner> & {handle?: string}) => void;
+}) {
+  const [handle, setHandle] = useState(initial.handle || '');
+  const [name, setName] = useState(initial.name || '');
+  const [shopHandle, setShopHandle] = useState(initial.shopHandle || '');
+  const [image, setImage] = useState(initial.image || '');
+  const [tagline, setTagline] = useState(initial.tagline || '');
+  const [label, setLabel] = useState(initial.label || '');
+  const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
+  const [featured, setFeatured] = useState(initial.featured ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Live preview: CollabGrid に 1 件の MetaCollab を渡して 1 カードを描画
+  const previewMeta = [
+    {
+      id: initial.id || 'preview',
+      handle: handle || 'preview',
+      name: name || '(未入力)',
+      shopHandle: shopHandle || 'preview',
+      image: image || null,
+      tagline: tagline || null,
+      label: label || null,
+      sortOrder,
+      featured: true,
+    },
+  ];
+
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <CollabGrid collections={null} metaCollabs={previewMeta} />
+    </PreviewFrame>
+  );
+
+  return (
+    <Modal
+      title={isCreate ? 'IPコラボ 新規追加' : 'IPコラボ 編集'}
+      onClose={onCancel}
+      preview={previewPane}
+    >
+      <div style={{display: 'grid', gap: 12}}>
+        {isCreate && (
+          <div>
+            <label style={labelStyle}>Handle</label>
+            <input type="text" value={handle} onChange={(e) => setHandle(e.target.value)} style={inputStyle} placeholder="onepiece-collab" />
+          </div>
+        )}
+        <div>
+          <label style={labelStyle}>IP名</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="ONE PIECE" />
+        </div>
+        <div>
+          <label style={labelStyle}>Shopifyコレクションハンドル</label>
+          <input type="text" value={shopHandle} onChange={(e) => setShopHandle(e.target.value)} style={inputStyle} placeholder="onepiece" />
+        </div>
+        <div>
+          <label style={labelStyle}>画像 (URL または Shopify file GID)</label>
+          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>タグライン（任意）</label>
+          <input type="text" value={tagline} onChange={(e) => setTagline(e.target.value)} style={inputStyle} placeholder="15カテゴリ" />
+        </div>
+        <div>
+          <label style={labelStyle}>ラベル（NEW / HOT / COLLAB など）</label>
+          <input type="text" value={label} onChange={(e) => setLabel(e.target.value)} style={inputStyle} placeholder="HOT" />
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
+            <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
+            有効（フロント表示）
+          </label>
+        </div>
+        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+          <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>
+          <button
+            type="button"
+            onClick={() => onSubmit({id: initial.id, handle, name, shopHandle, image, tagline, label, sortOrder, featured})}
+            style={btn(true)}
+            disabled={saving}
+          >
+            {saving ? '保存中...' : '保存'}
+          </button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// HeroBannersSection (astromeda_hero_banner) — Sprint 4 Part C
+// ══════════════════════════════════════════════════════════
+
+function HeroBannersSection({pushToast}: SectionProps) {
+  const [items, setItems] = useState<HeroBanner[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<HeroBanner | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await apiGet<{banners: HeroBanner[]}>('/api/admin/homepage');
+    setItems(res?.banners || []);
+    setLoading(false);
+  }, []);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleSave = async (form: Partial<HeroBanner> & {handle?: string}, isCreate: boolean) => {
+    setSaving(true);
+    const body: Record<string, unknown> = isCreate
+      ? {
+          action: 'create_banner',
+          handle: form.handle || '',
+          title: form.title || '',
+          subtitle: form.subtitle || undefined,
+          image: form.image || undefined,
+          linkUrl: form.linkUrl || undefined,
+          ctaLabel: form.ctaLabel || undefined,
+          sortOrder: form.sortOrder ?? 0,
+          active: form.active ?? true,
+          startAt: form.startAt || undefined,
+          endAt: form.endAt || undefined,
+        }
+      : {
+          action: 'update_banner',
+          metaobjectId: form.id,
+          title: form.title,
+          subtitle: form.subtitle || undefined,
+          image: form.image || undefined,
+          linkUrl: form.linkUrl || undefined,
+          ctaLabel: form.ctaLabel || undefined,
+          sortOrder: form.sortOrder,
+          active: form.active,
+          startAt: form.startAt || undefined,
+          endAt: form.endAt || undefined,
+        };
+    const res = await apiPost('/api/admin/homepage', body);
+    setSaving(false);
+    if (res.success) {
+      pushToast('保存しました', 'success');
+      setEditing(null);
+      setCreating(false);
+      await load();
+    } else {
+      pushToast(`失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('このエントリを削除しますか？')) return;
+    const res = await apiPost('/api/admin/homepage', {action: 'delete_banner', metaobjectId: id});
+    if (res.success) {
+      pushToast('削除しました', 'success');
+      await load();
+    } else {
+      pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const modalOpen = creating || editing !== null;
+  const initial: Partial<HeroBanner> = creating ? {sortOrder: 0, active: true} : editing || {};
+
+  return (
+    <div style={cardStyle}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
+        <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>ヒーローバナー ({items.length})</div>
+        <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+      </div>
+      {loading ? (
+        <div style={{textAlign: 'center', padding: 40}}><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 30}}>エントリがありません（フロントは FEATURED フォールバック使用中）</div>
+      ) : (
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr>
+              <th style={thStyle}>タイトル</th>
+              <th style={thStyle}>CTA</th>
+              <th style={thStyle}>期間</th>
+              <th style={thStyle}>順</th>
+              <th style={thStyle}>状態</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((c) => (
+              <tr key={c.id}>
+                <td style={tdStyle}>{c.title}</td>
+                <td style={{...tdStyle, color: T.t5}}>{c.ctaLabel || '—'}</td>
+                <td style={{...tdStyle, color: T.t5, fontSize: 10, fontFamily: 'monospace'}}>
+                  {c.startAt || '∞'} 〜 {c.endAt || '∞'}
+                </td>
+                <td style={tdStyle}>{c.sortOrder}</td>
+                <td style={tdStyle}>{c.active ? '✓' : '—'}</td>
+                <td style={{...tdStyle, textAlign: 'right'}}>
+                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {modalOpen && (
+        <HeroBannerForm
+          initial={initial}
+          isCreate={creating}
+          saving={saving}
+          onCancel={() => {
+            setEditing(null);
+            setCreating(false);
+          }}
+          onSubmit={(form) => handleSave(form, creating)}
+        />
+      )}
+    </div>
+  );
+}
+
+function HeroBannerForm({
+  initial,
+  isCreate,
+  saving,
+  onCancel,
+  onSubmit,
+}: {
+  initial: Partial<HeroBanner>;
+  isCreate: boolean;
+  saving: boolean;
+  onCancel: () => void;
+  onSubmit: (form: Partial<HeroBanner> & {handle?: string}) => void;
+}) {
+  const [handle, setHandle] = useState(initial.handle || '');
+  const [title, setTitle] = useState(initial.title || '');
+  const [subtitle, setSubtitle] = useState(initial.subtitle || '');
+  const [image, setImage] = useState(initial.image || '');
+  const [linkUrl, setLinkUrl] = useState(initial.linkUrl || '');
+  const [ctaLabel, setCtaLabel] = useState(initial.ctaLabel || '');
+  const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
+  const [active, setActive] = useState(initial.active ?? true);
+  const [startAt, setStartAt] = useState(initial.startAt || '');
+  const [endAt, setEndAt] = useState(initial.endAt || '');
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  const previewMeta = [
+    {
+      id: initial.id || 'preview',
+      handle: handle || 'preview',
+      title: title || '(タイトル未入力)',
+      subtitle: subtitle || null,
+      image: image || null,
+      linkUrl: linkUrl || null,
+      ctaLabel: ctaLabel || null,
+      sortOrder,
+      isActive: true,
+      startAt: null, // preview では期間フィルタ無効化
+      endAt: null,
+    },
+  ];
+
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <HeroSlider collections={null} metaBanners={previewMeta} />
+    </PreviewFrame>
+  );
+
+  return (
+    <Modal
+      title={isCreate ? 'ヒーローバナー 新規追加' : 'ヒーローバナー 編集'}
+      onClose={onCancel}
+      preview={previewPane}
+    >
+      <div style={{display: 'grid', gap: 12}}>
+        {isCreate && (
+          <div>
+            <label style={labelStyle}>Handle</label>
+            <input type="text" value={handle} onChange={(e) => setHandle(e.target.value)} style={inputStyle} placeholder="spring-sale-banner" />
+          </div>
+        )}
+        <div>
+          <label style={labelStyle}>タイトル</label>
+          <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>サブタイトル（任意）</label>
+          <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>画像 (URL または Shopify file GID)</label>
+          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={labelStyle}>リンク URL</label>
+          <input type="text" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} style={inputStyle} placeholder="/collections/sale" />
+        </div>
+        <div>
+          <label style={labelStyle}>CTA ラベル</label>
+          <input type="text" value={ctaLabel} onChange={(e) => setCtaLabel(e.target.value)} style={inputStyle} placeholder="今すぐ見る →" />
+        </div>
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+          <div>
+            <label style={labelStyle}>開始日時（ISO）</label>
+            <input type="text" value={startAt} onChange={(e) => setStartAt(e.target.value)} style={inputStyle} placeholder="2026-01-01T00:00:00Z" />
+          </div>
+          <div>
+            <label style={labelStyle}>終了日時（ISO）</label>
+            <input type="text" value={endAt} onChange={(e) => setEndAt(e.target.value)} style={inputStyle} placeholder="2026-12-31T23:59:59Z" />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
+        </div>
+        <div>
+          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
+            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            有効（フロント表示）
+          </label>
+        </div>
+        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+          <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>
+          <button
+            type="button"
+            onClick={() =>
+              onSubmit({
+                id: initial.id,
+                handle,
+                title,
+                subtitle,
+                image,
+                linkUrl,
+                ctaLabel,
+                sortOrder,
+                active,
+                startAt,
+                endAt,
               })
             }
             style={btn(true)}
