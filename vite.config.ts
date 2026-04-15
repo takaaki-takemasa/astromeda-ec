@@ -78,15 +78,12 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'postgres',
-        'drizzle-orm',
-        'drizzle-orm/postgres-js',
-        'drizzle-orm/pg-core',
         'cloudflare:sockets',
       ],
     },
   },
   ssr: {
-    external: ['postgres', 'drizzle-orm', 'drizzle-orm/postgres-js', 'drizzle-orm/pg-core'],
+    external: ['postgres'],
     optimizeDeps: {
       /**
        * Include dependencies here if they throw CJS<>ESM errors.
