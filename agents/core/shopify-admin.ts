@@ -118,6 +118,74 @@ export interface ProductSummary {
   avgPrice: number;
 }
 
+/** バリアント一括更新の入力型（productVariantsBulkUpdate 用） */
+export interface VariantBulkUpdateInput {
+  id: string;
+  price?: string;
+  compareAtPrice?: string;
+  sku?: string;
+  barcode?: string;
+  taxable?: boolean;
+  inventoryPolicy?: 'DENY' | 'CONTINUE';
+  inventoryItem?: {
+    sku?: string;
+    tracked?: boolean;
+  };
+}
+
+/** 商品画像メディア */
+export interface ProductImage {
+  id: string;
+  alt: string | null;
+  url: string;
+  width?: number;
+  height?: number;
+}
+
+/** 商品メタフィールド */
+export interface ProductMetafield {
+  id: string;
+  namespace: string;
+  key: string;
+  value: string;
+  type: string;
+}
+
+/** getProductDetail の返却型（全フィールド+variants+images+metafields） */
+export interface ProductDetail {
+  id: string;
+  title: string;
+  handle: string;
+  status: string;
+  descriptionHtml: string;
+  productType: string;
+  vendor: string;
+  tags: string[];
+  totalInventory: number;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt: string | null;
+  seo: {title: string | null; description: string | null};
+  priceRangeV2: {
+    minVariantPrice: {amount: string; currencyCode: string};
+    maxVariantPrice: {amount: string; currencyCode: string};
+  };
+  featuredImage: {id: string; url: string; altText: string | null} | null;
+  variants: Array<{
+    id: string;
+    title: string;
+    price: string;
+    compareAtPrice: string | null;
+    sku: string;
+    barcode: string | null;
+    inventoryQuantity: number;
+    inventoryItem: {id: string; tracked: boolean};
+    selectedOptions: Array<{name: string; value: string}>;
+  }>;
+  images: ProductImage[];
+  metafields: ProductMetafield[];
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -728,6 +796,407 @@ export class ShopifyAdminClient {
     } catch (err) {
       this.notifyError('getMetaobjects', err);
       return [];
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // ── Sprint 1: 商品運用向け追加ミューテーション（2025-10 API） ──
+  // ══════════════════════════════════════════════════════════
+
+  /**
+   * バリアントを一括更新（productVariantsBulkUpdate）
+   * 価格/SKU/在庫ポリシー等を1回のAPIコールで複数バリアントに反映。
+   */
+  async productVariantsBulkUpdate(
+    productId: string,
+    variants: VariantBulkUpdateInput[],
+  ): Promise<Array<{id: string; title: string; price: string}>> {
+    const gql = `
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants { id title price }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productVariantsBulkUpdate: {
+          productVariants: Array<{id: string; title: string; price: string}> | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {productId, variants});
+
+      const {productVariants, userErrors} = res.productVariantsBulkUpdate;
+      if (userErrors.length > 0) {
+        throw new Error(`バリアント一括更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      const updated = productVariants || [];
+      log.info(`[productVariantsBulkUpdate] Updated ${updated.length} variants for ${productId}`);
+      return updated;
+    } catch (err) {
+      this.notifyError('productVariantsBulkUpdate', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 在庫数量を相対調整（inventoryAdjustQuantities）
+   * delta は増減量（正で加算、負で減算）。available quantityName を使用。
+   */
+  async inventoryAdjustQuantity(
+    inventoryItemId: string,
+    locationId: string,
+    delta: number,
+  ): Promise<{createdAt: string; reason: string}> {
+    const gql = `
+      mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
+        inventoryAdjustQuantities(input: $input) {
+          inventoryAdjustmentGroup { createdAt reason }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        inventoryAdjustQuantities: {
+          inventoryAdjustmentGroup: {createdAt: string; reason: string} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        input: {
+          reason: 'correction',
+          name: 'available',
+          changes: [{delta, inventoryItemId, locationId}],
+        },
+      });
+
+      const {inventoryAdjustmentGroup, userErrors} = res.inventoryAdjustQuantities;
+      if (userErrors.length > 0) {
+        throw new Error(`在庫調整失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!inventoryAdjustmentGroup) {
+        throw new Error('在庫調整: レスポンスに inventoryAdjustmentGroup が含まれません');
+      }
+      log.info(`[inventoryAdjustQuantity] ${inventoryItemId} @${locationId} delta=${delta}`);
+      return inventoryAdjustmentGroup;
+    } catch (err) {
+      this.notifyError('inventoryAdjustQuantity', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像を追加（productCreateMedia, IMAGE タイプ）
+   */
+  async productImageCreate(
+    productId: string,
+    src: string,
+    altText?: string,
+  ): Promise<{id: string; alt: string | null}> {
+    const gql = `
+      mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+        productCreateMedia(productId: $productId, media: $media) {
+          media { ... on MediaImage { id alt image { url } } }
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productCreateMedia: {
+          media: Array<{id: string; alt: string | null}> | null;
+          mediaUserErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        productId,
+        media: [{originalSource: src, alt: altText || '', mediaContentType: 'IMAGE'}],
+      });
+
+      const {media, mediaUserErrors} = res.productCreateMedia;
+      if (mediaUserErrors.length > 0) {
+        throw new Error(`商品画像作成失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
+      }
+      const created = media?.[0];
+      if (!created) throw new Error('商品画像作成: レスポンスに media が含まれません');
+      log.info(`[productImageCreate] Created media ${created.id} for ${productId}`);
+      return created;
+    } catch (err) {
+      this.notifyError('productImageCreate', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像を削除（productDeleteMedia）
+   * 2025-10 API は productId が必須のため、第1引数に追加。
+   */
+  async productImageDelete(productId: string, imageId: string): Promise<boolean> {
+    const gql = `
+      mutation productDeleteMedia($productId: ID!, $mediaIds: [ID!]!) {
+        productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
+          deletedMediaIds
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productDeleteMedia: {
+          deletedMediaIds: string[] | null;
+          mediaUserErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {productId, mediaIds: [imageId]});
+
+      const {deletedMediaIds, mediaUserErrors} = res.productDeleteMedia;
+      if (mediaUserErrors.length > 0) {
+        const isAlreadyDeleted = mediaUserErrors.some(
+          (e) =>
+            e.message.toLowerCase().includes('not found') ||
+            e.message.toLowerCase().includes('does not exist'),
+        );
+        if (isAlreadyDeleted) {
+          log.info(`[productImageDelete] Already deleted: ${imageId}`);
+          return true;
+        }
+        throw new Error(`商品画像削除失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productImageDelete] Deleted ${deletedMediaIds?.length ?? 0} media from ${productId}`);
+      return true;
+    } catch (err) {
+      this.notifyError('productImageDelete', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像の表示順を変更（productReorderMedia）
+   * imageIds は希望順序で並べて渡す（0-indexed で newPosition を自動採番）。
+   */
+  async productImageReorder(productId: string, imageIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation productReorderMedia($id: ID!, $moves: [MoveInput!]!) {
+        productReorderMedia(id: $id, moves: $moves) {
+          job { id }
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+
+    const moves = imageIds.map((id, i) => ({id, newPosition: String(i)}));
+
+    try {
+      const res = await this.query<{
+        productReorderMedia: {
+          job: {id: string} | null;
+          mediaUserErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {id: productId, moves});
+
+      const {mediaUserErrors} = res.productReorderMedia;
+      if (mediaUserErrors.length > 0) {
+        throw new Error(`商品画像並び替え失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productImageReorder] Reordered ${imageIds.length} images for ${productId}`);
+      return true;
+    } catch (err) {
+      this.notifyError('productImageReorder', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品を公開チャネルに公開（publishablePublish）
+   */
+  async productPublish(productId: string, publicationIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+        publishablePublish(id: $id, input: $input) {
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        publishablePublish: {
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        id: productId,
+        input: publicationIds.map((publicationId) => ({publicationId})),
+      });
+
+      const {userErrors} = res.publishablePublish;
+      if (userErrors.length > 0) {
+        throw new Error(`商品公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productPublish] Published ${productId} to ${publicationIds.length} channels`);
+      return true;
+    } catch (err) {
+      this.notifyError('productPublish', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品を公開チャネルから非公開化（publishableUnpublish）
+   */
+  async productUnpublish(productId: string, publicationIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation publishableUnpublish($id: ID!, $input: [PublicationInput!]!) {
+        publishableUnpublish(id: $id, input: $input) {
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        publishableUnpublish: {
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        id: productId,
+        input: publicationIds.map((publicationId) => ({publicationId})),
+      });
+
+      const {userErrors} = res.publishableUnpublish;
+      if (userErrors.length > 0) {
+        throw new Error(`商品非公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productUnpublish] Unpublished ${productId} from ${publicationIds.length} channels`);
+      return true;
+    } catch (err) {
+      this.notifyError('productUnpublish', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品詳細を全フィールド取得（variants/images/metafields 含む）
+   */
+  async getProductDetail(productId: string): Promise<ProductDetail | null> {
+    const gql = `
+      query getProductDetail($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          handle
+          status
+          descriptionHtml
+          productType
+          vendor
+          tags
+          totalInventory
+          createdAt
+          updatedAt
+          publishedAt
+          seo { title description }
+          priceRangeV2 {
+            minVariantPrice { amount currencyCode }
+            maxVariantPrice { amount currencyCode }
+          }
+          featuredImage { id url altText }
+          variants(first: 100) {
+            nodes {
+              id
+              title
+              price
+              compareAtPrice
+              sku
+              barcode
+              inventoryQuantity
+              inventoryItem { id tracked }
+              selectedOptions { name value }
+            }
+          }
+          media(first: 50, query: "media_type:IMAGE") {
+            nodes {
+              ... on MediaImage {
+                id
+                alt
+                image { url width height }
+              }
+            }
+          }
+          metafields(first: 50) {
+            nodes { id namespace key value type }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        product: {
+          id: string;
+          title: string;
+          handle: string;
+          status: string;
+          descriptionHtml: string;
+          productType: string;
+          vendor: string;
+          tags: string[];
+          totalInventory: number;
+          createdAt: string;
+          updatedAt: string;
+          publishedAt: string | null;
+          seo: {title: string | null; description: string | null};
+          priceRangeV2: ProductDetail['priceRangeV2'];
+          featuredImage: {id: string; url: string; altText: string | null} | null;
+          variants: {nodes: ProductDetail['variants']};
+          media: {
+            nodes: Array<{
+              id?: string;
+              alt?: string | null;
+              image?: {url: string; width?: number; height?: number} | null;
+            }>;
+          };
+          metafields: {nodes: ProductMetafield[]};
+        } | null;
+      }>(gql, {id: productId});
+
+      if (!res.product) return null;
+      const p = res.product;
+
+      const images: ProductImage[] = (p.media?.nodes || [])
+        .filter((m) => m.id && m.image?.url)
+        .map((m) => ({
+          id: m.id as string,
+          alt: m.alt ?? null,
+          url: (m.image as {url: string}).url,
+          width: m.image?.width,
+          height: m.image?.height,
+        }));
+
+      return {
+        id: p.id,
+        title: p.title,
+        handle: p.handle,
+        status: p.status,
+        descriptionHtml: p.descriptionHtml,
+        productType: p.productType,
+        vendor: p.vendor,
+        tags: p.tags,
+        totalInventory: p.totalInventory,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        publishedAt: p.publishedAt,
+        seo: p.seo,
+        priceRangeV2: p.priceRangeV2,
+        featuredImage: p.featuredImage,
+        variants: p.variants?.nodes || [],
+        images,
+        metafields: p.metafields?.nodes || [],
+      };
+    } catch (err) {
+      this.notifyError('getProductDetail', err);
+      throw err;
     }
   }
 

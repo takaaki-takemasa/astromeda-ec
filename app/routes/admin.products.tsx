@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useLoaderData, useNavigation, useFetcher } from 'react-router';
+import { useLoaderData, useNavigation, useFetcher, Link } from 'react-router';
 import type { Route } from './+types/admin.products';
 import { AppError } from '~/lib/app-error';
 import { PAGE_WIDTH, T } from '~/lib/astromeda-data';
@@ -540,6 +540,25 @@ function ProductRow({ product, isExpanded, onToggle, onEdit, onDelete }: Product
           {product.variants?.length || 0}
           <div style={{ fontSize: 10, color: T.t4 }}>{isExpanded ? '▼' : '▶'}</div>
         </div>
+
+        {/* Detail Button — Sprint 1 Part 3 */}
+        <Link
+          to={`/admin/products/${encodeURIComponent(product.id.split('/').pop() || product.id)}`}
+          style={{
+            padding: '6px 12px',
+            fontSize: 11,
+            fontWeight: 600,
+            color: T.tx,
+            background: T.c,
+            border: `1px solid ${T.c}`,
+            borderRadius: 6,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            textDecoration: 'none',
+          }}
+        >
+          詳細
+        </Link>
 
         {/* Edit Button */}
         <button
