@@ -1769,15 +1769,165 @@ function FooterConfigForm({
   const [links, setLinks] = useState<Array<{label: string; url: string}>>(initial.links || []);
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
 
   const updateLink = (idx: number, key: 'label' | 'url', value: string) => {
     setLinks((prev) => prev.map((x, i) => (i === idx ? {...x, [key]: value} : x)));
   };
   const addLink = () => setLinks((prev) => [...prev, {label: '', url: ''}]);
   const removeLink = (idx: number) => setLinks((prev) => prev.filter((_, i) => i !== idx));
+  const moveLink = (idx: number, dir: -1 | 1) => {
+    setLinks((prev) => {
+      const target = idx + dir;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  // Live preview — AstroFooter.tsx multi-column mode を再現
+  // 1 FooterConfig エントリ = 1 カラム。編集中カラム + 3 プレースホルダーで 4カラムグリッド
+  const previewLinks = links.filter((l) => l.label.trim() !== '');
+  const isMobile = device === 'mobile';
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <footer
+        style={{
+          borderTop: `1px solid ${al(T.c, 0.2)}`,
+          background: '#000',
+          opacity: isActive ? 1 : 0.5,
+        }}
+      >
+        <section style={{padding: '36px 28px 20px'}}>
+          {/* Brand */}
+          <div style={{marginBottom: 28}}>
+            <div
+              style={{
+                fontSize: 20,
+                fontWeight: 900,
+                color: T.tx,
+                letterSpacing: 4,
+                marginBottom: 8,
+              }}
+            >
+              ASTROMEDA
+            </div>
+            <div style={{fontSize: 11, color: T.t4, maxWidth: 500, lineHeight: 1.6}}>
+              株式会社マイニングベースが手掛けるゲーミングPCブランド。
+            </div>
+          </div>
+
+          {/* 4-column grid (編集中カラム + 3 placeholder) */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)',
+              gap: 20,
+              marginBottom: 28,
+            }}
+          >
+            {/* 編集中カラム */}
+            <div>
+              <div
+                style={{
+                  fontWeight: 800,
+                  color: T.tx,
+                  fontSize: 12,
+                  letterSpacing: 1,
+                  marginBottom: 10,
+                  paddingBottom: 6,
+                  borderBottom: `1px solid ${al(T.c, 0.3)}`,
+                }}
+              >
+                {sectionTitle || '(セクション名未入力)'}
+              </div>
+              <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                {previewLinks.length === 0 ? (
+                  <div style={{fontSize: 10, color: T.t4, fontStyle: 'italic'}}>(リンク未設定)</div>
+                ) : (
+                  previewLinks.map((lk, i) => (
+                    <a
+                      key={`${lk.label}-${i}`}
+                      style={{
+                        color: T.t4,
+                        textDecoration: 'underline',
+                        fontSize: 11,
+                        cursor: 'default',
+                      }}
+                    >
+                      {lk.label}
+                    </a>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* placeholder columns (non-mobile のみ) */}
+            {!isMobile &&
+              [0, 1, 2].map((i) => (
+                <div key={`ph${i}`}>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: al(T.tx, 0.25),
+                      fontSize: 12,
+                      letterSpacing: 1,
+                      marginBottom: 10,
+                      paddingBottom: 6,
+                      borderBottom: `1px dashed ${al(T.tx, 0.1)}`,
+                    }}
+                  >
+                    (他のカラム)
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                    {[0, 1, 2].map((j) => (
+                      <div
+                        key={j}
+                        style={{
+                          height: 8,
+                          background: al(T.tx, 0.05),
+                          borderRadius: 2,
+                          width: `${60 + j * 10}%`,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+
+          {/* Copyright + SNS (固定) */}
+          <div
+            style={{
+              borderTop: `1px solid ${al(T.tx, 0.1)}`,
+              paddingTop: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 10,
+            }}
+          >
+            <div style={{fontSize: 10, color: T.t3}}>
+              © 2026 Mining Base Co., Ltd. ALL RIGHTS RESERVED.
+            </div>
+            <div style={{display: 'flex', gap: 10, fontSize: 10, color: T.t4}}>
+              <span>X</span>
+              <span>LINE</span>
+              <span>Instagram</span>
+            </div>
+          </div>
+        </section>
+      </footer>
+      <div style={{fontSize: 9, color: T.t4, textAlign: 'center', marginTop: 8, padding: '0 8px'}}>
+        ※ 1 エントリ = 1 カラム。他カラムは別 FooterConfig エントリとして管理
+      </div>
+    </PreviewFrame>
+  );
 
   return (
-    <Modal title={isCreate ? 'フッター 新規追加' : 'フッター 編集'} onClose={onCancel}>
+    <Modal title={isCreate ? 'フッター 新規追加' : 'フッター 編集'} onClose={onCancel} preview={previewPane}>
       <div style={{display: 'grid', gap: 12}}>
         {isCreate && (
           <div>
@@ -1793,7 +1943,7 @@ function FooterConfigForm({
           <label style={labelStyle}>リンク一覧 ({links.length} 件)</label>
           <div style={{display: 'grid', gap: 6}}>
             {links.map((lk, i) => (
-              <div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 6}}>
+              <div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 2fr auto auto auto', gap: 4, alignItems: 'center'}}>
                 <input
                   type="text"
                   value={lk.label}
@@ -1808,6 +1958,8 @@ function FooterConfigForm({
                   placeholder="/policies/terms"
                   style={inputStyle}
                 />
+                <button type="button" onClick={() => moveLink(i, -1)} disabled={i === 0} style={{...btn(), padding: '4px 8px'}}>↑</button>
+                <button type="button" onClick={() => moveLink(i, 1)} disabled={i === links.length - 1} style={{...btn(), padding: '4px 8px'}}>↓</button>
                 <button type="button" onClick={() => removeLink(i)} style={btn(false, true)}>−</button>
               </div>
             ))}
