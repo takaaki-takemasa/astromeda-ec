@@ -356,9 +356,9 @@ export async function initStorageFromEnv(env: Record<string, unknown>): Promise<
   // ── Tier 1: PostgreSQL（脳髄=永続記憶） ────
   if (databaseUrl) {
     try {
-      const { getDatabase } = await import('../lib/databases/connection.js');
-      const { DrizzleStorageAdapter } = await import('../lib/databases/drizzle-adapter.js');
-      const schemaModule = await import('../lib/databases/schema.js');
+      const { getDatabase } = await import(/* @vite-ignore */ '../lib/databases/connection.js');
+      const { DrizzleStorageAdapter } = await import(/* @vite-ignore */ '../lib/databases/drizzle-adapter.js');
+      const schemaModule = await import(/* @vite-ignore */ '../lib/databases/schema.js');
 
       const dbClient = await getDatabase({ databaseUrl });
       const adapter = new DrizzleStorageAdapter(dbClient.db);
