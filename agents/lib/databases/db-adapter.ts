@@ -24,8 +24,7 @@ import type {
   NewApprovalQueue,
   NewPipelineExecutionLog,
 } from './schema.js';
-import { ALL_TABLES } from './schema.js';
-
+import { ALL_TABLES } from './table-names.js';
 // ─── ヘルパー: DB型 ↔ StorageRecord 変換 ───
 
 function toStorageRecord(table: string, data: Record<string, unknown>): StorageRecord {
