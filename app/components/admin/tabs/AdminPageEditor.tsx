@@ -769,9 +769,105 @@ function CategoryCardForm({
   const [linkUrl, setLinkUrl] = useState(initial.linkUrl || '');
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Live preview — _index.tsx の Category quick nav インラインレンダリングを再現
+  const accent = T.c;
+  const bg = '#0a0e1a';
+  const previewImg = image || '';
+  const priceLabel = priceFrom > 0 ? `¥${priceFrom.toLocaleString('ja-JP')}〜` : '';
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <div style={{padding: 20}}>
+        <div style={{fontSize: 12, fontWeight: 800, color: T.t4, letterSpacing: 2, marginBottom: 12}}>CATEGORY</div>
+        <div style={{display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14}}>
+          <div
+            style={{
+              position: 'relative',
+              borderRadius: 14,
+              overflow: 'hidden',
+              aspectRatio: '5/4',
+              textDecoration: 'none',
+              display: 'block',
+              border: `1px solid ${al(accent, 0.2)}`,
+              background: bg,
+              opacity: isActive ? 1 : 0.5,
+            }}
+          >
+            {previewImg && (
+              <div
+                style={{
+                  position: 'absolute',
+                  right: '-5%',
+                  top: '5%',
+                  width: '70%',
+                  height: '90%',
+                  backgroundImage: `url(${previewImg}${previewImg.includes('?') ? '&' : '?'}width=600)`,
+                  backgroundSize: 'contain',
+                  backgroundRepeat: 'no-repeat',
+                  backgroundPosition: 'center right',
+                }}
+              />
+            )}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: `linear-gradient(90deg, ${bg} 0%, ${bg} 25%, ${bg}cc 45%, transparent 75%)`,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: 0,
+                width: '55%',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                padding: 24,
+              }}
+            >
+              {description && (
+                <div style={{fontSize: 11, fontWeight: 700, color: accent, letterSpacing: 2, marginBottom: 6, opacity: 0.8}}>
+                  {description}
+                </div>
+              )}
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 900,
+                  color: '#fff',
+                  lineHeight: 1.2,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {title || '(未入力)'}
+              </div>
+              {priceLabel && (
+                <div style={{fontSize: 15, fontWeight: 900, color: accent, marginTop: 8}}>
+                  {priceLabel}
+                </div>
+              )}
+              <div style={{marginTop: 12, fontSize: 10, fontWeight: 700, color: al(accent, 0.7)}}>
+                見る →
+              </div>
+            </div>
+          </div>
+          {/* placeholder slots for layout demonstration */}
+          <div style={{aspectRatio: '5/4', border: `1px dashed ${al(T.tx, 0.1)}`, borderRadius: 14, background: al(T.tx, 0.02)}} />
+          <div style={{aspectRatio: '5/4', border: `1px dashed ${al(T.tx, 0.1)}`, borderRadius: 14, background: al(T.tx, 0.02)}} />
+        </div>
+        <div style={{fontSize: 9, color: T.t4, textAlign: 'center', marginTop: 12}}>
+          ※ 実サイトでは 3カード並列。点線は他のカード位置
+        </div>
+      </div>
+    </PreviewFrame>
+  );
 
   return (
-    <Modal title={isCreate ? 'カテゴリカード 新規追加' : 'カテゴリカード 編集'} onClose={onCancel}>
+    <Modal title={isCreate ? 'カテゴリカード 新規追加' : 'カテゴリカード 編集'} onClose={onCancel} preview={previewPane}>
       <div style={{display: 'grid', gap: 12}}>
         {isCreate && (
           <div>
