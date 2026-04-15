@@ -77,6 +77,25 @@ interface MetaCategoryCard {
   isActive: boolean;
 }
 
+// Sprint 2 Part 3-3: astromeda_product_shelf Metaobject 用の型
+interface MetaProductShelf {
+  id: string;
+  handle: string;
+  title: string;
+  productIds: string[]; // parsed from product_ids_json
+  sortOrder: number;
+  isActive: boolean;
+}
+
+// シェルフ描画用の解決済み商品（Storefront API nodes(ids:...) 経由）
+interface MetaShelfProduct {
+  id: string;
+  title: string;
+  handle: string;
+  featuredImage: {url: string; altText: string | null; width: number | null; height: number | null} | null;
+  priceRange: {minVariantPrice: {amount: string; currencyCode: string}};
+}
+
 // Shape of each aliased collection field in the query response
 interface IPCollNode {
   id: string;
@@ -117,7 +136,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -136,6 +155,8 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_pc_color_model', 100) : emptyMo(),
     // Metaobject: カテゴリカード（Category quick nav 用）
     adminClient ? adminClient.getMetaobjects('astromeda_category_card', 100) : emptyMo(),
+    // Metaobject: 商品シェルフ（NEW ARRIVALS 代替用）
+    adminClient ? adminClient.getMetaobjects('astromeda_product_shelf', 50) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -146,6 +167,7 @@ export async function loader({context}: Route.LoaderArgs) {
   const heroBannerRaw = heroBannerResult.status === 'fulfilled' ? heroBannerResult.value : [];
   const pcColorModelRaw = pcColorModelResult.status === 'fulfilled' ? pcColorModelResult.value : [];
   const categoryCardRaw = categoryCardResult.status === 'fulfilled' ? categoryCardResult.value : [];
+  const productShelfRaw = productShelfResult.status === 'fulfilled' ? productShelfResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -215,6 +237,57 @@ export async function loader({context}: Route.LoaderArgs) {
       isActive: f['is_active'] === 'true',
     };
   });
+
+  // Sprint 2 Part 3-3: 商品シェルフ整形 + 全 active shelf の productIds を nodes(ids) で一括取得
+  const metaProductShelves: MetaProductShelf[] = productShelfRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    let productIds: string[] = [];
+    try {
+      const parsed = JSON.parse(f['product_ids_json'] || '[]');
+      if (Array.isArray(parsed)) {
+        productIds = parsed.filter((x): x is string => typeof x === 'string' && x.startsWith('gid://shopify/Product/'));
+      }
+    } catch {
+      productIds = [];
+    }
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      title: f['title'] || '',
+      productIds,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+    };
+  });
+
+  // 全 active shelf の product IDs を flat + dedupe（将来の複数シェルフ拡張向け）
+  const allShelfIds = Array.from(
+    new Set(
+      metaProductShelves
+        .filter((s) => s.isActive && s.productIds.length > 0)
+        .flatMap((s) => s.productIds),
+    ),
+  );
+
+  // 収集した ID を Storefront API nodes(ids:...) で一括解決
+  let metaShelfProducts: Record<string, MetaShelfProduct> = {};
+  if (allShelfIds.length > 0) {
+    try {
+      const nodesResult = await context.storefront.query(
+        PRODUCTS_BY_IDS_QUERY as unknown as Parameters<typeof context.storefront.query>[0],
+        {variables: {ids: allShelfIds}} as Parameters<typeof context.storefront.query>[1],
+      );
+      const nodes = (nodesResult as unknown as {nodes?: Array<MetaShelfProduct | null>}).nodes || [];
+      for (const node of nodes) {
+        if (node && node.id) metaShelfProducts[node.id] = node;
+      }
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to fetch shelf products:', error);
+      }
+      metaShelfProducts = {};
+    }
+  }
 
   if (process.env.NODE_ENV === 'development') {
     if (ipResult.status === 'rejected') console.error('Failed to fetch IP collections:', ipResult.reason);
@@ -387,6 +460,8 @@ export async function loader({context}: Route.LoaderArgs) {
     metaBanners,
     metaColors,
     metaCategoryCards,
+    metaProductShelves,
+    metaShelfProducts,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -762,7 +837,63 @@ export default function Homepage() {
           metaCollabs={data.metaCollabs}
         />
 
-      {/* Featured products from Shopify */}
+      {/* Featured products from Shopify — Sprint 2 Part 3-3: Metaobject product shelf 優先 */}
+      {(() => {
+        // 完全性チェック: active かつ title + productIds + 解決済み products を満たす最小 sortOrder の shelf を採用
+        const shelves = (data.metaProductShelves || [])
+          .filter((s) => s.isActive && s.title.trim() !== '' && s.productIds.length > 0)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+        const lookup = (data.metaShelfProducts || {}) as Record<string, MetaShelfProduct>;
+        const chosen = shelves.find((s) => s.productIds.some((id) => lookup[id])) || null;
+        if (!chosen) return null;
+        const resolvedProducts = chosen.productIds
+          .map((id) => lookup[id])
+          .filter((p): p is MetaShelfProduct => p != null);
+        if (resolvedProducts.length === 0) return null;
+        // Metaobject モード: 既存フィルタ bypass、管理者選定をそのまま表示
+        return (
+          <section style={{...PAGE_WIDTH, paddingBottom: 'clamp(24px, 3vw, 40px)'}}>
+            <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 'clamp(14px, 2vw, 20px)'}}>
+              <span className="ph" style={{fontSize: 'clamp(14px, 1.8vw, 18px)', fontWeight: 900, color: T.tx}}>
+                {chosen.title}
+              </span>
+            </div>
+            <div className="new-arrivals-grid">
+              {resolvedProducts.map((product) => (
+                <Link
+                  key={product.id}
+                  to={`/products/${product.handle}`}
+                  className="astro-product-card"
+                  style={{textDecoration: 'none'}}
+                >
+                  {product.featuredImage?.url && (
+                    <div style={{aspectRatio: '4/3', overflow: 'hidden'}}>
+                      <img
+                        src={`${product.featuredImage.url}${product.featuredImage.url.includes('?') ? '&' : '?'}width=400`}
+                        alt={product.featuredImage.altText || product.title}
+                        loading="lazy"
+                        decoding="async"
+                        style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+                      />
+                    </div>
+                  )}
+                  <div style={{padding: 'clamp(10px, 1.2vw, 14px)'}}>
+                    <div style={{fontSize: 'clamp(10px, 1.2vw, 12px)', fontWeight: 800, color: T.tx, lineHeight: 1.3, marginBottom: 4}}>
+                      {product.title}
+                    </div>
+                    {product.priceRange?.minVariantPrice && (
+                      <div className="ph" style={{fontSize: 'clamp(13px, 1.6vw, 16px)', color: T.c, fontWeight: 900}}>
+                        ¥{Number(product.priceRange.minVariantPrice.amount ?? '0').toLocaleString('ja-JP')}
+                        <span style={{fontSize: 10, color: T.t4, fontWeight: 500}}>〜</span>
+                      </div>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        );
+      })() || (
       <Suspense fallback={<ProductGridSkeleton count={8} />}>
         <Await resolve={data.recommendedProducts}>
           {(products) => {
@@ -868,6 +999,7 @@ export default function Homepage() {
           }}
         </Await>
       </Suspense>
+      )}
 
       {/* UGC Reviews */}
       <section
@@ -1018,6 +1150,23 @@ export default function Homepage() {
 }
 
 // ─── GraphQL Queries ─────────────────────────────
+
+// Sprint 2 Part 3-3: 商品シェルフ用 — product GID 配列で一括取得
+const PRODUCTS_BY_IDS_QUERY = `#graphql
+  query ProductsByIds($ids: [ID!]!) {
+    nodes(ids: $ids) {
+      ... on Product {
+        id
+        title
+        handle
+        featuredImage { url altText width height }
+        priceRange {
+          minVariantPrice { amount currencyCode }
+        }
+      }
+    }
+  }
+` as const;
 
 const RECOMMENDED_PRODUCTS_QUERY = `#graphql
   fragment RecommendedProduct on Product {
