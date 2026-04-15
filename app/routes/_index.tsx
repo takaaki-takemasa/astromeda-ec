@@ -8,7 +8,10 @@ import {Await} from 'react-router';
 import {T, al, MARQUEE_ITEMS, UGC, COLLABS, PAGE_WIDTH, STORE_URL} from '~/lib/astromeda-data';
 import {ProductGridSkeleton} from '~/components/astro/Skeleton';
 import {HeroSlider} from '~/components/astro/HeroSlider';
+import type {MetaBanner} from '~/components/astro/HeroSlider';
 import {CollabGrid} from '~/components/astro/CollabGrid';
+import type {MetaCollab} from '~/components/astro/CollabGrid';
+import {setAdminEnv, getAdminClient} from '../../agents/core/shopify-admin.js';
 import {PCShowcase} from '~/components/astro/PCShowcase';
 // ScrollReveal removed: causes opacity:0 issues when CSS files return 503 from Shopify CDN
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
@@ -83,8 +86,22 @@ export async function loader({context}: Route.LoaderArgs) {
     colorOrange: 'オレンジ',
   };
 
-  // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）
-  const [ipResult, pcResult, tierResult, catResult] = await Promise.allSettled([
+  // Metaobject 取得準備（失敗しても Storefront フローは継続）
+  try {
+    setAdminEnv(context.env as unknown as Record<string, string | undefined>);
+  } catch {
+    // 取得失敗時はフォールバック
+  }
+  const adminClient = (() => {
+    try {
+      return getAdminClient();
+    } catch {
+      return null;
+    }
+  })();
+
+  // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner）
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -95,12 +112,61 @@ export async function loader({context}: Route.LoaderArgs) {
     // 9-3: カテゴリ画像をShopify APIから動的取得
     context.storefront
       .query(CATEGORY_IMAGES_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
+    // Metaobject: IP バナー（CollabGrid 用）
+    adminClient
+      ? adminClient.getMetaobjects('astromeda_ip_banner', 100)
+      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+    // Metaobject: ヒーローバナー（HeroSlider 用）
+    adminClient
+      ? adminClient.getMetaobjects('astromeda_hero_banner', 50)
+      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
   const pcColorRaw = pcResult.status === 'fulfilled' ? pcResult.value : null;
   const tierPricesRaw = tierResult.status === 'fulfilled' ? tierResult.value : null;
   const catImagesRaw = catResult.status === 'fulfilled' ? catResult.value : null;
+  const ipBannerRaw = ipBannerResult.status === 'fulfilled' ? ipBannerResult.value : [];
+  const heroBannerRaw = heroBannerResult.status === 'fulfilled' ? heroBannerResult.value : [];
+
+  // Metaobject → MetaCollab / MetaBanner 整形
+  const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
+    const m: Record<string, string> = {};
+    for (const f of fields) m[f.key] = f.value;
+    return m;
+  };
+
+  const metaCollabs: MetaCollab[] = ipBannerRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      name: f['name'] || '',
+      shopHandle: f['collection_handle'] || '',
+      image: f['image'] || null,
+      tagline: f['tagline'] || null,
+      label: f['label'] || null,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      featured: f['is_active'] === 'true',
+    };
+  });
+
+  const metaBanners: MetaBanner[] = heroBannerRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      title: f['title'] || '',
+      subtitle: f['subtitle'] || null,
+      image: f['image'] || null,
+      linkUrl: f['link_url'] || null,
+      ctaLabel: f['cta_label'] || null,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+      startAt: f['start_at'] || null,
+      endAt: f['end_at'] || null,
+    };
+  });
 
   if (process.env.NODE_ENV === 'development') {
     if (ipResult.status === 'rejected') console.error('Failed to fetch IP collections:', ipResult.reason);
@@ -269,6 +335,8 @@ export async function loader({context}: Route.LoaderArgs) {
     tierPrices,
     categoryImages,
     firstHeroImageUrl,
+    metaCollabs,
+    metaBanners,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -434,6 +502,7 @@ export default function Homepage() {
       {/* Hero Slider — ATFデータはawait済みなので直接レンダリング（Hydration安定） */}
       <HeroSlider
         collections={data.ipCollections?.collections?.nodes ?? null}
+        metaBanners={data.metaBanners}
       />
 
       {/* PC Showcase — ATFデータはawait済み */}
@@ -614,6 +683,7 @@ export default function Homepage() {
       {/* Collab Grid — ATFデータはawait済み */}
         <CollabGrid
           collections={data.ipCollections?.collections?.nodes ?? null}
+          metaCollabs={data.metaCollabs}
         />
 
       {/* Featured products from Shopify */}

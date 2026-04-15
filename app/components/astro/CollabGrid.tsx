@@ -19,8 +19,21 @@ interface ShopifyCollection {
   };
 }
 
+export interface MetaCollab {
+  id: string;
+  handle: string;
+  name: string;
+  shopHandle: string;
+  image?: string | null;
+  tagline?: string | null;
+  label?: string | null;
+  sortOrder: number;
+  featured: boolean;
+}
+
 interface CollabGridProps {
   collections?: ShopifyCollection[] | null;
+  metaCollabs?: MetaCollab[] | null;
 }
 
 // Build a map of handle -> collection image from Shopify data
@@ -42,8 +55,124 @@ function findShopifyCollection(
   return imageMap.get(shopHandle);
 }
 
-function CollabGridComponent({collections}: CollabGridProps) {
+function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
   const imageMap = useMemo(() => buildImageMap(collections), [collections]);
+
+  // Metaobject 優先: featured=true なエントリが1件以上あれば metaCollabs をレンダリング
+  const activeMetaCollabs = useMemo(() => {
+    if (!metaCollabs || metaCollabs.length === 0) return null;
+    const featured = metaCollabs.filter((m) => m.featured);
+    if (featured.length === 0) return null;
+    return [...featured].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [metaCollabs]);
+
+  const renderMetaCard = useMemo(
+    () => (m: MetaCollab, index: number) => {
+      const shopifyCol = findShopifyCollection(m.shopHandle, imageMap);
+      const imgUrl = m.image || shopifyCol?.image?.url || null;
+      const hasImage = !!imgUrl;
+      const accent = T.c;
+
+      return (
+        <Link
+          key={m.id}
+          to={`/collections/${m.shopHandle}`}
+          className="collab-card"
+          aria-label={`${m.name} コレクションを見る`}
+          style={{
+            border: `1px solid ${al(accent, 0.12)}`,
+            textDecoration: 'none',
+          }}
+        >
+          <div
+            style={{
+              aspectRatio: '1/1',
+              position: 'relative',
+              overflow: 'hidden',
+              background: hasImage
+                ? T.bg
+                : `linear-gradient(160deg, ${al(accent, 0.25)}, ${T.bg} 65%)`,
+            }}
+          >
+            {hasImage ? (
+              <img
+                src={optimizeImageUrl(imgUrl ?? '', 300, 65)}
+                srcSet={generateSrcSet(imgUrl ?? '', [200, 300, 480, 600], 65)}
+                alt={m.name}
+                width={300}
+                height={300}
+                loading={index < 6 ? 'eager' : 'lazy'}
+                fetchPriority={index < 3 ? 'high' : 'auto'}
+                decoding={index < 6 ? 'sync' : 'async'}
+                sizes="(min-width: 1024px) 20vw, (min-width: 768px) 33vw, 50vw"
+                style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+              />
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  background: `radial-gradient(circle at 35% 40%, ${al(accent, 0.3)}, transparent 55%)`,
+                }}
+              />
+            )}
+            <div
+              className="collab-gradient-overlay"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: hasImage
+                  ? 'linear-gradient(180deg, transparent 40%, rgba(0,0,0,.85))'
+                  : 'linear-gradient(180deg, transparent 30%, rgba(0,0,0,.75))',
+              }}
+            />
+            <div
+              className="collab-text-overlay"
+              style={{position: 'absolute', bottom: 10, left: 12, right: 12, zIndex: 1}}
+            >
+              {m.label && (
+                <div
+                  style={{
+                    display: 'inline-block',
+                    fontSize: 7,
+                    fontWeight: 900,
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                    background: m.label === 'NEW' ? T.r : m.label === 'HOT' ? '#FF6B00' : '#FF9500',
+                    color: T.tx,
+                    letterSpacing: 1,
+                    marginBottom: 4,
+                  }}
+                >
+                  {m.label}
+                </div>
+              )}
+              <div
+                style={{
+                  fontSize: 'clamp(10px, 1.4vw, 16px)',
+                  fontWeight: 900,
+                  color: T.tx,
+                  textShadow: '0 2px 12px rgba(0,0,0,.8)',
+                  lineHeight: 1.25,
+                }}
+              >
+                {m.name}
+              </div>
+              {m.tagline && (
+                <div
+                  className="collab-category-count"
+                  style={{fontSize: 10, color: al(T.tx, 0.5), marginTop: 3}}
+                >
+                  {m.tagline}
+                </div>
+              )}
+            </div>
+          </div>
+        </Link>
+      );
+    },
+    [imageMap],
+  );
 
   const renderCard = useMemo(
     () => (cb: (typeof COLLABS)[0], index: number) => {
@@ -184,12 +313,14 @@ function CollabGridComponent({collections}: CollabGridProps) {
           IP COLLABS
         </span>
         <span style={{fontSize: 'clamp(10px, 1.2vw, 12px)', color: T.t4}}>
-          {COLLABS.length}タイトル
+          {(activeMetaCollabs ?? COLLABS).length}タイトル
         </span>
       </div>
 
       <div className="collab-grid">
-        {COLLABS.map((cb, i) => renderCard(cb, i))}
+        {activeMetaCollabs
+          ? activeMetaCollabs.map((m, i) => renderMetaCard(m, i))
+          : COLLABS.map((cb, i) => renderCard(cb, i))}
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `

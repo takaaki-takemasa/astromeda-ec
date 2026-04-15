@@ -15,23 +15,60 @@ interface ShopifyCollection {
   } | null;
 }
 
-interface HeroSliderProps {
-  collections?: ShopifyCollection[] | null;
+export interface MetaBanner {
+  id: string;
+  handle: string;
+  title: string;
+  subtitle?: string | null;
+  image?: string | null;
+  linkUrl?: string | null;
+  ctaLabel?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
 }
 
-function HeroSliderComponent({collections}: HeroSliderProps) {
+interface HeroSliderProps {
+  collections?: ShopifyCollection[] | null;
+  metaBanners?: MetaBanner[] | null;
+}
+
+function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
   // SSR/Client共に初期値0で確定 — Hydration安定
   const [hi, setHi] = useState(0);
   // マウント完了フラグ — アニメーションをclient-onlyにしてSSR/Client差異を防止
   const [mounted, setMounted] = useState(false);
 
+  // Metaobject 優先: isActive && 表示期間内のエントリのみ、sortOrder 昇順
+  const activeMetaBanners = useMemo(() => {
+    if (!metaBanners || metaBanners.length === 0) return null;
+    const now = Date.now();
+    const filtered = metaBanners.filter((m) => {
+      if (!m.isActive) return false;
+      if (m.startAt) {
+        const t = new Date(m.startAt).getTime();
+        if (!Number.isNaN(t) && t > now) return false;
+      }
+      if (m.endAt) {
+        const t = new Date(m.endAt).getTime();
+        if (!Number.isNaN(t) && t < now) return false;
+      }
+      return true;
+    });
+    if (filtered.length === 0) return null;
+    return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [metaBanners]);
+
+  const slidesCount = activeMetaBanners ? activeMetaBanners.length : FEATURED.length;
+
   useEffect(() => {
     setMounted(true);
     const t = setInterval(() => {
-      setHi((p) => (p + 1) % FEATURED.length);
+      setHi((p) => (p + 1) % slidesCount);
     }, 4500);
     return () => clearInterval(t);
-  }, []);
+  }, [slidesCount]);
 
   // Build handle → collection image URL map from Shopify collections
   const imageMap = useMemo(() => {
@@ -50,7 +87,135 @@ function HeroSliderComponent({collections}: HeroSliderProps) {
     <div className="hero-slider-wrap">
       {/* Slide container with rounded corners */}
       <div className="hero-slider-container">
-        {FEATURED.map((feat, i) => {
+        {activeMetaBanners
+          ? activeMetaBanners.map((m, i) => {
+              const collectionImgUrl = imageMap.get(m.handle) ?? null;
+              const imgUrl = m.image || collectionImgUrl;
+              const isActive = i === hi;
+              const accent = T.c;
+              const href = m.linkUrl || `/collections/${m.handle}`;
+              return (
+                <Link
+                  key={m.id}
+                  to={href}
+                  aria-label={`${m.title} の詳細を見る`}
+                  style={{
+                    textDecoration: 'none',
+                    display: 'block',
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: isActive ? 1 : 0,
+                    transition: 'opacity .6s ease',
+                    pointerEvents: isActive ? 'auto' : 'none',
+                  }}
+                >
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      position: 'relative',
+                      background: `linear-gradient(160deg, ${al(accent, 0.18)}, ${T.bg} 65%)`,
+                    }}
+                  >
+                    {imgUrl && (
+                      <img
+                        src={optimizeImageUrl(imgUrl, 1400)}
+                        srcSet={generateSrcSet(imgUrl, [640, 960, 1400, 1920])}
+                        sizes="100vw"
+                        alt={m.title}
+                        width={1400}
+                        height={788}
+                        loading={i < 2 ? 'eager' : 'lazy'}
+                        {...(i === 0 ? {fetchPriority: 'high' as const} : {})}
+                        decoding={i === 0 ? 'sync' : 'async'}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'contain',
+                          objectPosition: 'center center',
+                          display: 'block',
+                        }}
+                      />
+                    )}
+                    {!imgUrl && (
+                      <div
+                        style={{
+                          position: 'absolute',
+                          inset: 0,
+                          background: `radial-gradient(circle at 35% 40%, ${al(accent, 0.35)}, transparent 55%)`,
+                        }}
+                      />
+                    )}
+
+                    <div
+                      className="hero-gradient-overlay"
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        background: imgUrl
+                          ? `linear-gradient(0deg, ${al(T.bg, 0.85)} 0%, ${al(T.bg, 0.3)} 40%, transparent 70%)`
+                          : `linear-gradient(0deg, ${al(T.bg, 0.65)} 0%, ${al(T.bg, 0.1)} 45%, transparent 100%)`,
+                      }}
+                    />
+
+                    <div
+                      className="hero-text-overlay"
+                      style={{
+                        position: 'absolute',
+                        bottom: 'clamp(16px, 2.5vw, 32px)',
+                        left: 'clamp(16px, 3vw, 36px)',
+                        right: 'clamp(16px, 3vw, 36px)',
+                        zIndex: 1,
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {m.ctaLabel && (
+                        <span
+                          style={{
+                            fontSize: 'clamp(8px, 1vw, 10px)',
+                            fontWeight: 900,
+                            color: T.tx,
+                            padding: 'clamp(3px, 0.5vw, 5px) clamp(10px, 1.3vw, 14px)',
+                            borderRadius: 4,
+                            background: `linear-gradient(135deg, ${accent}, ${al(accent, 0.6)})`,
+                            letterSpacing: 1,
+                            display: 'inline-block',
+                            marginBottom: 'clamp(6px, 0.9vw, 10px)',
+                          }}
+                        >
+                          {m.ctaLabel}
+                        </span>
+                      )}
+                      <div
+                        style={{
+                          fontSize: 'clamp(14px, 2.5vw, 28px)',
+                          fontWeight: 900,
+                          color: T.tx,
+                          textShadow: '0 2px 12px rgba(0,0,0,.9)',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        {m.title}
+                      </div>
+                      {m.subtitle && (
+                        <div
+                          style={{
+                            marginTop: 'clamp(6px, 0.9vw, 10px)',
+                            fontSize: 'clamp(10px, 1.2vw, 12px)',
+                            color: al(T.tx, 0.55),
+                            lineHeight: 1.4,
+                            maxWidth: '50%',
+                          }}
+                        >
+                          {m.subtitle.length > 50 ? m.subtitle.slice(0, 50) + '…' : m.subtitle}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })
+          : FEATURED.map((feat, i) => {
           const bannerUrl = feat.banner ?? null;
           const collectionImgUrl = imageMap.get(feat.shop) ?? null;
           const imgUrl = bannerUrl || collectionImgUrl;
@@ -180,7 +345,7 @@ function HeroSliderComponent({collections}: HeroSliderProps) {
 
         {/* Dot indicators */}
         <div className="hero-dots">
-          {FEATURED.map((_, i) => (
+          {Array.from({length: slidesCount}).map((_, i) => (
             <button
               key={i}
               type="button"

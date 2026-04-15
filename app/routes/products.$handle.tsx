@@ -41,6 +41,18 @@ import {
 } from '~/lib/product-helpers';
 import {AstroProductForm} from '~/components/product/AstroProductForm';
 import {MobileStickyCartBar} from '~/components/product/MobileStickyCartBar';
+import {setAdminEnv, getAdminClient} from '../../agents/core/shopify-admin.js';
+
+interface MetaCustomOption {
+  id: string;
+  handle: string;
+  name: string;
+  category: string;
+  choices: Array<{value: string; label: string}>;
+  isRequired: boolean;
+  sortOrder: number;
+  appliesToTags: string;
+}
 
 // M8-SKELETAL-01: GraphQLフラグメント拡張に対応する型定義
 // storefrontapi.generated.d.ts はコード生成で更新されるまでこの拡張で補完
@@ -99,8 +111,62 @@ export const meta: Route.MetaFunction = ({data}) => {
 
 export async function loader(args: Route.LoaderArgs) {
   const deferredData = loadDeferredData(args);
-  const criticalData = await loadCriticalData(args);
-  return {...deferredData, ...criticalData};
+
+  // Metaobject クライアント準備（失敗時は Storefront フロー継続）
+  const adminClient = (() => {
+    try {
+      setAdminEnv(args.context.env as unknown as Record<string, string | undefined>);
+      return getAdminClient();
+    } catch {
+      return null;
+    }
+  })();
+
+  const [criticalData, metaOptionsResult] = await Promise.all([
+    loadCriticalData(args),
+    adminClient
+      ? adminClient.getMetaobjects('astromeda_custom_option', 100).catch(
+          () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>,
+        )
+      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+  ]);
+
+  // 商品タグ取得（小文字化で比較）
+  const productTags: string[] = (
+    ((criticalData as unknown as {product?: {tags?: string[]}}).product?.tags) || []
+  ).map((t) => t.toLowerCase());
+
+  // Metaobject → MetaCustomOption 整形 + applies_to_tags マッチング
+  const metaCustomOptions: MetaCustomOption[] = metaOptionsResult
+    .map((mo) => {
+      const f: Record<string, string> = {};
+      for (const kv of mo.fields) f[kv.key] = kv.value;
+      let choices: Array<{value: string; label: string}> = [];
+      try {
+        const parsed = JSON.parse(f['choices_json'] || '[]');
+        if (Array.isArray(parsed)) choices = parsed as Array<{value: string; label: string}>;
+      } catch {
+        choices = [];
+      }
+      return {
+        id: mo.id,
+        handle: mo.handle,
+        name: f['name'] || '',
+        category: f['category'] || 'general',
+        choices,
+        isRequired: f['is_required'] === 'true',
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        appliesToTags: f['applies_to_tags'] || '',
+      };
+    })
+    .filter((opt) => {
+      if (!opt.appliesToTags.trim()) return true; // 空なら全商品に適用
+      const targetTags = opt.appliesToTags.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+      return targetTags.some((tag) => productTags.includes(tag));
+    })
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  return {...deferredData, ...criticalData, metaCustomOptions};
 }
 
 /* ═══════════════════════════════════════════════════
