@@ -64,6 +64,19 @@ export const links: Route.LinksFunction = (args) => {
   ];
 };
 
+// Sprint 2 Part 3-2: astromeda_category_card Metaobject 用の型
+interface MetaCategoryCard {
+  id: string;
+  handle: string;
+  title: string;
+  description: string | null;
+  priceFrom: number | null;
+  image: string | null;
+  linkUrl: string | null;
+  sortOrder: number;
+  isActive: boolean;
+}
+
 // Shape of each aliased collection field in the query response
 interface IPCollNode {
   id: string;
@@ -104,7 +117,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -121,6 +134,8 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_hero_banner', 50) : emptyMo(),
     // Metaobject: PC カラーモデル（PCShowcase 用）
     adminClient ? adminClient.getMetaobjects('astromeda_pc_color_model', 100) : emptyMo(),
+    // Metaobject: カテゴリカード（Category quick nav 用）
+    adminClient ? adminClient.getMetaobjects('astromeda_category_card', 100) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -130,6 +145,7 @@ export async function loader({context}: Route.LoaderArgs) {
   const ipBannerRaw = ipBannerResult.status === 'fulfilled' ? ipBannerResult.value : [];
   const heroBannerRaw = heroBannerResult.status === 'fulfilled' ? heroBannerResult.value : [];
   const pcColorModelRaw = pcColorModelResult.status === 'fulfilled' ? pcColorModelResult.value : [];
+  const categoryCardRaw = categoryCardResult.status === 'fulfilled' ? categoryCardResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -179,6 +195,22 @@ export async function loader({context}: Route.LoaderArgs) {
       slug: f['slug'] || '',
       image: f['image'] || null,
       colorCode: f['color_code'] || '#888888',
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+    };
+  });
+
+  const metaCategoryCards: MetaCategoryCard[] = categoryCardRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    const priceRaw = f['price_from'];
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      title: f['title'] || '',
+      description: f['description'] || null,
+      priceFrom: priceRaw ? parseInt(priceRaw, 10) : null,
+      image: f['image'] || null,
+      linkUrl: f['link_url'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
     };
@@ -354,6 +386,7 @@ export async function loader({context}: Route.LoaderArgs) {
     metaCollabs,
     metaBanners,
     metaColors,
+    metaCategoryCards,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -578,7 +611,21 @@ export default function Homepage() {
         {(() => {
               // Storefront APIから取得した商品画像を使用（cdn.shopify.com経由で確実にロード）
               const catImgs = data.categoryImages || {};
-              const cats = [
+              // Sprint 2 Part 3-2: Metaobject 優先表示
+              const metaCards = (data.metaCategoryCards || [])
+                .filter((c) => c.isActive)
+                .sort((a, b) => a.sortOrder - b.sortOrder);
+              const cats = metaCards.length > 0
+                ? metaCards.map((c) => ({
+                    name: c.title,
+                    sub: c.description || '',
+                    to: c.linkUrl || '#',
+                    pr: c.priceFrom != null ? `¥${c.priceFrom.toLocaleString('ja-JP')}〜` : '',
+                    ac: T.c,
+                    bg: '#0a0e1a',
+                    img: c.image || '',
+                  }))
+                : [
                 {name: 'ゲーミングPC', sub: 'GAMING PC', to: '/collections/astromeda', pr: '¥199,980〜', ac: '#3498DB', bg: '#0a1424',
                   img: catImgs['astromeda'] || ''},
                 {name: 'ガジェット', sub: 'GADGETS', to: '/collections/gadgets', pr: '¥4,980〜', ac: '#FF3333', bg: '#1a0a0a',
@@ -586,11 +633,14 @@ export default function Homepage() {
                 {name: 'グッズ', sub: 'GOODS', to: '/collections/goods', pr: '¥990〜', ac: '#00C853', bg: '#0a1a0e',
                   img: catImgs['goods'] || ''},
               ];
+              const useAutoGrid = cats.length > 3;
               return (
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gridTemplateColumns: useAutoGrid
+                      ? 'repeat(auto-fill, minmax(280px, 1fr))'
+                      : 'repeat(3, 1fr)',
                     gap: 'clamp(8px, 1.2vw, 14px)',
                   }}
                   className="astro-cat-grid"
