@@ -77,6 +77,19 @@ interface MetaCategoryCard {
   isActive: boolean;
 }
 
+// Sprint 2 Part 3-4: astromeda_about_section Metaobject 用の型
+// 注: image フィールドは現 UI (コンパクトバナー) では未使用。将来 UX 拡張時に採用予定。
+interface MetaAboutSection {
+  id: string;
+  handle: string;
+  title: string;
+  bodyHtml: string;
+  image: string | null;
+  linkUrl: string;
+  linkLabel: string;
+  isActive: boolean;
+}
+
 // Sprint 2 Part 3-3: astromeda_product_shelf Metaobject 用の型
 interface MetaProductShelf {
   id: string;
@@ -136,7 +149,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -157,6 +170,8 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_category_card', 100) : emptyMo(),
     // Metaobject: 商品シェルフ（NEW ARRIVALS 代替用）
     adminClient ? adminClient.getMetaobjects('astromeda_product_shelf', 50) : emptyMo(),
+    // Metaobject: ABOUT セクション
+    adminClient ? adminClient.getMetaobjects('astromeda_about_section', 10) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -168,6 +183,7 @@ export async function loader({context}: Route.LoaderArgs) {
   const pcColorModelRaw = pcColorModelResult.status === 'fulfilled' ? pcColorModelResult.value : [];
   const categoryCardRaw = categoryCardResult.status === 'fulfilled' ? categoryCardResult.value : [];
   const productShelfRaw = productShelfResult.status === 'fulfilled' ? productShelfResult.value : [];
+  const aboutSectionRaw = aboutSectionResult.status === 'fulfilled' ? aboutSectionResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -234,6 +250,21 @@ export async function loader({context}: Route.LoaderArgs) {
       image: f['image'] || null,
       linkUrl: f['link_url'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+    };
+  });
+
+  // Sprint 2 Part 3-4: ABOUT セクション整形
+  const metaAboutSections: MetaAboutSection[] = aboutSectionRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      title: f['title'] || '',
+      bodyHtml: f['body_html'] || '',
+      image: f['image'] || null,
+      linkUrl: f['link_url'] || '',
+      linkLabel: f['link_label'] || '',
       isActive: f['is_active'] === 'true',
     };
   });
@@ -462,6 +493,7 @@ export async function loader({context}: Route.LoaderArgs) {
     metaCategoryCards,
     metaProductShelves,
     metaShelfProducts,
+    metaAboutSections,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -639,31 +671,48 @@ export default function Homepage() {
         {/* PCTierCards（GAMER/STREAMER/CREATOR）は削除済み */}
       </div>
 
-      {/* D1: ASTROMEDAとは — コンパクトバナー（詳細は専用ページへ） */}
-      <section style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', paddingBottom: 'clamp(16px, 2vw, 24px)'}}>
-        <Link
-          to="/about"
-          className="hl"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'clamp(12px, 2vw, 24px)',
-            padding: 'clamp(14px, 2vw, 20px) clamp(16px, 2.5vw, 28px)',
-            borderRadius: 12,
-            background: `linear-gradient(135deg, #0a0e1a 0%, #0f1a2e 50%, #162040 100%)`,
-            border: `1px solid ${al(T.c, 0.15)}`,
-            textDecoration: 'none',
-            transition: 'border-color .2s',
-          }}
-        >
-          <div style={{flex: 1, minWidth: 0}}>
-            <div style={{fontSize: 9, fontWeight: 700, color: T.c, letterSpacing: 3, marginBottom: 4, opacity: 0.8}}>ABOUT</div>
-            <div style={{fontSize: 'clamp(14px, 2vw, 20px)', fontWeight: 900, color: '#fff', lineHeight: 1.3}}>ASTROMEDAとは？</div>
-            <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t5, marginTop: 4}}>日本発・25タイトル以上のIPコラボゲーミングPC</div>
-          </div>
-          <div style={{fontSize: 'clamp(11px, 1.2vw, 13px)', fontWeight: 700, color: T.c, whiteSpace: 'nowrap', flexShrink: 0}}>詳しく見る →</div>
-        </Link>
-      </section>
+      {/* D1: ASTROMEDAとは — コンパクトバナー（Sprint 2 Part 3-4: Metaobject 優先） */}
+      {(() => {
+        // Metaobject 完全性チェック: 全フィールドが非空 かつ is_active=true な最初のエントリを採用
+        const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
+        const active = (data.metaAboutSections || []).find((a) =>
+          a.isActive &&
+          a.title.trim() !== '' &&
+          stripTags(a.bodyHtml) !== '' &&
+          a.linkUrl.trim() !== '' &&
+          a.linkLabel.trim() !== ''
+        );
+        const title = active ? active.title : 'ASTROMEDAとは？';
+        const subtitle = active ? stripTags(active.bodyHtml) : '日本発・25タイトル以上のIPコラボゲーミングPC';
+        const linkUrl = active ? active.linkUrl : '/about';
+        const linkLabel = active ? active.linkLabel : '詳しく見る →';
+        return (
+          <section style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', paddingBottom: 'clamp(16px, 2vw, 24px)'}}>
+            <Link
+              to={linkUrl}
+              className="hl"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 'clamp(12px, 2vw, 24px)',
+                padding: 'clamp(14px, 2vw, 20px) clamp(16px, 2.5vw, 28px)',
+                borderRadius: 12,
+                background: `linear-gradient(135deg, #0a0e1a 0%, #0f1a2e 50%, #162040 100%)`,
+                border: `1px solid ${al(T.c, 0.15)}`,
+                textDecoration: 'none',
+                transition: 'border-color .2s',
+              }}
+            >
+              <div style={{flex: 1, minWidth: 0}}>
+                <div style={{fontSize: 9, fontWeight: 700, color: T.c, letterSpacing: 3, marginBottom: 4, opacity: 0.8}}>ABOUT</div>
+                <div style={{fontSize: 'clamp(14px, 2vw, 20px)', fontWeight: 900, color: '#fff', lineHeight: 1.3}}>{title}</div>
+                <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t5, marginTop: 4}}>{subtitle}</div>
+              </div>
+              <div style={{fontSize: 'clamp(11px, 1.2vw, 13px)', fontWeight: 700, color: T.c, whiteSpace: 'nowrap', flexShrink: 0}}>{linkLabel}</div>
+            </Link>
+          </section>
+        );
+      })()}
 
       {/* Category quick nav */}
       <div
