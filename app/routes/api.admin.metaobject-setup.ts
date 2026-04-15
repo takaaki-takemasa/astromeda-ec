@@ -135,7 +135,7 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
     description: 'トップページ PCShowcase のカラーバリエーション。管理画面「ページ編集 > PCカラー」で管理。',
     fieldDefinitions: [
       { key: 'name', name: 'カラー名（例: ホワイト）', type: 'single_line_text_field' },
-      { key: 'handle', name: 'コレクションハンドル', type: 'single_line_text_field' },
+      { key: 'slug', name: 'スラッグ（コレクションハンドル）', type: 'single_line_text_field' },
       { key: 'image', name: 'カラー画像', type: 'file_reference' },
       { key: 'color_code', name: 'カラーコード（#RRGGBB）', type: 'single_line_text_field' },
       { key: 'display_order', name: '表示順', type: 'number_integer' },
