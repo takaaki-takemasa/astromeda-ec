@@ -611,12 +611,20 @@ export default function Homepage() {
         {(() => {
               // Storefront APIから取得した商品画像を使用（cdn.shopify.com経由で確実にロード）
               const catImgs = data.categoryImages || {};
-              // Sprint 2 Part 3-2: Metaobject 優先表示
-              const metaCards = (data.metaCategoryCards || [])
+              // Sprint 2 Part 3-2: Metaobject 優先表示（厳格完全性チェック）
+              //   - isActive=true のエントリが1件以上 AND 全エントリが title+description+priceFrom を満たす場合のみ採用
+              //   - 不完全なエントリが1件でもあれば既存ハードコードにフォールバック（破壊的変更ゼロ保証）
+              const rawMetaCards = (data.metaCategoryCards || [])
                 .filter((c) => c.isActive)
                 .sort((a, b) => a.sortOrder - b.sortOrder);
-              const cats = metaCards.length > 0
-                ? metaCards.map((c) => ({
+              const allComplete = rawMetaCards.length > 0 && rawMetaCards.every((c) =>
+                c.title.trim() !== '' &&
+                (c.description?.trim() ?? '') !== '' &&
+                c.priceFrom != null && c.priceFrom > 0 &&
+                (c.linkUrl?.trim() ?? '') !== ''
+              );
+              const cats = allComplete
+                ? rawMetaCards.map((c) => ({
                     name: c.title,
                     sub: c.description || '',
                     to: c.linkUrl || '#',
