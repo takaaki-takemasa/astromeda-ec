@@ -73,9 +73,9 @@ jobs:
         run: npm ci
 
       - name: Deploy to Staging
-        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server
+        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
         env:
-          SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_STAGING_DEPLOYMENT_TOKEN }}
+          SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
           NODE_ENV: production
 
       - name: Report Staging Deployment
@@ -88,7 +88,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: `🚀 **Staging Deployment**: ${status === 'success' ? '✅ Success' : '❌ Failed'}`
+              body: `🚀 **Staging Deployment**: ${status == 'success' ? '✅ Success' : '❌ Failed'}`
             });
 
   deploy-production:
@@ -115,13 +115,14 @@ jobs:
         run: npm ci
 
       - name: Deploy to Production
-        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server
+        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
         env:
-          SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_PRODUCTION_DEPLOYMENT_TOKEN }}
+          SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
           NODE_ENV: production
 
       - name: Notify Slack
-        if: always()
+        if: always() && env.SLACK_WEBHOOK_URL != ''
+        continue-on-error: true
         uses: slackapi/slack-github-action@v1.24.0
         with:
           payload: |
@@ -132,7 +133,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "*Production Deploy*: ${{ job.status === 'success' && '✅ Success' || '❌ Failed' }}\nCommit: ${{ github.sha }}"
+                    "text": "*Production Deploy*: ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: ${{ github.sha }}"
                   }
                 }
               ]
