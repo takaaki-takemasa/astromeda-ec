@@ -1096,7 +1096,7 @@ function ProductShelfForm({
           </span>
         </div>
         {subtitle && (
-          <div style={{fontSize: 11, fontWeight: 700, color: T.c, letterSpacing: 1.5, marginBottom: 16, opacity: 0.85}}>
+          <div style={{fontSize: 13, fontWeight: 700, color: T.c, letterSpacing: 1.5, marginBottom: 16}}>
             {subtitle}
           </div>
         )}
@@ -1438,9 +1438,139 @@ function AboutSectionForm({
   const [linkUrl, setLinkUrl] = useState(initial.linkUrl || '');
   const [linkLabel, setLinkLabel] = useState(initial.linkLabel || '');
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Live preview — 2カラム ABOUT セクション(左 image / 右 title+bodyHtml+CTA)
+  const safeBodyHtml = bodyHtml.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <div style={{padding: 32, opacity: isActive ? 1 : 0.5}}>
+        <div
+          className="aped-about-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: device === 'mobile' ? '1fr' : '1fr 1fr',
+            gap: 28,
+            alignItems: 'center',
+            background: `linear-gradient(135deg, #0a0e1a 0%, #0f1a2e 50%, #162040 100%)`,
+            border: `1px solid ${al(T.c, 0.15)}`,
+            borderRadius: 16,
+            padding: 32,
+          }}
+        >
+          {/* 左: Image */}
+          <div
+            style={{
+              aspectRatio: '4/3',
+              borderRadius: 12,
+              overflow: 'hidden',
+              position: 'relative',
+              background: image
+                ? T.bg
+                : `linear-gradient(160deg, ${al(T.c, 0.18)}, ${al(T.tx, 0.02)} 70%)`,
+              border: `1px solid ${al(T.tx, 0.08)}`,
+            }}
+          >
+            {image && /^https?:\/\//.test(image) ? (
+              <img
+                src={image}
+                alt={title || ''}
+                style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+              />
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: T.t4,
+                  fontSize: 11,
+                }}
+              >
+                {image ? `(GID: ${image.slice(0, 30)}...)` : '(画像未設定)'}
+              </div>
+            )}
+          </div>
+
+          {/* 右: Content */}
+          <div style={{display: 'flex', flexDirection: 'column', gap: 14}}>
+            <div
+              style={{
+                fontSize: 10,
+                fontWeight: 800,
+                color: T.c,
+                letterSpacing: 4,
+                opacity: 0.8,
+              }}
+            >
+              ABOUT
+            </div>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 900,
+                color: '#fff',
+                lineHeight: 1.3,
+                margin: 0,
+              }}
+            >
+              {title || '(タイトル未入力)'}
+            </div>
+            {safeBodyHtml ? (
+              <div
+                style={{
+                  fontSize: 13,
+                  color: T.t5,
+                  lineHeight: 1.7,
+                }}
+                dangerouslySetInnerHTML={{__html: safeBodyHtml}}
+              />
+            ) : (
+              <div style={{fontSize: 12, color: T.t4, fontStyle: 'italic'}}>
+                (本文未入力)
+              </div>
+            )}
+            {(linkLabel || linkUrl) && (
+              <div style={{marginTop: 8}}>
+                <span
+                  style={{
+                    display: 'inline-block',
+                    padding: '10px 20px',
+                    background: al(T.c, 0.12),
+                    border: `1px solid ${al(T.c, 0.4)}`,
+                    borderRadius: 8,
+                    color: T.c,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    letterSpacing: 1,
+                  }}
+                >
+                  {linkLabel || '(ラベル未入力)'}
+                </span>
+                {linkUrl && (
+                  <div style={{fontSize: 9, color: T.t4, marginTop: 4, fontFamily: 'monospace'}}>
+                    → {linkUrl}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+        <div style={{fontSize: 9, color: T.t4, textAlign: 'center', marginTop: 14}}>
+          ※ 2カラム layout preview (mobile = 縦積み)
+        </div>
+      </div>
+    </PreviewFrame>
+  );
 
   return (
-    <Modal title={isCreate ? 'ABOUT セクション 新規追加' : 'ABOUT セクション 編集'} onClose={onCancel}>
+    <Modal
+      title={isCreate ? 'ABOUT セクション 新規追加' : 'ABOUT セクション 編集'}
+      onClose={onCancel}
+      preview={previewPane}
+    >
       <div style={{display: 'grid', gap: 12}}>
         {isCreate && (
           <div>
