@@ -1847,17 +1847,19 @@ function FooterConfigForm({
                   <div style={{fontSize: 10, color: T.t4, fontStyle: 'italic'}}>(リンク未設定)</div>
                 ) : (
                   previewLinks.map((lk, i) => (
-                    <a
-                      key={`${lk.label}-${i}`}
+                    <div
+                      key={`link-${i}-${lk.label}`}
                       style={{
                         color: T.t4,
                         textDecoration: 'underline',
                         fontSize: 11,
                         cursor: 'default',
+                        display: 'block',
+                        lineHeight: 1.4,
                       }}
                     >
                       {lk.label}
-                    </a>
+                    </div>
                   ))
                 )}
               </div>
