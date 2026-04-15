@@ -10,6 +10,7 @@ import {useFetcher, useLoaderData, Link} from 'react-router';
 import type {Route} from './+types/admin.products.$id';
 import {T, al, PAGE_WIDTH} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 
 // ── 型定義 ──
 interface ProductDetail {
@@ -90,6 +91,7 @@ export default function AdminProductDetail() {
   const fetcher = useFetcher<{success?: boolean; error?: string}>();
 
   const [tab, setTab] = useState<'basic' | 'variants' | 'images' | 'publish'>('basic');
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   // ── フォーム状態 ──
   const initialBasic: BasicInfo = useMemo(() => ({
@@ -339,6 +341,17 @@ export default function AdminProductDetail() {
           ))}
         </div>
 
+        {/* ── 2-pane Layout: left=form / right=live preview ── */}
+        <div
+          className="admin-prod-2pane"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(400px, 1fr) minmax(400px, 1.1fr)',
+            gap: 20,
+            alignItems: 'start',
+          }}
+        >
+          <div style={{minWidth: 0}}>
         {/* ── Basic Info Tab ── */}
         {tab === 'basic' && (
           <div style={cardStyle}>
@@ -561,6 +574,14 @@ export default function AdminProductDetail() {
             </div>
           </div>
         )}
+          </div>
+          {/* ── Live Preview Pane ── */}
+          <div style={{minWidth: 0, position: 'sticky', top: 20}}>
+            <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+              <ProductLivePreview basic={basic} variants={variants} images={images} />
+            </PreviewFrame>
+          </div>
+        </div>
       </div>
 
       {/* Toast Container */}
@@ -587,6 +608,14 @@ export default function AdminProductDetail() {
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes spin { to { transform: rotate(360deg); } }
         .spr { width: 14px; height: 14px; border: 2px solid ${al(T.c, 0.3)}; border-top-color: ${T.c}; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @media (max-width: 1400px) {
+          .admin-prod-2pane {
+            grid-template-columns: 1fr !important;
+          }
+          .admin-prod-2pane > div:last-child {
+            position: static !important;
+          }
+        }
       `}} />
     </div>
   );
@@ -594,6 +623,250 @@ export default function AdminProductDetail() {
 
 function Spinner() {
   return <div className="spr" />;
+}
+
+// ══════════════════════════════════════════════════════════
+// ProductLivePreview — Sprint 4 Part D
+// 商品詳細ページ風のライブプレビュー(左: 画像 / 右: 商品情報)
+// ══════════════════════════════════════════════════════════
+
+type BasicForForm = {
+  title: string;
+  descriptionHtml: string;
+  vendor: string;
+  productType: string;
+  tagsCsv: string;
+  status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
+};
+
+interface ProductLivePreviewProps {
+  basic: BasicForForm;
+  variants: Array<{id: string; title: string; price: string; compareAtPrice: string | null; inventoryQuantity: number}>;
+  images: Array<{id: string; url: string; alt: string | null}>;
+}
+
+function ProductLivePreview({basic, variants, images}: ProductLivePreviewProps) {
+  // 最低価格バリアント
+  const minPrice = useMemo(() => {
+    if (variants.length === 0) return null;
+    const prices = variants
+      .map((v) => parseFloat(v.price))
+      .filter((p) => !Number.isNaN(p));
+    if (prices.length === 0) return null;
+    return Math.min(...prices);
+  }, [variants]);
+
+  // 在庫合計
+  const totalStock = useMemo(
+    () => variants.reduce((s, v) => s + (Number.isFinite(v.inventoryQuantity) ? v.inventoryQuantity : 0), 0),
+    [variants],
+  );
+  const inStock = totalStock > 0;
+
+  // script タグ strip
+  const safeDescription = (basic.descriptionHtml || '').replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+
+  const mainImage = images[0];
+  const thumbnails = images.slice(0, 6);
+  const isDraft = basic.status === 'DRAFT';
+  const isArchived = basic.status === 'ARCHIVED';
+
+  return (
+    <div style={{background: T.bg, color: T.tx, padding: 24, fontFamily: "'Outfit','Noto Sans JP',system-ui,sans-serif"}}>
+      <div
+        className="product-live-preview-grid"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 32,
+        }}
+      >
+        {/* 左: 画像 */}
+        <div>
+          <div
+            style={{
+              position: 'relative',
+              aspectRatio: '1/1',
+              borderRadius: 16,
+              overflow: 'hidden',
+              background: 'rgba(255,255,255,.02)',
+              border: '1px solid rgba(255,255,255,.06)',
+            }}
+          >
+            {mainImage?.url ? (
+              <img
+                src={mainImage.url}
+                alt={mainImage.alt || basic.title}
+                style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+              />
+            ) : (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: T.t4,
+                  fontSize: 12,
+                  background: 'linear-gradient(135deg, rgba(0,240,255,.08), rgba(255,179,0,.05))',
+                }}
+              >
+                No Image
+              </div>
+            )}
+            {(isDraft || isArchived) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  left: 12,
+                  padding: '4px 10px',
+                  background: isDraft ? al(T.t4, 0.9) : al(T.r, 0.9),
+                  color: T.bg,
+                  fontSize: 10,
+                  fontWeight: 900,
+                  letterSpacing: 1,
+                  borderRadius: 4,
+                }}
+              >
+                {isDraft ? '下書き' : 'アーカイブ'}
+              </div>
+            )}
+          </div>
+          {thumbnails.length > 1 && (
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(6, 1fr)',
+                gap: 6,
+                marginTop: 10,
+              }}
+            >
+              {thumbnails.map((img, i) => (
+                <div
+                  key={img.id + i}
+                  style={{
+                    aspectRatio: '1/1',
+                    borderRadius: 6,
+                    overflow: 'hidden',
+                    border: `1px solid ${i === 0 ? T.c : al(T.tx, 0.1)}`,
+                    background: al(T.tx, 0.02),
+                  }}
+                >
+                  {img.url && (
+                    <img
+                      src={img.url}
+                      alt=""
+                      style={{width: '100%', height: '100%', objectFit: 'cover', display: 'block'}}
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 右: 商品情報 */}
+        <div style={{display: 'flex', flexDirection: 'column', gap: 12}}>
+          {basic.vendor && (
+            <div style={{fontSize: 10, color: T.c, letterSpacing: 3, fontWeight: 800}}>
+              {basic.vendor.toUpperCase()}
+            </div>
+          )}
+          <h1 style={{fontSize: 24, fontWeight: 900, color: T.tx, lineHeight: 1.3, margin: 0}}>
+            {basic.title || '(タイトル未入力)'}
+          </h1>
+          {basic.productType && (
+            <div style={{fontSize: 11, color: T.t4}}>
+              {basic.productType}
+            </div>
+          )}
+          <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 4}}>
+            <span style={{fontSize: 26, fontWeight: 900, color: T.c}}>
+              {minPrice != null ? `¥${Math.round(minPrice).toLocaleString('ja-JP')}` : '¥—'}
+            </span>
+            {variants.length > 1 && <span style={{fontSize: 11, color: T.t4}}>〜</span>}
+            <span style={{fontSize: 10, color: T.t4}}>(税込)</span>
+          </div>
+          <div style={{fontSize: 11, color: inStock ? '#6bff7b' : T.r, fontWeight: 700}}>
+            {inStock ? `◎ 在庫あり (${totalStock})` : '✕ 売り切れ'}
+          </div>
+          {safeDescription ? (
+            <div
+              style={{
+                fontSize: 12,
+                color: T.t5,
+                lineHeight: 1.7,
+                marginTop: 8,
+                maxHeight: 180,
+                overflow: 'auto',
+                padding: 10,
+                background: al(T.tx, 0.02),
+                borderRadius: 6,
+                border: `1px solid ${al(T.tx, 0.05)}`,
+              }}
+              dangerouslySetInnerHTML={{__html: safeDescription}}
+            />
+          ) : (
+            <div style={{fontSize: 11, color: T.t4, fontStyle: 'italic', marginTop: 8}}>
+              (説明文未入力)
+            </div>
+          )}
+          <button
+            type="button"
+            disabled
+            style={{
+              marginTop: 12,
+              padding: '14px 24px',
+              background: isDraft || !inStock ? al(T.tx, 0.1) : T.c,
+              border: 'none',
+              borderRadius: 8,
+              color: isDraft || !inStock ? T.t4 : T.bg,
+              fontSize: 13,
+              fontWeight: 900,
+              letterSpacing: 1,
+              cursor: 'not-allowed',
+              fontFamily: 'inherit',
+            }}
+          >
+            {isDraft ? '下書き — 購入不可' : !inStock ? '売り切れ' : 'カートに追加'}
+          </button>
+          {basic.tagsCsv && (
+            <div style={{display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8}}>
+              {basic.tagsCsv
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .slice(0, 8)
+                .map((tag, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      fontSize: 9,
+                      padding: '2px 8px',
+                      background: al(T.c, 0.12),
+                      border: `1px solid ${al(T.c, 0.3)}`,
+                      borderRadius: 4,
+                      color: T.c,
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @media (max-width: 600px) {
+          .product-live-preview-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}} />
+    </div>
+  );
 }
 
 export const ErrorBoundary = RouteErrorBoundary;
