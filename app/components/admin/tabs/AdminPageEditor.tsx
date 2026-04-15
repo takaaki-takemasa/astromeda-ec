@@ -8,6 +8,7 @@
  */
 
 import React, {useCallback, useEffect, useRef, useState} from 'react';
+import {useSearchParams} from 'react-router';
 import {T, al} from '~/lib/astromeda-data';
 
 // ══════════════════════════════════════════════════════════
@@ -256,8 +257,22 @@ async function apiGet<T>(endpoint: string): Promise<T | null> {
 // メインコンポーネント
 // ══════════════════════════════════════════════════════════
 
+const VALID_SUB_TABS: SubTab[] = ['color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs'];
+
 export default function AdminPageEditor() {
-  const [subTab, setSubTab] = useState<SubTab>('color_models');
+  const [searchParams] = useSearchParams();
+  const subParam = searchParams.get('sub');
+  const initialSubTab: SubTab =
+    subParam && (VALID_SUB_TABS as string[]).includes(subParam) ? (subParam as SubTab) : 'color_models';
+  const [subTab, setSubTab] = useState<SubTab>(initialSubTab);
+
+  // URL の sub パラメータ変化に追従（Site Map からの遷移対応）
+  useEffect(() => {
+    if (subParam && (VALID_SUB_TABS as string[]).includes(subParam)) {
+      setSubTab(subParam as SubTab);
+    }
+  }, [subParam]);
+
   const {toasts, push} = useToasts();
 
   const tabs: Array<{key: SubTab; label: string}> = [

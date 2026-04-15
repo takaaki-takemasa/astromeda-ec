@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router';
 import { color } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 
@@ -43,7 +44,16 @@ export default function AdminHomepageCMS() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [initStatus, setInitStatus] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'collabs' | 'banners'>('collabs');
+  const [searchParams] = useSearchParams();
+  const subParam = searchParams.get('sub');
+  const initialTab: 'collabs' | 'banners' = subParam === 'banners' ? 'banners' : 'collabs';
+  const [activeTab, setActiveTab] = useState<'collabs' | 'banners'>(initialTab);
+
+  useEffect(() => {
+    if (subParam === 'banners' || subParam === 'collabs') {
+      setActiveTab(subParam);
+    }
+  }, [subParam]);
 
   const fetchData = useCallback(async () => {
     try {
