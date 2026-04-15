@@ -1,7 +1,8 @@
 import {useState} from 'react';
-import {Link} from 'react-router';
+import {Link, useRouteLoaderData} from 'react-router';
 import {T, al, LEGAL, POLICY_BASE} from '~/lib/astromeda-data';
 import {NewsletterSignup} from '~/components/astro/NewsletterSignup';
+import type {RootLoader, MetaFooterConfig} from '~/root';
 
 /* ─── Footer SVG Icons ──────────────────────────────── */
 const iconProps = {width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true as const};
@@ -13,6 +14,16 @@ function SvgTruck() { return <svg {...iconProps}><path d="M14 18V6a2 2 0 0 0-2-2
 
 export function AstroFooter() {
   const [sec, setSec] = useState<string | null>(null);
+  const rootData = useRouteLoaderData<RootLoader>('root');
+  const rawFooterConfigs: MetaFooterConfig[] = rootData?.metaFooterConfigs || [];
+  // Sprint 2 Part 3-5: 完全性チェック — 全 active エントリが section_title + links を満たす
+  const activeFooterConfigs = rawFooterConfigs.filter((c) => c.isActive);
+  const footerMetaMode =
+    activeFooterConfigs.length > 0 &&
+    activeFooterConfigs.every((c) => c.sectionTitle.trim() !== '' && c.links.length > 0);
+  const metaSections = footerMetaMode
+    ? [...activeFooterConfigs].sort((a, b) => a.sortOrder - b.sortOrder)
+    : [];
 
   const sections = [
     {k: 'company', l: '会社概要', icon: <SvgBuilding />},
@@ -299,70 +310,136 @@ export function AstroFooter() {
           </div>
         </div>
 
-        {/* Links & copyright */}
-        <div
-          style={{
-            textAlign: 'center',
-            fontSize: 'clamp(8px, 1.1vw, 10px)',
-            color: T.t3,
-            lineHeight: 1.8,
-          }}
-        >
-          <Link to="/policies/terms-of-service" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            利用規約
-          </Link>
-          <Link to="/policies/privacy-policy" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            プライバシーポリシー
-          </Link>
-          <Link to="/legal/tokushoho" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            特定商取引法
-          </Link>
-          <Link to="/policies/refund-policy" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            返品ポリシー
-          </Link>
-          <Link to="/faq" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            よくある質問
-          </Link>
-          <Link to="/commitment" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            こだわり
-          </Link>
-          <Link to="/warranty" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            延長保証
-          </Link>
-          <Link to="/contact" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            お問い合わせ
-          </Link>
-          <Link to="/contact-houjin" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            法人のお問い合わせ
-          </Link>
-          <Link to="/recycle" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            家電リサイクル
-          </Link>
-          <Link to="/guides" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            購入ガイド
-          </Link>
-          <Link to="/blogs/news" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            ニュース
-          </Link>
-          <Link to="/gift-cards" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
-            ギフトカード
-          </Link>
-          <Link to="/wishlist" style={{color: T.t4, textDecoration: 'underline'}}>
-            お気に入り
-          </Link>
-          <div style={{marginTop: 10}}>
-            © Mining Base Co., Ltd. ALL RIGHTS RESERVED.
+        {/* Links & copyright — Sprint 2 Part 3-5: Metaobject 優先 */}
+        {footerMetaMode ? (
+          <div
+            style={{
+              fontSize: 'clamp(9px, 1.1vw, 11px)',
+              color: T.t3,
+              lineHeight: 1.8,
+            }}
+          >
+            <div
+              className="astro-footer-meta-grid"
+              style={{
+                display: 'grid',
+                gap: 'clamp(16px, 2vw, 28px)',
+                marginBottom: 20,
+              }}
+            >
+              {metaSections.map((s) => (
+                <div key={s.id}>
+                  <div
+                    style={{
+                      fontWeight: 800,
+                      color: T.tx,
+                      fontSize: 'clamp(10px, 1.2vw, 12px)',
+                      letterSpacing: 1,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {s.sectionTitle}
+                  </div>
+                  <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
+                    {s.links.map((lk, i) => {
+                      const isExternal = /^https?:\/\//.test(lk.url);
+                      return isExternal ? (
+                        <a
+                          key={`${s.id}-${i}`}
+                          href={lk.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{color: T.t4, textDecoration: 'underline'}}
+                        >
+                          {lk.label}
+                        </a>
+                      ) : (
+                        <Link
+                          key={`${s.id}-${i}`}
+                          to={lk.url}
+                          style={{color: T.t4, textDecoration: 'underline'}}
+                        >
+                          {lk.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{textAlign: 'center', color: T.t3, fontSize: 'clamp(8px, 1.1vw, 10px)'}}>
+              © Mining Base Co., Ltd. ALL RIGHTS RESERVED.
+            </div>
           </div>
-        </div>
+        ) : (
+          <div
+            style={{
+              textAlign: 'center',
+              fontSize: 'clamp(8px, 1.1vw, 10px)',
+              color: T.t3,
+              lineHeight: 1.8,
+            }}
+          >
+            <Link to="/policies/terms-of-service" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              利用規約
+            </Link>
+            <Link to="/policies/privacy-policy" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              プライバシーポリシー
+            </Link>
+            <Link to="/legal/tokushoho" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              特定商取引法
+            </Link>
+            <Link to="/policies/refund-policy" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              返品ポリシー
+            </Link>
+            <Link to="/faq" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              よくある質問
+            </Link>
+            <Link to="/commitment" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              こだわり
+            </Link>
+            <Link to="/warranty" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              延長保証
+            </Link>
+            <Link to="/contact" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              お問い合わせ
+            </Link>
+            <Link to="/contact-houjin" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              法人のお問い合わせ
+            </Link>
+            <Link to="/recycle" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              家電リサイクル
+            </Link>
+            <Link to="/guides" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              購入ガイド
+            </Link>
+            <Link to="/blogs/news" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              ニュース
+            </Link>
+            <Link to="/gift-cards" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
+              ギフトカード
+            </Link>
+            <Link to="/wishlist" style={{color: T.t4, textDecoration: 'underline'}}>
+              お気に入り
+            </Link>
+            <div style={{marginTop: 10}}>
+              © Mining Base Co., Ltd. ALL RIGHTS RESERVED.
+            </div>
+          </div>
+        )}
       </section>
 
       {/* SSR-safe responsive: 1col mobile, 2col desktop */}
       <style dangerouslySetInnerHTML={{__html: `
         .astro-footer-grid { grid-template-columns: 1fr; }
         .astro-footer-label { min-width: 80px; }
+        .astro-footer-meta-grid { grid-template-columns: 1fr 1fr; }
         @media (min-width: 600px) {
           .astro-footer-grid { grid-template-columns: 1fr 1fr; }
           .astro-footer-label { min-width: 100px; }
+        }
+        @media (min-width: 900px) {
+          .astro-footer-meta-grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
         }
       `}} />
     </footer>

@@ -122,20 +122,80 @@ export async function loader(args: Route.LoaderArgs) {
  * Load data necessary for rendering content above the fold. This is the critical data
  * needed to render the page. If it's unavailable, the whole page should 400 or 500 error.
  */
-async function loadCriticalData({context}: Route.LoaderArgs) {
-  const {storefront} = context;
+// Sprint 2 Part 3-5: Footer Metaobject 型
+export interface MetaFooterConfig {
+  id: string;
+  handle: string;
+  sectionTitle: string;
+  links: Array<{label: string; url: string}>;
+  sortOrder: number;
+  isActive: boolean;
+}
 
-  const [header] = await Promise.all([
+async function loadCriticalData({context}: Route.LoaderArgs) {
+  const {storefront, env} = context;
+
+  // Admin client 初期化（失敗時は null フォールバック）
+  let adminClient: Awaited<ReturnType<typeof import('../agents/core/shopify-admin.js').getAdminClient>> | null = null;
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    adminClient = getAdminClient();
+  } catch {
+    adminClient = null;
+  }
+
+  const emptyFooterMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
+    Promise.resolve([]);
+
+  const [headerResult, footerConfigResult] = await Promise.allSettled([
     storefront.query(HEADER_QUERY, {
       cache: storefront.CacheLong(),
       variables: {
         headerMenuHandle: 'main-menu', // Adjust to your header menu handle
       },
     }),
-    // Add other queries here, so that they are loaded in parallel
+    adminClient ? adminClient.getMetaobjects('astromeda_footer_config', 50) : emptyFooterMo(),
   ]);
 
-  return {header};
+  // ヘッダーが失敗したら従来通り throw（全ページが 500 する挙動は既存仕様のまま）
+  if (headerResult.status === 'rejected') {
+    throw headerResult.reason;
+  }
+  const header = headerResult.value;
+
+  // Footer config 失敗時は空配列（破壊的変更ゼロ保証）
+  const footerConfigRaw = footerConfigResult.status === 'fulfilled' ? footerConfigResult.value : [];
+
+  const metaFooterConfigs: MetaFooterConfig[] = footerConfigRaw.map((mo) => {
+    const f: Record<string, string> = {};
+    for (const kv of mo.fields) f[kv.key] = kv.value;
+    let links: Array<{label: string; url: string}> = [];
+    try {
+      const parsed = JSON.parse(f['links_json'] || '[]');
+      if (Array.isArray(parsed)) {
+        links = parsed
+          .filter((x): x is {label: string; url: string} =>
+            x != null &&
+            typeof x === 'object' &&
+            typeof (x as {label?: unknown}).label === 'string' &&
+            typeof (x as {url?: unknown}).url === 'string'
+          );
+      }
+    } catch {
+      links = [];
+    }
+    return {
+      id: mo.id,
+      handle: mo.handle,
+      sectionTitle: f['section_title'] || '',
+      links,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+    };
+  });
+
+  return {header, metaFooterConfigs};
 }
 
 /**
