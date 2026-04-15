@@ -10,6 +10,8 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {T, al} from '~/lib/astromeda-data';
+import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
+import {PCShowcase} from '~/components/astro/PCShowcase';
 
 // ══════════════════════════════════════════════════════════
 // 型定義
@@ -176,7 +178,18 @@ function ToastContainer({toasts}: {toasts: Toast[]}) {
   );
 }
 
-function Modal({title, onClose, children}: {title: string; onClose: () => void; children: React.ReactNode}) {
+function Modal({
+  title,
+  onClose,
+  children,
+  preview,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  preview?: React.ReactNode;
+}) {
+  const isTwoPane = !!preview;
   return (
     <div
       style={{
@@ -200,9 +213,10 @@ function Modal({title, onClose, children}: {title: string; onClose: () => void; 
           border: `1px solid ${al(T.tx, 0.15)}`,
           borderRadius: 12,
           width: '100%',
-          maxWidth: 600,
-          maxHeight: '90vh',
-          overflow: 'auto',
+          maxWidth: isTwoPane ? 1400 : 600,
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
           boxShadow: '0 12px 32px rgba(0,0,0,.6)',
         }}
       >
@@ -213,6 +227,7 @@ function Modal({title, onClose, children}: {title: string; onClose: () => void; 
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexShrink: 0,
           }}
         >
           <div style={{fontSize: 14, fontWeight: 900, color: T.tx}}>{title}</div>
@@ -220,8 +235,40 @@ function Modal({title, onClose, children}: {title: string; onClose: () => void; 
             ×
           </button>
         </div>
-        <div style={{padding: 20}}>{children}</div>
+        {isTwoPane ? (
+          <div
+            className="admin-modal-2pane"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'minmax(360px, 1fr) minmax(380px, 1.3fr)',
+              flex: 1,
+              minHeight: 0,
+            }}
+          >
+            <div
+              style={{
+                padding: 20,
+                overflow: 'auto',
+                borderRight: `1px solid ${al(T.tx, 0.08)}`,
+              }}
+            >
+              {children}
+            </div>
+            <div style={{padding: 16, background: al(T.tx, 0.02), overflow: 'auto'}}>
+              {preview}
+            </div>
+          </div>
+        ) : (
+          <div style={{padding: 20, overflow: 'auto'}}>{children}</div>
+        )}
       </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @media (max-width: 1100px) {
+          .admin-modal-2pane {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}} />
     </div>
   );
 }
@@ -480,9 +527,34 @@ function ColorModelForm({
   const [colorCode, setColorCode] = useState(initial.colorCode || '#888888');
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Live preview props — PCShowcase に渡す MetaColorModel[] を form 値から構築
+  const previewMeta = [
+    {
+      id: initial.id || 'preview',
+      handle: handle || 'preview',
+      name: name || '(未入力)',
+      slug: slug || 'preview',
+      image: image || null,
+      colorCode: /^#[0-9A-Fa-f]{6}$/.test(colorCode) ? colorCode : '#888888',
+      sortOrder,
+      isActive: true, // プレビューは常に表示
+    },
+  ];
+
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <PCShowcase colorImages={{}} metaColors={previewMeta} />
+    </PreviewFrame>
+  );
 
   return (
-    <Modal title={isCreate ? 'カラーモデル 新規追加' : 'カラーモデル 編集'} onClose={onCancel}>
+    <Modal
+      title={isCreate ? 'カラーモデル 新規追加' : 'カラーモデル 編集'}
+      onClose={onCancel}
+      preview={previewPane}
+    >
       <div style={{display: 'grid', gap: 12}}>
         {isCreate && (
           <div>
