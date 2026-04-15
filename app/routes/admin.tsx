@@ -37,7 +37,10 @@ export async function loader({request, context}: Route.LoaderArgs) {
   }
 
   // セッションからログイン状態を確認（免疫記憶の参照）
-  const session = await AppSession.init(request, [env.SESSION_SECRET]);
+  // セッション統一規約: server.ts が生成した共有セッションを優先利用、
+  // 別インスタンスを作ると Set-Cookie 競合で isAdmin が消えるバグ再発する
+  const sharedSession = (context as unknown as {session?: AppSession}).session;
+  const session = sharedSession ?? await AppSession.init(request, [env.SESSION_SECRET]);
   const isAdmin = session.get('isAdmin');
 
   if (!isAdmin) {
@@ -51,6 +54,9 @@ export async function loader({request, context}: Route.LoaderArgs) {
     // セッション期限切れ → 再ログイン
     session.unset('isAdmin');
     session.unset('loginAt');
+    if (sharedSession) {
+      throw redirect('/admin/login');
+    }
     throw redirect('/admin/login', {
       headers: {
         'Set-Cookie': await session.commit(),

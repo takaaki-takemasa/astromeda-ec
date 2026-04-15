@@ -40,7 +40,11 @@ export async function loader({ request, context }: { request: Request; context: 
     throw AppError.configuration('SESSION_SECRET が設定されていません');
   }
 
-  const session = await AppSession.init(request, [env.SESSION_SECRET]);
+  // セッション統一規約: server.ts が createHydrogenRouterContext で生成した
+  // セッションを優先利用し、二重 commit を回避（過去の Set-Cookie 上書きバグ対策）
+  const sharedSession = (context as unknown as {session?: AppSession}).session;
+  const session = sharedSession ?? await AppSession.init(request, [env.SESSION_SECRET]);
+
   if (session.get('isAdmin') === true) {
     throw redirect('/admin');
   }
@@ -49,6 +53,10 @@ export async function loader({ request, context }: { request: Request; context: 
   const csrfToken = generateCsrfToken();
   session.set('csrfToken', csrfToken);
 
+  // sharedSession を使った場合は server.ts の wrapper が自動 commit する
+  if (sharedSession) {
+    return data({csrfToken});
+  }
   return data(
     { csrfToken },
     { headers: { 'Set-Cookie': await session.commit() } },
@@ -58,6 +66,9 @@ export async function loader({ request, context }: { request: Request; context: 
 /**
  * Action: パスワード検証 → セッションCookie発行
  * Phase 21: レート制限追加（自然免疫バリア）
+ *
+ * セッション統一規約: server.ts が生成した共有セッションを優先利用し、
+ * 二重 Set-Cookie の last-wins 上書きを回避する。
  */
 export async function action({ request, context }: { request: Request; context: { env: Env } }) {
   const limited = applyRateLimit(request, 'admin.login', RATE_LIMIT_PRESETS.auth);
@@ -74,7 +85,9 @@ export async function action({ request, context }: { request: Request; context: 
   const password = String(formData.get('password') || '');
 
   // CSRF検証（免疫系: 抗原マーカーの照合）
-  const session = await AppSession.init(request, [env.SESSION_SECRET]);
+  // 共有セッション優先: hydrogenContext.session を再利用、無ければフォールバック
+  const sharedSession = (context as unknown as {session?: AppSession}).session;
+  const session = sharedSession ?? await AppSession.init(request, [env.SESSION_SECRET]);
   const sessionCsrf = session.get('csrfToken') as string | undefined;
   const formCsrf = String(formData.get('_csrf') || '');
   if (!verifyCsrfToken(sessionCsrf, formCsrf)) {
@@ -100,6 +113,10 @@ export async function action({ request, context }: { request: Request; context: 
   session.set('isAdmin', true);
   session.set('loginAt', Date.now());
 
+  // sharedSession を使った場合は server.ts の wrapper が自動 commit する
+  if (sharedSession) {
+    return redirect('/admin');
+  }
   return redirect('/admin', {
     headers: {
       'Set-Cookie': await session.commit(),
