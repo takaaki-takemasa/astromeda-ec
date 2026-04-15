@@ -128,6 +128,69 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'status', name: 'ステータス（active/planned/completed）', type: 'single_line_text_field' },
     ],
   },
+  // ── Sprint 2 / M4: ページ編集向け Metaobject 5種 ──
+  {
+    type: 'astromeda_pc_color_model',
+    name: 'Astromeda PCカラーモデル',
+    description: 'トップページ PCShowcase のカラーバリエーション。管理画面「ページ編集 > PCカラー」で管理。',
+    fieldDefinitions: [
+      { key: 'name', name: 'カラー名（例: ホワイト）', type: 'single_line_text_field' },
+      { key: 'handle', name: 'コレクションハンドル', type: 'single_line_text_field' },
+      { key: 'image', name: 'カラー画像', type: 'file_reference' },
+      { key: 'color_code', name: 'カラーコード（#RRGGBB）', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  {
+    type: 'astromeda_category_card',
+    name: 'Astromeda カテゴリカード',
+    description: 'トップページのカテゴリクイックナビ（ゲーミングPC / ガジェット / グッズ等）。',
+    fieldDefinitions: [
+      { key: 'title', name: 'カテゴリ名', type: 'single_line_text_field' },
+      { key: 'description', name: '説明', type: 'multi_line_text_field' },
+      { key: 'price_from', name: '最低価格', type: 'number_integer' },
+      { key: 'image', name: 'カード画像', type: 'file_reference' },
+      { key: 'link_url', name: 'リンクURL', type: 'url' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  {
+    type: 'astromeda_product_shelf',
+    name: 'Astromeda 商品シェルフ',
+    description: 'トップページの特集商品シェルフ（PRODUCT_IDS の順序で表示）。',
+    fieldDefinitions: [
+      { key: 'title', name: 'シェルフタイトル', type: 'single_line_text_field' },
+      { key: 'product_ids_json', name: '商品GID配列（JSON）', type: 'multi_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  {
+    type: 'astromeda_about_section',
+    name: 'Astromeda Aboutセクション',
+    description: 'About / 会社紹介ページ各セクションの本文・画像。',
+    fieldDefinitions: [
+      { key: 'title', name: 'セクションタイトル', type: 'single_line_text_field' },
+      { key: 'body_html', name: '本文HTML', type: 'multi_line_text_field' },
+      { key: 'image', name: '画像', type: 'file_reference' },
+      { key: 'link_url', name: 'リンクURL', type: 'url' },
+      { key: 'link_label', name: 'リンクラベル', type: 'single_line_text_field' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  {
+    type: 'astromeda_footer_config',
+    name: 'Astromeda フッター設定',
+    description: 'フッターのセクション別リンク群（LINKS_JSON で構造化）。',
+    fieldDefinitions: [
+      { key: 'section_title', name: 'セクション名', type: 'single_line_text_field' },
+      { key: 'links_json', name: 'リンク配列（JSON: [{label,url}...]）', type: 'multi_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
 ];
 
 export async function action({ request, context }: Route.ActionArgs) {
