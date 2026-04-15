@@ -29,6 +29,9 @@ import {
 import { RouteErrorBoundary } from '~/components/astro/RouteErrorBoundary';
 
 // ─── GraphQL Query: Fetch products with variants ──────
+// TODO(Sprint 2+): Admin API ベースへ移行（totalInventory/status/全フィールド取得のため）
+//   現状は Storefront API 経由のため totalInventory は取得不可。
+//   client.getProductDetail() の一覧版メソッドを agents/core/shopify-admin.ts に追加予定。
 const ADMIN_PRODUCTS_QUERY = `#graphql
   query AdminProducts($first: Int!) {
     products(first: $first) {
@@ -39,7 +42,6 @@ const ADMIN_PRODUCTS_QUERY = `#graphql
         productType
         vendor
         availableForSale
-        totalInventory
         priceRange {
           minVariantPrice { amount currencyCode }
           maxVariantPrice { amount currencyCode }
