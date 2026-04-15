@@ -1059,6 +1059,101 @@ function ProductShelfForm({
   const [productIds, setProductIds] = useState<string[]>(initial.productIds || []);
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Live preview — NEW ARRIVALS 風シェルフレイアウトを再現（商品実データは placeholder）
+  const validIds = productIds.filter((x) => x.trim() !== '');
+  const previewIds = validIds.length > 0 ? validIds : [];
+  const placeholderCount = previewIds.length === 0 ? 3 : 0;
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <div style={{padding: 20, opacity: isActive ? 1 : 0.5}}>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 20}}>
+          <span style={{fontSize: 18, fontWeight: 900, color: T.tx, letterSpacing: 1}}>
+            {title || '(シェルフタイトル未入力)'}
+          </span>
+        </div>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))',
+            gap: 14,
+          }}
+        >
+          {previewIds.map((pid, i) => {
+            const numMatch = pid.match(/\/(\d+)$/);
+            const numId = numMatch ? numMatch[1] : String(i + 1);
+            return (
+              <div
+                key={pid + i}
+                style={{
+                  background: al(T.tx, 0.03),
+                  borderRadius: 8,
+                  overflow: 'hidden',
+                  border: `1px solid ${al(T.tx, 0.06)}`,
+                }}
+              >
+                <div
+                  style={{
+                    aspectRatio: '4/3',
+                    background: `linear-gradient(135deg, ${al(T.c, 0.12)}, ${al(T.tx, 0.03)})`,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: T.t4,
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                  }}
+                >
+                  #{numId}
+                </div>
+                <div style={{padding: 10}}>
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 800,
+                      color: T.tx,
+                      lineHeight: 1.3,
+                      marginBottom: 4,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    商品 #{i + 1}
+                  </div>
+                  <div style={{fontSize: 14, color: T.c, fontWeight: 900}}>
+                    ¥—
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {Array.from({length: placeholderCount}).map((_, i) => (
+            <div
+              key={`ph${i}`}
+              style={{
+                aspectRatio: '4/3',
+                border: `1px dashed ${al(T.tx, 0.15)}`,
+                borderRadius: 8,
+                background: al(T.tx, 0.01),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: T.t4,
+                fontSize: 10,
+              }}
+            >
+              (商品未設定)
+            </div>
+          ))}
+        </div>
+        <div style={{fontSize: 9, color: T.t4, textAlign: 'center', marginTop: 14}}>
+          ※ 実サイトでは Shopify Storefront API で商品タイトル/画像/価格を動的取得
+        </div>
+      </div>
+    </PreviewFrame>
+  );
 
   const updateId = (idx: number, value: string) => {
     setProductIds((prev) => prev.map((x, i) => (i === idx ? value : x)));
@@ -1067,7 +1162,7 @@ function ProductShelfForm({
   const removeId = (idx: number) => setProductIds((prev) => prev.filter((_, i) => i !== idx));
 
   return (
-    <Modal title={isCreate ? '商品棚 新規追加' : '商品棚 編集'} onClose={onCancel}>
+    <Modal title={isCreate ? '商品棚 新規追加' : '商品棚 編集'} onClose={onCancel} preview={previewPane}>
       <div style={{display: 'grid', gap: 12}}>
         {isCreate && (
           <div>
