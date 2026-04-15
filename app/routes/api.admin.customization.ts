@@ -1,8 +1,10 @@
 /**
  * カスタマイズオプション管理API — CMS Phase C
  *
- * GET:  メタオブジェクト「astromeda_customization」から全オプション取得
- * POST: オプション作成 / 更新 / 削除 / 定義初期化
+ * GET:  Metaobject「astromeda_custom_option」から全オプション取得
+ * POST: オプション create / update / delete
+ *
+ * Metaobject 定義は api/admin/metaobject-setup で一括作成（本ファイルからは作成しない）
  *
  * セキュリティ: RateLimit → AdminAuth → RBAC → AuditLog → CSRF(POST) → Zod
  */
@@ -16,8 +18,8 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 
-// ── メタオブジェクトタイプ名 ──
-const METAOBJECT_TYPE = 'astromeda_customization';
+// ── Metaobject 型名（metaobject-setup.ts と整合） ──
+const METAOBJECT_TYPE = 'astromeda_custom_option';
 
 // ── Zod スキーマ ──
 const safeString = (maxLen: number = 500) =>
@@ -26,31 +28,30 @@ const safeString = (maxLen: number = 500) =>
     { message: 'HTMLタグは使用できません' },
   );
 
-const OptionItemSchema = z.object({
+const ChoiceItemSchema = z.object({
   value: safeString(500),
   label: safeString(500),
 }).strict();
 
 const CustomizationActionSchema = z.discriminatedUnion('action', [
   z.object({
-    action: z.literal('init_definition'),
-  }).strict(),
-  z.object({
     action: z.literal('create'),
     handle: safeString(100),
     name: safeString(255),
-    options: z.array(OptionItemSchema).min(1).max(50),
-    dependsOnField: safeString(255).optional(),
-    dependsOnValue: safeString(255).optional(),
+    choices: z.array(ChoiceItemSchema).min(1).max(50),
+    category: safeString(100).optional().default('general'),
+    appliesToTags: safeString(500).optional().default(''),
+    isRequired: z.boolean().optional().default(false),
     sortOrder: z.number().int().min(0).max(999).optional().default(0),
   }).strict(),
   z.object({
     action: z.literal('update'),
     metaobjectId: z.string().min(1),
     name: safeString(255).optional(),
-    options: z.array(OptionItemSchema).min(1).max(50).optional(),
-    dependsOnField: safeString(255).optional(),
-    dependsOnValue: safeString(255).optional(),
+    choices: z.array(ChoiceItemSchema).min(1).max(50).optional(),
+    category: safeString(100).optional(),
+    appliesToTags: safeString(500).optional(),
+    isRequired: z.boolean().optional(),
     sortOrder: z.number().int().min(0).max(999).optional(),
   }).strict(),
   z.object({
@@ -84,22 +85,19 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const metaobjects = await client.getMetaobjects(METAOBJECT_TYPE, 100);
 
     const options = metaobjects.map((mo) => {
-      const fields: Record<string, string> = {};
-      for (const f of mo.fields) {
-        fields[f.key] = f.value;
-      }
+      const f = fieldsToMap(mo.fields);
       return {
         id: mo.id,
         handle: mo.handle,
-        name: fields['name'] || '',
-        options: safeJsonParse(fields['options'], []),
-        dependsOnField: fields['depends_on_field'] || null,
-        dependsOnValue: fields['depends_on_value'] || null,
-        sortOrder: parseInt(fields['sort_order'] || '0', 10),
+        name: f['name'] || '',
+        category: f['category'] || 'general',
+        choices: safeJsonParse(f['choices_json'], [] as Array<{ value: string; label: string }>),
+        appliesToTags: f['applies_to_tags'] || '',
+        isRequired: f['is_required'] === 'true',
+        sortOrder: parseInt(f['display_order'] || '0', 10),
       };
     });
 
-    // ソート順で返す
     options.sort((a, b) => a.sortOrder - b.sortOrder);
 
     return data({ success: true, options, total: options.length });
@@ -151,41 +149,21 @@ export async function action({ request, context }: Route.ActionArgs) {
     const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
     setAdminEnv(contextEnv);
     const client = getAdminClient();
-    const validated = validation.data;
+    const v = validation.data;
 
-    switch (validated.action) {
-      case 'init_definition': {
-        const role = requirePermission(session, 'products.edit');
-        const result = await client.createMetaobjectDefinition(
-          METAOBJECT_TYPE,
-          'Astromeda カスタマイズオプション',
-          [
-            { key: 'name', name: 'オプション名', type: 'single_line_text_field' },
-            { key: 'options', name: 'オプション一覧 (JSON)', type: 'multi_line_text_field' },
-            { key: 'depends_on_field', name: '依存フィールド', type: 'single_line_text_field' },
-            { key: 'depends_on_value', name: '依存値', type: 'single_line_text_field' },
-            { key: 'sort_order', name: '表示順', type: 'number_integer' },
-          ],
-        );
-        auditLog({ action: 'customization_init', role, resource: `metaobject_definition/${METAOBJECT_TYPE}`, success: true });
-        return data({ success: true, definitionId: result.id });
-      }
-
+    switch (v.action) {
       case 'create': {
         const role = requirePermission(session, 'products.edit');
-        const fields = [
-          { key: 'name', value: validated.name },
-          { key: 'options', value: JSON.stringify(validated.options) },
-          { key: 'sort_order', value: String(validated.sortOrder) },
+        const fields: Array<{ key: string; value: string }> = [
+          { key: 'name', value: v.name },
+          { key: 'category', value: v.category },
+          { key: 'choices_json', value: JSON.stringify(v.choices) },
+          { key: 'display_order', value: String(v.sortOrder) },
+          { key: 'is_required', value: String(v.isRequired) },
+          { key: 'applies_to_tags', value: v.appliesToTags },
         ];
-        if (validated.dependsOnField) {
-          fields.push({ key: 'depends_on_field', value: validated.dependsOnField });
-        }
-        if (validated.dependsOnValue) {
-          fields.push({ key: 'depends_on_value', value: validated.dependsOnValue });
-        }
 
-        const result = await client.createMetaobject(METAOBJECT_TYPE, validated.handle, fields);
+        const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
         auditLog({ action: 'customization_create', role, resource: `metaobject/${result.id}`, success: true });
         return data({ success: true, metaobject: result });
       }
@@ -193,21 +171,22 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'update': {
         const role = requirePermission(session, 'products.edit');
         const fields: Array<{ key: string; value: string }> = [];
-        if (validated.name) fields.push({ key: 'name', value: validated.name });
-        if (validated.options) fields.push({ key: 'options', value: JSON.stringify(validated.options) });
-        if (validated.sortOrder !== undefined) fields.push({ key: 'sort_order', value: String(validated.sortOrder) });
-        if (validated.dependsOnField !== undefined) fields.push({ key: 'depends_on_field', value: validated.dependsOnField });
-        if (validated.dependsOnValue !== undefined) fields.push({ key: 'depends_on_value', value: validated.dependsOnValue });
+        if (v.name !== undefined) fields.push({ key: 'name', value: v.name });
+        if (v.category !== undefined) fields.push({ key: 'category', value: v.category });
+        if (v.choices !== undefined) fields.push({ key: 'choices_json', value: JSON.stringify(v.choices) });
+        if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
+        if (v.isRequired !== undefined) fields.push({ key: 'is_required', value: String(v.isRequired) });
+        if (v.appliesToTags !== undefined) fields.push({ key: 'applies_to_tags', value: v.appliesToTags });
 
-        const result = await client.updateMetaobject(validated.metaobjectId, fields);
-        auditLog({ action: 'customization_update', role, resource: `metaobject/${validated.metaobjectId}`, success: true });
+        const result = await client.updateMetaobject(v.metaobjectId, fields);
+        auditLog({ action: 'customization_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
         return data({ success: true, metaobject: result });
       }
 
       case 'delete': {
         const role = requirePermission(session, 'products.delete');
-        const result = await client.deleteMetaobject(validated.metaobjectId);
-        auditLog({ action: 'customization_delete', role, resource: `metaobject/${validated.metaobjectId}`, success: result });
+        const result = await client.deleteMetaobject(v.metaobjectId);
+        auditLog({ action: 'customization_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
         return data({ success: result });
       }
 
@@ -221,6 +200,12 @@ export async function action({ request, context }: Route.ActionArgs) {
 }
 
 // ── ヘルパー ──
+
+function fieldsToMap(fields: Array<{ key: string; value: string }>): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const f of fields) m[f.key] = f.value;
+  return m;
+}
 
 function safeJsonParse<T>(str: string | undefined, fallback: T): T {
   if (!str) return fallback;

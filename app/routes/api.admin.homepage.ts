@@ -1,8 +1,10 @@
 /**
  * ホームページCMS管理API — CMS Phase D
  *
- * GET:  メタオブジェクト「astromeda_homepage_collabs」「astromeda_homepage_banners」取得
- * POST: IPコラボ作成/更新/削除、バナー管理、定義初期化
+ * GET:  Metaobject「astromeda_ip_banner」「astromeda_hero_banner」取得
+ * POST: IPコラボ（ip_banner）・ヒーローバナー（hero_banner）CRUD
+ *
+ * Metaobject 定義は api/admin/metaobject-setup で一括作成（本ファイルからは作成しない）
  *
  * セキュリティ: RateLimit → AdminAuth → RBAC → AuditLog → CSRF(POST) → Zod
  */
@@ -16,9 +18,9 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 
-// ── メタオブジェクトタイプ ──
-const COLLABS_TYPE = 'astromeda_homepage_collabs';
-const BANNERS_TYPE = 'astromeda_homepage_banners';
+// ── Metaobject 型名（metaobject-setup.ts と整合） ──
+const COLLABS_TYPE = 'astromeda_ip_banner';
+const BANNERS_TYPE = 'astromeda_hero_banner';
 
 // ── Zod スキーマ ──
 const safeString = (maxLen: number = 500) =>
@@ -28,20 +30,18 @@ const safeString = (maxLen: number = 500) =>
   );
 
 const HomepageActionSchema = z.discriminatedUnion('action', [
-  // 定義初期化
-  z.object({
-    action: z.literal('init_definitions'),
-  }).strict(),
-
-  // IPコラボ作成
+  // IPコラボ作成（入力名はフロントエンド互換のため旧名を維持）
   z.object({
     action: z.literal('create_collab'),
     handle: safeString(100),
     name: safeString(255),
-    shopHandle: safeString(255),
-    theme: safeString(50).optional().default('default'),
-    featured: z.boolean().optional().default(false),
-    sortOrder: z.number().int().min(0).max(999).optional().default(0),
+    shopHandle: safeString(255),          // → collection_handle
+    theme: safeString(50).optional(),     // 旧フィールド（互換のため受け取るが書き込まない）
+    featured: z.boolean().optional().default(true), // → is_active
+    sortOrder: z.number().int().min(0).max(999).optional().default(0), // → display_order
+    image: safeString(2048).optional(),
+    tagline: safeString(255).optional(),
+    label: safeString(50).optional(),
   }).strict(),
 
   // IPコラボ更新
@@ -53,6 +53,9 @@ const HomepageActionSchema = z.discriminatedUnion('action', [
     theme: safeString(50).optional(),
     featured: z.boolean().optional(),
     sortOrder: z.number().int().min(0).max(999).optional(),
+    image: safeString(2048).optional(),
+    tagline: safeString(255).optional(),
+    label: safeString(50).optional(),
   }).strict(),
 
   // IPコラボ削除
@@ -66,10 +69,15 @@ const HomepageActionSchema = z.discriminatedUnion('action', [
     action: z.literal('create_banner'),
     handle: safeString(100),
     title: safeString(255),
-    collectionHandle: safeString(255).optional(),
+    subtitle: safeString(255).optional(),
+    image: safeString(2048).optional(),
     linkUrl: safeString(2048).optional(),
+    ctaLabel: safeString(100).optional(),
+    collectionHandle: safeString(255).optional(), // 互換のため受け取るが書き込まない
     sortOrder: z.number().int().min(0).max(99).optional().default(0),
     active: z.boolean().optional().default(true),
+    startAt: safeString(50).optional(),
+    endAt: safeString(50).optional(),
   }).strict(),
 
   // ヒーローバナー更新
@@ -77,10 +85,15 @@ const HomepageActionSchema = z.discriminatedUnion('action', [
     action: z.literal('update_banner'),
     metaobjectId: z.string().min(1),
     title: safeString(255).optional(),
-    collectionHandle: safeString(255).optional(),
+    subtitle: safeString(255).optional(),
+    image: safeString(2048).optional(),
     linkUrl: safeString(2048).optional(),
+    ctaLabel: safeString(100).optional(),
+    collectionHandle: safeString(255).optional(),
     sortOrder: z.number().int().min(0).max(99).optional(),
     active: z.boolean().optional(),
+    startAt: safeString(50).optional(),
+    endAt: safeString(50).optional(),
   }).strict(),
 
   // ヒーローバナー削除
@@ -112,7 +125,6 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     setAdminEnv(contextEnv);
     const client = getAdminClient();
 
-    // 並列取得
     const [collabsRaw, bannersRaw] = await Promise.all([
       client.getMetaobjects(COLLABS_TYPE, 100).catch(() => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
       client.getMetaobjects(BANNERS_TYPE, 50).catch(() => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
@@ -124,10 +136,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         id: mo.id,
         handle: mo.handle,
         name: f['name'] || '',
-        shopHandle: f['shop_handle'] || '',
-        theme: f['theme'] || 'default',
-        featured: f['featured'] === 'true',
-        sortOrder: parseInt(f['sort_order'] || '0', 10),
+        shopHandle: f['collection_handle'] || '',
+        image: f['image'] || null,
+        tagline: f['tagline'] || null,
+        label: f['label'] || null,
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        featured: f['is_active'] === 'true',
       };
     }).sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -137,10 +151,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         id: mo.id,
         handle: mo.handle,
         title: f['title'] || '',
-        collectionHandle: f['collection_handle'] || null,
+        subtitle: f['subtitle'] || null,
+        image: f['image'] || null,
         linkUrl: f['link_url'] || null,
-        sortOrder: parseInt(f['sort_order'] || '0', 10),
-        active: f['active'] !== 'false',
+        ctaLabel: f['cta_label'] || null,
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        active: f['is_active'] === 'true',
+        startAt: f['start_at'] || null,
+        endAt: f['end_at'] || null,
       };
     }).sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -206,39 +224,17 @@ export async function action({ request, context }: Route.ActionArgs) {
     const v = validation.data;
 
     switch (v.action) {
-      case 'init_definitions': {
-        const role = requirePermission(session, 'products.edit');
-
-        const [collabsDef, bannersDef] = await Promise.all([
-          client.createMetaobjectDefinition(COLLABS_TYPE, 'ホームページ IPコラボ', [
-            { key: 'name', name: 'IP名', type: 'single_line_text_field' },
-            { key: 'shop_handle', name: 'Shopifyコレクションハンドル', type: 'single_line_text_field' },
-            { key: 'theme', name: 'テーマ', type: 'single_line_text_field' },
-            { key: 'featured', name: 'フィーチャー', type: 'single_line_text_field' },
-            { key: 'sort_order', name: '表示順', type: 'number_integer' },
-          ]),
-          client.createMetaobjectDefinition(BANNERS_TYPE, 'ホームページ バナー', [
-            { key: 'title', name: 'バナータイトル', type: 'single_line_text_field' },
-            { key: 'collection_handle', name: 'コレクションハンドル', type: 'single_line_text_field' },
-            { key: 'link_url', name: 'リンクURL', type: 'single_line_text_field' },
-            { key: 'sort_order', name: '表示順', type: 'number_integer' },
-            { key: 'active', name: '有効', type: 'single_line_text_field' },
-          ]),
-        ]);
-
-        auditLog({ action: 'homepage_init', role, resource: 'metaobject_definitions', success: true });
-        return data({ success: true, collabsDefId: collabsDef.id, bannersDefId: bannersDef.id });
-      }
-
       case 'create_collab': {
         const role = requirePermission(session, 'products.edit');
-        const fields = [
+        const fields: Array<{ key: string; value: string }> = [
           { key: 'name', value: v.name },
-          { key: 'shop_handle', value: v.shopHandle },
-          { key: 'theme', value: v.theme },
-          { key: 'featured', value: String(v.featured) },
-          { key: 'sort_order', value: String(v.sortOrder) },
+          { key: 'collection_handle', value: v.shopHandle },
+          { key: 'display_order', value: String(v.sortOrder) },
+          { key: 'is_active', value: String(v.featured) },
         ];
+        if (v.image) fields.push({ key: 'image', value: v.image });
+        if (v.tagline) fields.push({ key: 'tagline', value: v.tagline });
+        if (v.label) fields.push({ key: 'label', value: v.label });
         const result = await client.createMetaobject(COLLABS_TYPE, v.handle, fields);
         auditLog({ action: 'collab_create', role, resource: `metaobject/${result.id}`, success: true });
         return data({ success: true, metaobject: result });
@@ -247,11 +243,13 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'update_collab': {
         const role = requirePermission(session, 'products.edit');
         const fields: Array<{ key: string; value: string }> = [];
-        if (v.name) fields.push({ key: 'name', value: v.name });
-        if (v.shopHandle) fields.push({ key: 'shop_handle', value: v.shopHandle });
-        if (v.theme) fields.push({ key: 'theme', value: v.theme });
-        if (v.featured !== undefined) fields.push({ key: 'featured', value: String(v.featured) });
-        if (v.sortOrder !== undefined) fields.push({ key: 'sort_order', value: String(v.sortOrder) });
+        if (v.name !== undefined) fields.push({ key: 'name', value: v.name });
+        if (v.shopHandle !== undefined) fields.push({ key: 'collection_handle', value: v.shopHandle });
+        if (v.featured !== undefined) fields.push({ key: 'is_active', value: String(v.featured) });
+        if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
+        if (v.image !== undefined) fields.push({ key: 'image', value: v.image });
+        if (v.tagline !== undefined) fields.push({ key: 'tagline', value: v.tagline });
+        if (v.label !== undefined) fields.push({ key: 'label', value: v.label });
 
         const result = await client.updateMetaobject(v.metaobjectId, fields);
         auditLog({ action: 'collab_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
@@ -267,13 +265,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'create_banner': {
         const role = requirePermission(session, 'products.edit');
-        const fields = [
+        const fields: Array<{ key: string; value: string }> = [
           { key: 'title', value: v.title },
-          { key: 'sort_order', value: String(v.sortOrder) },
-          { key: 'active', value: String(v.active) },
+          { key: 'display_order', value: String(v.sortOrder) },
+          { key: 'is_active', value: String(v.active) },
         ];
-        if (v.collectionHandle) fields.push({ key: 'collection_handle', value: v.collectionHandle });
+        if (v.subtitle) fields.push({ key: 'subtitle', value: v.subtitle });
+        if (v.image) fields.push({ key: 'image', value: v.image });
         if (v.linkUrl) fields.push({ key: 'link_url', value: v.linkUrl });
+        if (v.ctaLabel) fields.push({ key: 'cta_label', value: v.ctaLabel });
+        if (v.startAt) fields.push({ key: 'start_at', value: v.startAt });
+        if (v.endAt) fields.push({ key: 'end_at', value: v.endAt });
 
         const result = await client.createMetaobject(BANNERS_TYPE, v.handle, fields);
         auditLog({ action: 'banner_create', role, resource: `metaobject/${result.id}`, success: true });
@@ -283,11 +285,15 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'update_banner': {
         const role = requirePermission(session, 'products.edit');
         const fields: Array<{ key: string; value: string }> = [];
-        if (v.title) fields.push({ key: 'title', value: v.title });
-        if (v.collectionHandle !== undefined) fields.push({ key: 'collection_handle', value: v.collectionHandle });
+        if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
+        if (v.subtitle !== undefined) fields.push({ key: 'subtitle', value: v.subtitle });
+        if (v.image !== undefined) fields.push({ key: 'image', value: v.image });
         if (v.linkUrl !== undefined) fields.push({ key: 'link_url', value: v.linkUrl });
-        if (v.sortOrder !== undefined) fields.push({ key: 'sort_order', value: String(v.sortOrder) });
-        if (v.active !== undefined) fields.push({ key: 'active', value: String(v.active) });
+        if (v.ctaLabel !== undefined) fields.push({ key: 'cta_label', value: v.ctaLabel });
+        if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
+        if (v.active !== undefined) fields.push({ key: 'is_active', value: String(v.active) });
+        if (v.startAt !== undefined) fields.push({ key: 'start_at', value: v.startAt });
+        if (v.endAt !== undefined) fields.push({ key: 'end_at', value: v.endAt });
 
         const result = await client.updateMetaobject(v.metaobjectId, fields);
         auditLog({ action: 'banner_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });

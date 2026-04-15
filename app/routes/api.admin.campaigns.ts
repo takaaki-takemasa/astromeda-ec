@@ -1,79 +1,158 @@
 /**
- * キャンペーン管理API — L15感覚統合（マーケティング可視化）
+ * キャンペーン管理API — CMS
  *
- * PromotionAgent のキャンペーン・割引コードをCEOが管理するためのAPI
+ * GET:  Metaobject「astromeda_campaign」一覧 + 割引コード（PromotionAgent state 補完）
+ *       + 年間セールカレンダーテンプレート（status:'template'）
+ * POST: キャンペーン create / update / delete / activate / deactivate
+ *
+ * Metaobject 定義は api/admin/metaobject-setup で一括作成（本ファイルからは作成しない）
+ *
+ * セキュリティ: RateLimit → AdminAuth → RBAC → AuditLog → CSRF(POST) → Zod
  */
 
 import { data } from 'react-router';
 import type { Route } from './+types/api.admin.campaigns';
-import { setBridgeEnv, ensureInitialized } from '~/lib/agent-bridge';
-import { CampaignActionSchema } from '~/lib/api-schemas';
+import { z } from 'zod';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '~/lib/rate-limiter';
 import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 
-interface RegisteredAgent {
-  id: string;
-  getState?: () => Record<string, unknown>;
+// ── Metaobject 型名（metaobject-setup.ts と整合） ──
+const METAOBJECT_TYPE = 'astromeda_campaign';
+
+// ── Zod スキーマ ──
+const safeString = (maxLen: number = 500) =>
+  z.string().max(maxLen).refine(
+    (s) => !/<[^>]*>/g.test(s),
+    { message: 'HTMLタグは使用できません' },
+  );
+
+const CampaignActionSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('create'),
+    handle: safeString(100),
+    title: safeString(255),
+    description: safeString(2000).optional().default(''),
+    discountCode: safeString(100).optional().default(''),
+    discountPercent: z.number().int().min(0).max(100).optional().default(0),
+    startAt: safeString(50).optional(),
+    endAt: safeString(50).optional(),
+    targetTags: safeString(500).optional().default(''),
+    status: z.enum(['active', 'planned', 'completed']).optional().default('planned'),
+  }).strict(),
+  z.object({
+    action: z.literal('update'),
+    metaobjectId: z.string().min(1),
+    title: safeString(255).optional(),
+    description: safeString(2000).optional(),
+    discountCode: safeString(100).optional(),
+    discountPercent: z.number().int().min(0).max(100).optional(),
+    startAt: safeString(50).optional(),
+    endAt: safeString(50).optional(),
+    targetTags: safeString(500).optional(),
+    status: z.enum(['active', 'planned', 'completed']).optional(),
+  }).strict(),
+  z.object({
+    action: z.literal('delete'),
+    metaobjectId: z.string().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal('activate'),
+    metaobjectId: z.string().min(1),
+  }).strict(),
+  z.object({
+    action: z.literal('deactivate'),
+    metaobjectId: z.string().min(1),
+  }).strict(),
+]);
+
+// ── 年間セールカレンダーテンプレート ──
+function buildSaleCalendarTemplate() {
+  const year = new Date().getFullYear();
+  return [
+    { name: '新年セール', startDate: new Date(year, 0, 1).getTime(), endDate: new Date(year, 0, 7).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: '新生活応援', startDate: new Date(year, 2, 15).getTime(), endDate: new Date(year, 2, 31).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: 'GWセール', startDate: new Date(year, 4, 1).getTime(), endDate: new Date(year, 4, 6).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: '夏のボーナスセール', startDate: new Date(year, 6, 1).getTime(), endDate: new Date(year, 6, 15).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: 'お盆セール', startDate: new Date(year, 7, 10).getTime(), endDate: new Date(year, 7, 18).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: 'ブラックフライデー', startDate: new Date(year, 10, 22).getTime(), endDate: new Date(year, 10, 28).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+    { name: '年末年始セール', startDate: new Date(year, 11, 1).getTime(), endDate: new Date(year, 11, 25).getTime(), type: 'seasonal', discountRate: 0, status: 'template' },
+  ];
 }
+
+// ── GET: キャンペーン一覧 ──
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const limited = applyRateLimit(request, 'api.admin.campaigns', RATE_LIMIT_PRESETS.admin);
   if (limited) return limited;
 
   try {
-    // 免疫チェック: 認証なしアクセスを遮断
     const { verifyAdminAuth } = await import('~/lib/admin-auth');
-    const auth = await verifyAdminAuth(request, (context as unknown as { env: Env }).env);
+    const contextEnv = (context as unknown as { env: Env }).env || ({} as Env);
+    const auth = await verifyAdminAuth(request, contextEnv);
     if (!auth.authenticated) return auth.response;
 
-    // RBAC: products.view permission required
-    const session = await AppSession.init(request, [(context as unknown as { env: Env }).env.SESSION_SECRET]);
+    const session = await AppSession.init(request, [
+      String((contextEnv as unknown as { SESSION_SECRET?: string }).SESSION_SECRET || ''),
+    ]);
     const role = requirePermission(session, 'products.view');
     auditLog({ action: 'api_access', role, resource: 'api/admin/campaigns [GET]', success: true });
 
-    setBridgeEnv((context as unknown as { env: Env }).env || {});
-    await ensureInitialized();
+    const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(contextEnv);
+    const client = getAdminClient();
 
     const url = new URL(request.url);
-    const status = url.searchParams.get('status') || 'all';
+    const statusFilter = url.searchParams.get('status') || 'all';
 
-    const { getRegisteredAgents } = await import('../../agents/registration/agent-registration.js');
-    const agents = (getRegisteredAgents?.() || []) as RegisteredAgent[];
-    const promotionAgent = agents.find((a: RegisteredAgent) => a.id === 'promotion-agent');
+    const metaobjects = await client.getMetaobjects(METAOBJECT_TYPE, 100).catch(
+      () => [] as Array<{ id: string; handle: string; fields: Array<{ key: string; value: string }> }>,
+    );
 
-    let campaigns: Record<string, unknown>[] = [];
+    let campaigns = metaobjects.map((mo) => {
+      const f = fieldsToMap(mo.fields);
+      return {
+        id: mo.id,
+        handle: mo.handle,
+        title: f['title'] || '',
+        description: f['description'] || '',
+        discountCode: f['discount_code'] || '',
+        discountPercent: parseInt(f['discount_percent'] || '0', 10),
+        startAt: f['start_at'] || null,
+        endAt: f['end_at'] || null,
+        targetTags: f['target_tags'] || '',
+        status: (f['status'] as 'active' | 'planned' | 'completed') || 'planned',
+      };
+    });
+
+    if (statusFilter !== 'all') {
+      campaigns = campaigns.filter((c) => c.status === statusFilter);
+    }
+
+    // 割引コードは PromotionAgent の state から補完
     let discountCodes: Record<string, unknown>[] = [];
-    let saleCalendar: Record<string, unknown>[] = [];
-
-    if (promotionAgent?.getState) {
-      const state = promotionAgent.getState() as Record<string, unknown>;
-      if ((state.campaigns as Map<string, unknown> | undefined)?.values) campaigns = Array.from((state.campaigns as Map<string, unknown>).values()) as Record<string, unknown>[];
-      if ((state.discountCodes as Map<string, unknown> | undefined)?.values) discountCodes = Array.from((state.discountCodes as Map<string, unknown>).values()) as Record<string, unknown>[];
-      if (state.saleWindows) saleCalendar = state.saleWindows as Record<string, unknown>[];
+    let agentActive = false;
+    try {
+      const { getRegisteredAgents } = await import('../../agents/registration/agent-registration.js');
+      const agents = (getRegisteredAgents?.() || []) as Array<{ id: string; getState?: () => Record<string, unknown> }>;
+      const promotionAgent = agents.find((a) => a.id === 'promotion-agent');
+      agentActive = !!promotionAgent;
+      if (promotionAgent?.getState) {
+        const state = promotionAgent.getState() as Record<string, unknown>;
+        const dc = state.discountCodes;
+        if (dc && typeof (dc as Map<string, unknown>).values === 'function') {
+          discountCodes = Array.from((dc as Map<string, unknown>).values()) as Record<string, unknown>[];
+        } else if (Array.isArray(dc)) {
+          discountCodes = dc as Record<string, unknown>[];
+        }
+      }
+    } catch {
+      // Agent 未登録時はスキップ
     }
 
-    // フォールバック: 年間セールカレンダーテンプレート
-    // PromotionAgentが起動すれば実際のキャンペーン計画に上書きされる
-    // source: 'template' でUIが「未確定テンプレート」と識別可能
-    if (saleCalendar.length === 0) {
-      const year = new Date().getFullYear();
-      saleCalendar = [
-        { name: '新年セール', startDate: new Date(year, 0, 1).getTime(), endDate: new Date(year, 0, 7).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: '新生活応援', startDate: new Date(year, 2, 15).getTime(), endDate: new Date(year, 2, 31).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: 'GWセール', startDate: new Date(year, 4, 1).getTime(), endDate: new Date(year, 4, 6).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: '夏のボーナスセール', startDate: new Date(year, 6, 1).getTime(), endDate: new Date(year, 6, 15).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: 'お盆セール', startDate: new Date(year, 7, 10).getTime(), endDate: new Date(year, 7, 18).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: 'ブラックフライデー', startDate: new Date(year, 10, 22).getTime(), endDate: new Date(year, 10, 28).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-        { name: '年末年始セール', startDate: new Date(year, 11, 1).getTime(), endDate: new Date(year, 11, 25).getTime(), type: 'seasonal', discountRate: 0, source: 'template' },
-      ];
-    }
-
-    if (status !== 'all' && campaigns.length > 0) {
-      campaigns = campaigns.filter(c => c.status === status);
-    }
+    const saleCalendar = buildSaleCalendarTemplate();
 
     return data({
       success: true,
@@ -82,28 +161,24 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       saleCalendar,
       total: campaigns.length,
       stats: {
-        active: campaigns.filter((c: Record<string, unknown>) => c.status === 'active').length,
-        planned: campaigns.filter((c: Record<string, unknown>) => c.status === 'planned').length,
-        completed: campaigns.filter((c: Record<string, unknown>) => c.status === 'completed').length,
+        active: campaigns.filter((c) => c.status === 'active').length,
+        planned: campaigns.filter((c) => c.status === 'planned').length,
+        completed: campaigns.filter((c) => c.status === 'completed').length,
       },
-      agentActive: !!promotionAgent,
+      agentActive,
     });
   } catch (error) {
-    return data({
-      success: true,
-      campaigns: [],
-      discountCodes: [],
-      saleCalendar: [],
-      total: 0,
-      stats: { active: 0, planned: 0, completed: 0 },
-      agentActive: false,
-    });
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return data({ success: false, error: `キャンペーン取得失敗: ${msg}` }, { status: 500 });
   }
 }
 
-// POST: キャンペーン操作
+// ── POST: CRUD + activate/deactivate ──
+
 export async function action({ request, context }: Route.ActionArgs) {
-  const csrfError = await verifyCsrfForAdmin(request, context.env);
+  const contextEnv = (context as unknown as { env: Env }).env || ({} as Env);
+
+  const csrfError = await verifyCsrfForAdmin(request, contextEnv);
   if (csrfError) return csrfError;
 
   const limited = applyRateLimit(request, 'api.admin.campaigns', RATE_LIMIT_PRESETS.admin);
@@ -114,18 +189,13 @@ export async function action({ request, context }: Route.ActionArgs) {
   }
 
   try {
-    // 免疫チェック: 認証なしアクセスを遮断
     const { verifyAdminAuth } = await import('~/lib/admin-auth');
-    const contextEnv = (context as unknown as {env: Env}).env || ({} as Env);
     const auth = await verifyAdminAuth(request, contextEnv);
     if (!auth.authenticated) return auth.response;
 
-    // RBAC: products.edit permission required
-    const session = await AppSession.init(request, [contextEnv.SESSION_SECRET || '']);
-    const role = requirePermission(session, 'products.edit');
-
-    setBridgeEnv(contextEnv);
-    await ensureInitialized();
+    const session = await AppSession.init(request, [
+      String((contextEnv as unknown as { SESSION_SECRET?: string }).SESSION_SECRET || ''),
+    ]);
 
     let rawBody: unknown;
     try {
@@ -138,36 +208,88 @@ export async function action({ request, context }: Route.ActionArgs) {
     if (!validation.success) {
       return data({
         error: '入力値が無効です',
-        details: validation.error.errors.map(e => e.message),
+        details: validation.error.errors.map((e) => e.message),
       }, { status: 400 });
     }
 
-    const { action: act, campaign, campaignId, count } = validation.data;
+    const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(contextEnv);
+    const client = getAdminClient();
+    const v = validation.data;
 
-    const { getRegisteredAgents } = await import('../../agents/registration/agent-registration.js');
-    const agents = (getRegisteredAgents?.() || []) as RegisteredAgent[];
-    const promotionAgent = agents.find((a: RegisteredAgent) => a.id === 'promotion-agent');
+    switch (v.action) {
+      case 'create': {
+        const role = requirePermission(session, 'products.edit');
+        const fields: Array<{ key: string; value: string }> = [
+          { key: 'title', value: v.title },
+          { key: 'description', value: v.description },
+          { key: 'discount_code', value: v.discountCode },
+          { key: 'discount_percent', value: String(v.discountPercent) },
+          { key: 'target_tags', value: v.targetTags },
+          { key: 'status', value: v.status },
+        ];
+        if (v.startAt) fields.push({ key: 'start_at', value: v.startAt });
+        if (v.endAt) fields.push({ key: 'end_at', value: v.endAt });
 
-    if (!promotionAgent?.onCommand) {
-      return data({ error: 'PromotionAgentが見つかりません' }, { status: 503 });
-    }
+        const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
+        auditLog({ action: 'campaign_create', role, resource: `metaobject/${result.id}`, success: true });
+        return data({ success: true, metaobject: result });
+      }
 
-    if (act === 'create') {
-      const result = await promotionAgent.onCommand({
-        action: 'create_campaign',
-        params: campaign || {},
-      });
-      return data({ success: true, result });
-    }
+      case 'update': {
+        const role = requirePermission(session, 'products.edit');
+        const fields: Array<{ key: string; value: string }> = [];
+        if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
+        if (v.description !== undefined) fields.push({ key: 'description', value: v.description });
+        if (v.discountCode !== undefined) fields.push({ key: 'discount_code', value: v.discountCode });
+        if (v.discountPercent !== undefined) fields.push({ key: 'discount_percent', value: String(v.discountPercent) });
+        if (v.startAt !== undefined) fields.push({ key: 'start_at', value: v.startAt });
+        if (v.endAt !== undefined) fields.push({ key: 'end_at', value: v.endAt });
+        if (v.targetTags !== undefined) fields.push({ key: 'target_tags', value: v.targetTags });
+        if (v.status !== undefined) fields.push({ key: 'status', value: v.status });
 
-    if (act === 'activate' || act === 'deactivate' || act === 'delete' || act === 'list') {
-      const result = await promotionAgent.onCommand({
-        action: `campaign_${act}`,
-        params: { campaignId: campaignId || '', count },
-      });
-      return data({ success: true, result });
+        const result = await client.updateMetaobject(v.metaobjectId, fields);
+        auditLog({ action: 'campaign_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
+        return data({ success: true, metaobject: result });
+      }
+
+      case 'delete': {
+        const role = requirePermission(session, 'products.delete');
+        const result = await client.deleteMetaobject(v.metaobjectId);
+        auditLog({ action: 'campaign_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
+        return data({ success: result });
+      }
+
+      case 'activate':
+      case 'deactivate': {
+        const role = requirePermission(session, 'products.edit');
+        const newStatus = v.action === 'activate' ? 'active' : 'completed';
+        const result = await client.updateMetaobject(v.metaobjectId, [
+          { key: 'status', value: newStatus },
+        ]);
+        auditLog({
+          action: 'campaign_update',
+          role,
+          resource: `metaobject/${v.metaobjectId}`,
+          detail: `status=${newStatus}`,
+          success: true,
+        });
+        return data({ success: true, metaobject: result });
+      }
+
+      default:
+        return data({ error: '不明なアクションです' }, { status: 400 });
     }
   } catch (error) {
-    return data({ error: '操作に失敗しました' }, { status: 500 });
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return data({ success: false, error: `キャンペーン操作失敗: ${msg}` }, { status: 500 });
   }
+}
+
+// ── ヘルパー ──
+
+function fieldsToMap(fields: Array<{ key: string; value: string }>): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const f of fields) m[f.key] = f.value;
+  return m;
 }
