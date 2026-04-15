@@ -656,6 +656,85 @@ export class ShopifyAdminClient {
   }
 
   /**
+   * 既存メタオブジェクト定義を type 指定で取得
+   */
+  async getMetaobjectDefinitionByType(type: string): Promise<{id: string; type: string} | null> {
+    const gql = `
+      query metaobjectDefinitionByType($type: String!) {
+        metaobjectDefinitionByType(type: $type) {
+          id
+          type
+        }
+      }
+    `;
+    try {
+      const res = await this.query<{metaobjectDefinitionByType: {id: string; type: string} | null}>(gql, {type});
+      return res.metaobjectDefinitionByType;
+    } catch (err) {
+      this.notifyError('getMetaobjectDefinitionByType', err);
+      return null;
+    }
+  }
+
+  /**
+   * メタオブジェクト定義に新規フィールドを追加（既存データは保全、append のみ）
+   * Shopify の metaobjectDefinitionUpdate mutation を使用。
+   */
+  async updateMetaobjectDefinitionAppendFields(
+    type: string,
+    fieldsToAdd: MetaobjectFieldDefinition[],
+  ): Promise<{id: string; addedCount: number}> {
+    const existing = await this.getMetaobjectDefinitionByType(type);
+    if (!existing) {
+      throw new Error(`メタオブジェクト定義 ${type} が存在しません`);
+    }
+
+    const gql = `
+      mutation metaobjectDefinitionUpdate($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
+        metaobjectDefinitionUpdate(id: $id, definition: $definition) {
+          metaobjectDefinition { id type }
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    const definition = {
+      fieldDefinitions: fieldsToAdd.map((f) => ({
+        create: {
+          key: f.key,
+          name: f.name,
+          type: f.type,
+        },
+      })),
+    };
+
+    try {
+      const res = await this.query<{
+        metaobjectDefinitionUpdate: {
+          metaobjectDefinition: {id: string; type: string} | null;
+          userErrors: Array<{field: string[]; message: string; code?: string}>;
+        };
+      }>(gql, {id: existing.id, definition});
+
+      const {metaobjectDefinition, userErrors} = res.metaobjectDefinitionUpdate;
+      // 既に同名フィールドが存在する場合は TAKEN エラー → 冪等として OK 扱い
+      const nonDuplicateErrors = userErrors.filter((e) => {
+        const msg = e.message.toLowerCase();
+        return !(msg.includes('already') || msg.includes('taken') || msg.includes('exists') || e.code === 'TAKEN');
+      });
+      if (nonDuplicateErrors.length > 0) {
+        throw new Error(`メタオブジェクト定義更新失敗: ${nonDuplicateErrors.map((e) => e.message).join(', ')}`);
+      }
+      const id = metaobjectDefinition?.id || existing.id;
+      log.info(`[updateMetaobjectDefinitionAppendFields] ${type} +${fieldsToAdd.length} fields (${userErrors.length} dup skipped)`);
+      return {id, addedCount: fieldsToAdd.length - userErrors.length};
+    } catch (err) {
+      this.notifyError('updateMetaobjectDefinitionAppendFields', err);
+      throw err;
+    }
+  }
+
+  /**
    * メタオブジェクトを作成（幹細胞からの分化）
    */
   async createMetaobject(

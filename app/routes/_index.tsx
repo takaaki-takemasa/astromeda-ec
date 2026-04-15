@@ -90,12 +90,15 @@ interface MetaAboutSection {
   isActive: boolean;
 }
 
-// Sprint 2 Part 3-3: astromeda_product_shelf Metaobject 用の型
+// Sprint 2 Part 3-3 / Sprint 4 拡張: astromeda_product_shelf Metaobject 用の型
 interface MetaProductShelf {
   id: string;
   handle: string;
   title: string;
+  subtitle: string;
   productIds: string[]; // parsed from product_ids_json
+  limit: number;
+  sortKey: 'manual' | 'best_selling' | 'newest';
   sortOrder: number;
   isActive: boolean;
 }
@@ -269,7 +272,7 @@ export async function loader({context}: Route.LoaderArgs) {
     };
   });
 
-  // Sprint 2 Part 3-3: 商品シェルフ整形 + 全 active shelf の productIds を nodes(ids) で一括取得
+  // Sprint 2 Part 3-3 / Sprint 4: 商品シェルフ整形 + 全 active shelf の productIds を nodes(ids) で一括取得
   const metaProductShelves: MetaProductShelf[] = productShelfRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
     let productIds: string[] = [];
@@ -281,11 +284,19 @@ export async function loader({context}: Route.LoaderArgs) {
     } catch {
       productIds = [];
     }
+    const rawLimit = parseInt(f['limit'] || '6', 10);
+    const limit = Number.isFinite(rawLimit) && rawLimit >= 1 && rawLimit <= 24 ? rawLimit : 6;
+    const sk = f['sort_key'];
+    const sortKey: 'manual' | 'best_selling' | 'newest' =
+      sk === 'best_selling' || sk === 'newest' ? sk : 'manual';
     return {
       id: mo.id,
       handle: mo.handle,
       title: f['title'] || '',
+      subtitle: f['subtitle'] || '',
       productIds,
+      limit,
+      sortKey,
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
     };

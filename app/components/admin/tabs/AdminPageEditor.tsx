@@ -42,7 +42,10 @@ interface ProductShelf {
   id: string;
   handle: string;
   title: string;
+  subtitle: string;
   productIds: string[];
+  limit: number;
+  sortKey: 'manual' | 'best_selling' | 'newest';
   sortOrder: number;
   isActive: boolean;
 }
@@ -949,7 +952,10 @@ function ProductShelvesSection({pushToast}: SectionProps) {
           action: 'create',
           handle: form.handle || '',
           title: form.title || '',
+          subtitle: form.subtitle || '',
           productIds: form.productIds || [],
+          limit: form.limit ?? 6,
+          sortKey: form.sortKey || 'manual',
           sortOrder: form.sortOrder ?? 0,
           isActive: form.isActive ?? true,
         }
@@ -957,7 +963,10 @@ function ProductShelvesSection({pushToast}: SectionProps) {
           action: 'update',
           metaobjectId: form.id,
           title: form.title,
+          subtitle: form.subtitle,
           productIds: form.productIds,
+          limit: form.limit,
+          sortKey: form.sortKey,
           sortOrder: form.sortOrder,
           isActive: form.isActive,
         };
@@ -985,7 +994,9 @@ function ProductShelvesSection({pushToast}: SectionProps) {
   };
 
   const modalOpen = creating || editing !== null;
-  const initial: Partial<ProductShelf> = creating ? {sortOrder: 0, isActive: true, productIds: []} : editing || {};
+  const initial: Partial<ProductShelf> = creating
+    ? {sortOrder: 0, isActive: true, productIds: [], subtitle: '', limit: 6, sortKey: 'manual'}
+    : editing || {};
 
   return (
     <div style={cardStyle}>
@@ -1056,23 +1067,40 @@ function ProductShelfForm({
 }) {
   const [handle, setHandle] = useState(initial.handle || '');
   const [title, setTitle] = useState(initial.title || '');
+  const [subtitle, setSubtitle] = useState(initial.subtitle || '');
   const [productIds, setProductIds] = useState<string[]>(initial.productIds || []);
+  const [limit, setLimit] = useState<number>(initial.limit ?? 6);
+  const [sortKey, setSortKey] = useState<'manual' | 'best_selling' | 'newest'>(initial.sortKey || 'manual');
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [isActive, setIsActive] = useState(initial.isActive ?? true);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
   // Live preview — NEW ARRIVALS 風シェルフレイアウトを再現（商品実データは placeholder）
   const validIds = productIds.filter((x) => x.trim() !== '');
-  const previewIds = validIds.length > 0 ? validIds : [];
-  const placeholderCount = previewIds.length === 0 ? 3 : 0;
+  // limit に合わせてスロット数を計算
+  const slotsToShow = Math.max(0, Math.min(limit, 24));
+  const previewSlots: Array<{pid: string | null; index: number}> = Array.from({length: slotsToShow}).map((_, i) => ({
+    pid: validIds[i] || null,
+    index: i,
+  }));
+  const sortKeyLabel = sortKey === 'best_selling' ? 'ベストセラー順' : sortKey === 'newest' ? '新着順' : '手動順';
   const previewPane = (
     <PreviewFrame device={device} onDeviceChange={setDevice}>
       <div style={{padding: 20, opacity: isActive ? 1 : 0.5}}>
-        <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 20}}>
+        <div style={{display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4}}>
           <span style={{fontSize: 18, fontWeight: 900, color: T.tx, letterSpacing: 1}}>
             {title || '(シェルフタイトル未入力)'}
           </span>
+          <span style={{fontSize: 10, color: T.t4, fontFamily: 'monospace'}}>
+            {sortKeyLabel} · 最大{limit}件
+          </span>
         </div>
+        {subtitle && (
+          <div style={{fontSize: 11, fontWeight: 700, color: T.c, letterSpacing: 1.5, marginBottom: 16, opacity: 0.85}}>
+            {subtitle}
+          </div>
+        )}
+        {!subtitle && <div style={{marginBottom: 16}} />}
         <div
           style={{
             display: 'grid',
@@ -1080,7 +1108,27 @@ function ProductShelfForm({
             gap: 14,
           }}
         >
-          {previewIds.map((pid, i) => {
+          {previewSlots.map(({pid, index: i}) => {
+            if (!pid) {
+              return (
+                <div
+                  key={`slot${i}`}
+                  style={{
+                    aspectRatio: '4/3',
+                    border: `1px dashed ${al(T.tx, 0.15)}`,
+                    borderRadius: 8,
+                    background: al(T.tx, 0.01),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: T.t4,
+                    fontSize: 10,
+                  }}
+                >
+                  (商品未設定)
+                </div>
+              );
+            }
             const numMatch = pid.match(/\/(\d+)$/);
             const numId = numMatch ? numMatch[1] : String(i + 1);
             return (
@@ -1129,24 +1177,6 @@ function ProductShelfForm({
               </div>
             );
           })}
-          {Array.from({length: placeholderCount}).map((_, i) => (
-            <div
-              key={`ph${i}`}
-              style={{
-                aspectRatio: '4/3',
-                border: `1px dashed ${al(T.tx, 0.15)}`,
-                borderRadius: 8,
-                background: al(T.tx, 0.01),
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: T.t4,
-                fontSize: 10,
-              }}
-            >
-              (商品未設定)
-            </div>
-          ))}
         </div>
         <div style={{fontSize: 9, color: T.t4, textAlign: 'center', marginTop: 14}}>
           ※ 実サイトでは Shopify Storefront API で商品タイトル/画像/価格を動的取得
@@ -1173,6 +1203,38 @@ function ProductShelfForm({
         <div>
           <label style={labelStyle}>シェルフタイトル</label>
           <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} style={inputStyle} placeholder="スタッフのおすすめ" />
+        </div>
+        <div>
+          <label style={labelStyle}>サブタイトル（英語キャッチ等、任意）</label>
+          <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} placeholder="STAFF PICKS" />
+        </div>
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+          <div>
+            <label style={labelStyle}>最大表示件数 (1-24)</label>
+            <input
+              type="number"
+              value={limit}
+              min={1}
+              max={24}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                if (Number.isFinite(n)) setLimit(Math.max(1, Math.min(24, n)));
+              }}
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>並び順</label>
+            <select
+              value={sortKey}
+              onChange={(e) => setSortKey(e.target.value as 'manual' | 'best_selling' | 'newest')}
+              style={inputStyle}
+            >
+              <option value="manual">手動 (productIds 順)</option>
+              <option value="best_selling">ベストセラー順</option>
+              <option value="newest">新着順</option>
+            </select>
+          </div>
         </div>
         <div>
           <label style={labelStyle}>商品 GID 一覧 ({productIds.length} 件)</label>
@@ -1211,7 +1273,10 @@ function ProductShelfForm({
                 id: initial.id,
                 handle,
                 title,
+                subtitle,
                 productIds: productIds.filter((x) => x.trim() !== ''),
+                limit,
+                sortKey,
                 sortOrder,
                 isActive,
               })

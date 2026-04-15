@@ -162,7 +162,10 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
     description: 'トップページの特集商品シェルフ（PRODUCT_IDS の順序で表示）。',
     fieldDefinitions: [
       { key: 'title', name: 'シェルフタイトル', type: 'single_line_text_field' },
+      { key: 'subtitle', name: 'サブタイトル（英語キャッチ等）', type: 'single_line_text_field' },
       { key: 'product_ids_json', name: '商品GID配列（JSON）', type: 'multi_line_text_field' },
+      { key: 'limit', name: '最大表示件数', type: 'number_integer' },
+      { key: 'sort_key', name: '並び順キー（manual/best_selling/newest）', type: 'single_line_text_field' },
       { key: 'display_order', name: '表示順', type: 'number_integer' },
       { key: 'is_active', name: '表示中', type: 'boolean' },
     ],
@@ -223,6 +226,57 @@ export async function action({ request, context }: Route.ActionArgs) {
     const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
     setAdminEnv(contextEnv);
     const client = getAdminClient();
+
+    // リクエストボディをパース（action パラメータによる分岐）
+    let rawBody: {action?: string} = {};
+    try {
+      const text = await request.clone().text();
+      if (text) rawBody = JSON.parse(text) as {action?: string};
+    } catch {
+      rawBody = {};
+    }
+
+    // Sprint 4: 既存 astromeda_product_shelf 定義に subtitle/limit/sort_key フィールドを append
+    if (rawBody.action === 'update_product_shelf_schema') {
+      const fieldsToAdd: FieldDef[] = [
+        { key: 'subtitle', name: 'サブタイトル（英語キャッチ等）', type: 'single_line_text_field' },
+        { key: 'limit', name: '最大表示件数', type: 'number_integer' },
+        { key: 'sort_key', name: '並び順キー（manual/best_selling/newest）', type: 'single_line_text_field' },
+      ];
+      try {
+        const result = await (client as unknown as {
+          updateMetaobjectDefinitionAppendFields: (
+            type: string,
+            fields: FieldDef[],
+          ) => Promise<{id: string; addedCount: number}>;
+        }).updateMetaobjectDefinitionAppendFields('astromeda_product_shelf', fieldsToAdd);
+
+        auditLog({
+          action: 'settings_change',
+          role,
+          resource: 'api/admin/metaobject-setup',
+          detail: `update_product_shelf_schema: +${result.addedCount} fields`,
+          success: true,
+        });
+        return data({
+          success: true,
+          action: 'update_product_shelf_schema',
+          definitionId: result.id,
+          addedCount: result.addedCount,
+          requestedFields: fieldsToAdd.map((f) => f.key),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        auditLog({
+          action: 'settings_change',
+          role,
+          resource: 'api/admin/metaobject-setup',
+          detail: `update_product_shelf_schema failed: ${msg}`,
+          success: false,
+        });
+        return data({success: false, error: `商品シェルフスキーマ更新失敗: ${msg}`}, {status: 500});
+      }
+    }
 
     const results: Array<{
       type: string;

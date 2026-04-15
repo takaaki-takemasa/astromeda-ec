@@ -27,13 +27,17 @@ const safeString = (maxLen: number = 500) =>
   );
 
 const productGid = z.string().regex(/^gid:\/\/shopify\/Product\/\d+$/, '無効な商品GIDです');
+const sortKeyEnum = z.enum(['manual', 'best_selling', 'newest']);
 
 const ProductShelfActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('create'),
     handle: safeString(100),
     title: safeString(255),
+    subtitle: safeString(255).optional().default(''),
     productIds: z.array(productGid).min(1).max(50),
+    limit: z.number().int().min(1).max(24).optional().default(6),
+    sortKey: sortKeyEnum.optional().default('manual'),
     sortOrder: z.number().int().min(0).max(999).optional().default(0),
     isActive: z.boolean().optional().default(true),
   }).strict(),
@@ -41,7 +45,10 @@ const ProductShelfActionSchema = z.discriminatedUnion('action', [
     action: z.literal('update'),
     metaobjectId: z.string().min(1),
     title: safeString(255).optional(),
+    subtitle: safeString(255).optional(),
     productIds: z.array(productGid).min(1).max(50).optional(),
+    limit: z.number().int().min(1).max(24).optional(),
+    sortKey: sortKeyEnum.optional(),
     sortOrder: z.number().int().min(0).max(999).optional(),
     isActive: z.boolean().optional(),
   }).strict(),
@@ -84,11 +91,21 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       } catch {
         productIds = [];
       }
+      const rawLimit = parseInt(f['limit'] || '6', 10);
+      const limit = Number.isFinite(rawLimit) && rawLimit >= 1 && rawLimit <= 24 ? rawLimit : 6;
+      const sortKey = (['manual', 'best_selling', 'newest'] as const).includes(
+        f['sort_key'] as 'manual' | 'best_selling' | 'newest',
+      )
+        ? (f['sort_key'] as 'manual' | 'best_selling' | 'newest')
+        : 'manual';
       return {
         id: mo.id,
         handle: mo.handle,
         title: f['title'] || '',
+        subtitle: f['subtitle'] || '',
         productIds,
+        limit,
+        sortKey,
         sortOrder: parseInt(f['display_order'] || '0', 10),
         isActive: f['is_active'] === 'true',
       };
@@ -148,7 +165,10 @@ export async function action({ request, context }: Route.ActionArgs) {
         const role = requirePermission(session, 'products.edit');
         const fields: Array<{ key: string; value: string }> = [
           { key: 'title', value: v.title },
+          { key: 'subtitle', value: v.subtitle },
           { key: 'product_ids_json', value: JSON.stringify(v.productIds) },
+          { key: 'limit', value: String(v.limit) },
+          { key: 'sort_key', value: v.sortKey },
           { key: 'display_order', value: String(v.sortOrder) },
           { key: 'is_active', value: String(v.isActive) },
         ];
@@ -162,7 +182,10 @@ export async function action({ request, context }: Route.ActionArgs) {
         const role = requirePermission(session, 'products.edit');
         const fields: Array<{ key: string; value: string }> = [];
         if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
+        if (v.subtitle !== undefined) fields.push({ key: 'subtitle', value: v.subtitle });
         if (v.productIds !== undefined) fields.push({ key: 'product_ids_json', value: JSON.stringify(v.productIds) });
+        if (v.limit !== undefined) fields.push({ key: 'limit', value: String(v.limit) });
+        if (v.sortKey !== undefined) fields.push({ key: 'sort_key', value: v.sortKey });
         if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
         if (v.isActive !== undefined) fields.push({ key: 'is_active', value: String(v.isActive) });
 
