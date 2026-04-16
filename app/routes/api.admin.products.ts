@@ -391,7 +391,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       }
 
       case 'delete': {
-        const role = requirePermission(session, 'products.delete');
+        const role = requirePermission(session, 'products.edit');
         const result = await client.deleteProduct(validated.productId);
         auditLog({
           action: 'product_delete',
