@@ -5,7 +5,7 @@
   "version": "2026.1.1",
   "type": "module",
   "scripts": {
-    "build": "shopify hydrogen build",
+    "build": "shopify hydrogen build && node -e \"const fs=require('fs');const d='./dist/server';fs.readdirSync(d).filter(f=>f.endsWith('.map')).forEach(f=>fs.unlinkSync(d+'/'+f))\"",
     "dev": "shopify hydrogen dev --codegen",
     "preview": "shopify hydrogen preview --build",
     "lint": "eslint --no-error-on-unmatched-pattern .",
