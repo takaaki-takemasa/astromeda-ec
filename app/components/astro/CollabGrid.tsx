@@ -58,13 +58,18 @@ function findShopifyCollection(
 function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
   const imageMap = useMemo(() => buildImageMap(collections), [collections]);
 
-  // Metaobject 優先: featured=true なエントリが1件以上あれば metaCollabs をレンダリング
+  // Sprint 6 Gap 3: merge (not replace)
+  // Metaobject handle が fallback COLLABS.id と重複 → Metaobject 優先、未重複 → fallback 残す
   const activeMetaCollabs = useMemo(() => {
-    if (!metaCollabs || metaCollabs.length === 0) return null;
-    const featured = metaCollabs.filter((m) => m.featured);
-    if (featured.length === 0) return null;
-    return [...featured].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (!metaCollabs || metaCollabs.length === 0) return [] as MetaCollab[];
+    return [...metaCollabs].filter((m) => m.featured).sort((a, b) => a.sortOrder - b.sortOrder);
   }, [metaCollabs]);
+
+  const mergedFallbacks = useMemo(() => {
+    if (activeMetaCollabs.length === 0) return COLLABS;
+    const replacedIds = new Set(activeMetaCollabs.map((m) => m.handle.trim().toLowerCase()));
+    return COLLABS.filter((cb) => !replacedIds.has(cb.id.toLowerCase()));
+  }, [activeMetaCollabs]);
 
   const renderMetaCard = useMemo(
     () => (m: MetaCollab, index: number) => {
@@ -313,14 +318,13 @@ function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
           IP COLLABS
         </span>
         <span style={{fontSize: 'clamp(10px, 1.2vw, 12px)', color: T.t4}}>
-          {(activeMetaCollabs ?? COLLABS).length}タイトル
+          {(activeMetaCollabs.length + mergedFallbacks.length)}タイトル
         </span>
       </div>
 
       <div className="collab-grid">
-        {activeMetaCollabs
-          ? activeMetaCollabs.map((m, i) => renderMetaCard(m, i))
-          : COLLABS.map((cb, i) => renderCard(cb, i))}
+        {activeMetaCollabs.map((m, i) => renderMetaCard(m, i))}
+        {mergedFallbacks.map((cb, i) => renderCard(cb, activeMetaCollabs.length + i))}
       </div>
 
       <style dangerouslySetInnerHTML={{__html: `

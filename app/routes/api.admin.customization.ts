@@ -38,7 +38,8 @@ const CustomizationActionSchema = z.discriminatedUnion('action', [
     action: z.literal('create'),
     handle: safeString(100),
     name: safeString(255),
-    choices: z.array(ChoiceItemSchema).min(1).max(50),
+    // Sprint 6 Gap 2: choices は create 時に未入力を許容（後で update で追加可）
+    choices: z.array(ChoiceItemSchema).max(50).optional().default([]),
     category: safeString(100).optional().default('general'),
     appliesToTags: safeString(500).optional().default(''),
     isRequired: z.boolean().optional().default(false),

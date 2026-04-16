@@ -170,6 +170,89 @@ function useToasts() {
   return {toasts, push};
 }
 
+// Sprint 6 Gap 4: window.confirm 置換用の Promise ベース confirm ダイアログ
+function useConfirmDialog() {
+  const [state, setState] = useState<{open: boolean; message: string}>({open: false, message: ''});
+  const resolverRef = useRef<((v: boolean) => void) | null>(null);
+
+  const confirm = useCallback((message: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      resolverRef.current = resolve;
+      setState({open: true, message});
+    });
+  }, []);
+
+  const handleOk = useCallback(() => {
+    resolverRef.current?.(true);
+    resolverRef.current = null;
+    setState({open: false, message: ''});
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    resolverRef.current?.(false);
+    resolverRef.current = null;
+    setState({open: false, message: ''});
+  }, []);
+
+  return {state, confirm, handleOk, handleCancel};
+}
+
+function ConfirmDialog({
+  open,
+  message,
+  onOk,
+  onCancel,
+}: {
+  open: boolean;
+  message: string;
+  onOk: () => void;
+  onCancel: () => void;
+}) {
+  if (!open) return null;
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.75)',
+        backdropFilter: 'blur(4px)',
+        zIndex: 10000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 20,
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onCancel();
+      }}
+    >
+      <div
+        style={{
+          background: T.bg,
+          border: `1px solid ${al(T.tx, 0.2)}`,
+          borderRadius: 10,
+          padding: 24,
+          maxWidth: 400,
+          width: '100%',
+          boxShadow: '0 12px 32px rgba(0,0,0,.7)',
+        }}
+      >
+        <div style={{fontSize: 14, fontWeight: 800, color: T.tx, marginBottom: 16}}>
+          {message}
+        </div>
+        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+          <button type="button" onClick={onCancel} style={{padding: '8px 16px', background: 'transparent', border: `1px solid ${al(T.tx, 0.25)}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}>
+            キャンセル
+          </button>
+          <button type="button" onClick={onOk} style={{padding: '8px 16px', background: T.r, border: `1px solid ${T.r}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}>
+            削除
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function Spinner() {
   return (
     <div
@@ -352,6 +435,7 @@ export default function AdminPageEditor() {
   }, [subParam]);
 
   const {toasts, push} = useToasts();
+  const {state: confirmState, confirm, handleOk: confirmOk, handleCancel: confirmCancel} = useConfirmDialog();
 
   const tabs: Array<{key: SubTab; label: string}> = [
     {key: 'ip_banners', label: 'IPコラボ'},
@@ -396,16 +480,17 @@ export default function AdminPageEditor() {
         ))}
       </div>
 
-      {subTab === 'ip_banners' && <IpBannersSection pushToast={push} />}
-      {subTab === 'hero_banners' && <HeroBannersSection pushToast={push} />}
-      {subTab === 'color_models' && <ColorModelsSection pushToast={push} />}
-      {subTab === 'category_cards' && <CategoryCardsSection pushToast={push} />}
-      {subTab === 'product_shelves' && <ProductShelvesSection pushToast={push} />}
-      {subTab === 'about_sections' && <AboutSectionsSection pushToast={push} />}
-      {subTab === 'footer_configs' && <FooterConfigsSection pushToast={push} />}
-      {subTab === 'customization_matrix' && <CustomizationMatrixSection pushToast={push} />}
+      {subTab === 'ip_banners' && <IpBannersSection pushToast={push} confirm={confirm} />}
+      {subTab === 'hero_banners' && <HeroBannersSection pushToast={push} confirm={confirm} />}
+      {subTab === 'color_models' && <ColorModelsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'category_cards' && <CategoryCardsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'product_shelves' && <ProductShelvesSection pushToast={push} confirm={confirm} />}
+      {subTab === 'about_sections' && <AboutSectionsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'footer_configs' && <FooterConfigsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'customization_matrix' && <CustomizationMatrixSection pushToast={push} confirm={confirm} />}
 
       <ToastContainer toasts={toasts} />
+      <ConfirmDialog open={confirmState.open} message={confirmState.message} onOk={confirmOk} onCancel={confirmCancel} />
       <style dangerouslySetInnerHTML={{__html: `@keyframes aped-spin { to { transform: rotate(360deg); } }`}} />
     </div>
   );
@@ -417,9 +502,10 @@ export default function AdminPageEditor() {
 
 interface SectionProps {
   pushToast: (msg: string, type: 'success' | 'error') => void;
+  confirm: (message: string) => Promise<boolean>;
 }
 
-function ColorModelsSection({pushToast}: SectionProps) {
+function ColorModelsSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<ColorModel[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ColorModel | null>(null);
@@ -472,7 +558,7 @@ function ColorModelsSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/color-models', {action: 'delete', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -659,7 +745,7 @@ function ColorModelForm({
 // CategoryCardsSection
 // ══════════════════════════════════════════════════════════
 
-function CategoryCardsSection({pushToast}: SectionProps) {
+function CategoryCardsSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<CategoryCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<CategoryCard | null>(null);
@@ -714,7 +800,7 @@ function CategoryCardsSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/category-cards', {action: 'delete', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -962,7 +1048,7 @@ function CategoryCardForm({
 // ProductShelvesSection
 // ══════════════════════════════════════════════════════════
 
-function ProductShelvesSection({pushToast}: SectionProps) {
+function ProductShelvesSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<ProductShelf[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ProductShelf | null>(null);
@@ -1017,7 +1103,7 @@ function ProductShelvesSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/product-shelves', {action: 'delete', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -1330,7 +1416,7 @@ function ProductShelfForm({
 // AboutSectionsSection
 // ══════════════════════════════════════════════════════════
 
-function AboutSectionsSection({pushToast}: SectionProps) {
+function AboutSectionsSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<AboutSection[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AboutSection | null>(null);
@@ -1383,7 +1469,7 @@ function AboutSectionsSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/about-sections', {action: 'delete', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -1666,7 +1752,7 @@ function AboutSectionForm({
 // FooterConfigsSection
 // ══════════════════════════════════════════════════════════
 
-function FooterConfigsSection({pushToast}: SectionProps) {
+function FooterConfigsSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<FooterConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<FooterConfig | null>(null);
@@ -1715,7 +1801,7 @@ function FooterConfigsSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/footer-configs', {action: 'delete', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -2041,7 +2127,7 @@ function FooterConfigForm({
 // IpBannersSection (astromeda_ip_banner) — Sprint 4 Part C
 // ══════════════════════════════════════════════════════════
 
-function IpBannersSection({pushToast}: SectionProps) {
+function IpBannersSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<IpBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<IpBanner | null>(null);
@@ -2096,7 +2182,7 @@ function IpBannersSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/homepage', {action: 'delete_collab', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -2272,7 +2358,7 @@ function IpBannerForm({
 // HeroBannersSection (astromeda_hero_banner) — Sprint 4 Part C
 // ══════════════════════════════════════════════════════════
 
-function HeroBannersSection({pushToast}: SectionProps) {
+function HeroBannersSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<HeroBanner[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<HeroBanner | null>(null);
@@ -2331,7 +2417,7 @@ function HeroBannersSection({pushToast}: SectionProps) {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このエントリを削除しますか？')) return;
+    if (!(await confirm('このエントリを削除しますか？'))) return;
     const res = await apiPost('/api/admin/homepage', {action: 'delete_banner', metaobjectId: id});
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -2548,7 +2634,7 @@ interface MatrixOption {
   appliesToTags: string; // CSV
 }
 
-function CustomizationMatrixSection({pushToast}: SectionProps) {
+function CustomizationMatrixSection({pushToast, confirm: _confirm}: SectionProps) {
   const [options, setOptions] = useState<MatrixOption[]>([]);
   const [productTags, setProductTags] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);

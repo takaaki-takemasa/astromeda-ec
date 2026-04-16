@@ -878,6 +878,27 @@ export class ShopifyAdminClient {
     }
   }
 
+  /**
+   * Shopify 公開チャネル (publications) 一覧を取得
+   * Sprint 6 Gap 5: 商品公開タブでチェックボックス選択 UI に使用
+   */
+  async getPublications(first = 50): Promise<Array<{id: string; name: string}>> {
+    const gql = `
+      query getPublications($first: Int!) {
+        publications(first: $first) {
+          nodes { id name }
+        }
+      }
+    `;
+    try {
+      const res = await this.query<{publications: {nodes: Array<{id: string; name: string}>}}>(gql, {first});
+      return res.publications?.nodes || [];
+    } catch (err) {
+      this.notifyError('getPublications', err);
+      return [];
+    }
+  }
+
   // ══════════════════════════════════════════════════════════
   // ── Sprint 1: 商品運用向け追加ミューテーション（2025-10 API） ──
   // ══════════════════════════════════════════════════════════

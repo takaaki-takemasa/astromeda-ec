@@ -217,10 +217,17 @@ export default function AdminProductDetail() {
     setNewImageUrl('');
     setNewImageAlt('');
   };
+  // Sprint 6 Gap 4: inline confirm dialog (window.confirm → Modal UI 置換)
+  const [confirmImageId, setConfirmImageId] = useState<string | null>(null);
   const deleteImage = (imgId: string) => {
-    if (!window.confirm('この画像を削除しますか？')) return;
+    setConfirmImageId(imgId);
+  };
+  const confirmDeleteImage = () => {
+    const imgId = confirmImageId;
+    if (!imgId) return;
     submit({action: 'image_delete', productId: product.id, imageId: imgId});
     setImages((prev) => prev.filter((i) => i.id !== imgId));
+    setConfirmImageId(null);
   };
   const moveImage = (idx: number, dir: -1 | 1) => {
     const target = idx + dir;
@@ -237,13 +244,39 @@ export default function AdminProductDetail() {
     });
   };
 
-  // ── 公開制御 ──
+  // ── 公開制御 (Sprint 6 Gap 5: Publication picker) ──
+  const [availablePublications, setAvailablePublications] = useState<Array<{id: string; name: string}>>([]);
+  const [selectedPublicationIds, setSelectedPublicationIds] = useState<Set<string>>(new Set());
   const [publicationIdsText, setPublicationIdsText] = useState('');
-  const parsePublicationIds = (): string[] =>
-    publicationIdsText
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/publications', {credentials: 'include'});
+        if (!res.ok) return;
+        const json = (await res.json()) as {success?: boolean; publications?: Array<{id: string; name: string}>};
+        if (json.success && Array.isArray(json.publications)) {
+          setAvailablePublications(json.publications);
+        }
+      } catch {
+        // silent fallback — manual text input still works
+      }
+    })();
+  }, []);
+  const togglePublication = (id: string) => {
+    setSelectedPublicationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const parsePublicationIds = (): string[] => {
+    if (selectedPublicationIds.size > 0) return Array.from(selectedPublicationIds);
+    return publicationIdsText
       .split(/\r?\n/)
       .map((s) => s.trim())
       .filter((s) => /^gid:\/\/shopify\/Publication\/\d+$/.test(s));
+  };
   const publishTo = (act: 'publish' | 'unpublish') => {
     const ids = parsePublicationIds();
     if (ids.length === 0) {
@@ -554,13 +587,45 @@ export default function AdminProductDetail() {
         {tab === 'publish' && (
           <div style={cardStyle}>
             <div style={{display: 'grid', gap: 14}}>
+              {availablePublications.length > 0 && (
+                <div>
+                  <div style={labelStyle}>公開チャネル選択</div>
+                  <div style={{display: 'grid', gap: 6, padding: 12, background: T.bg, border: `1px solid ${al(T.tx, 0.15)}`, borderRadius: 6}}>
+                    {availablePublications.map((pub) => {
+                      const checked = selectedPublicationIds.has(pub.id);
+                      return (
+                        <label
+                          key={pub.id}
+                          style={{display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', fontSize: 12, color: T.tx}}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => togglePublication(pub.id)}
+                            style={{accentColor: T.c}}
+                          />
+                          <span>{pub.name}</span>
+                          <span style={{fontSize: 10, color: T.t4, fontFamily: 'monospace', marginLeft: 'auto'}}>{pub.id}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{fontSize: 10, color: T.t4, marginTop: 6}}>
+                    {selectedPublicationIds.size > 0
+                      ? `${selectedPublicationIds.size} 個のチャネルを選択中`
+                      : 'チェックで選択。未選択の場合は下の手動入力にフォールバック'}
+                  </div>
+                </div>
+              )}
               <div>
-                <div style={labelStyle}>Publication IDs（1行1つ、gid://shopify/Publication/...）</div>
+                <div style={labelStyle}>
+                  手動入力（フォールバック: 1行1つ、gid://shopify/Publication/...）
+                </div>
                 <textarea
                   value={publicationIdsText}
                   onChange={(e) => setPublicationIdsText(e.target.value)}
                   placeholder="gid://shopify/Publication/123456789"
-                  rows={6}
+                  rows={4}
                   style={{...inputStyle, fontFamily: 'monospace'}}
                 />
                 <div style={{fontSize: 11, color: T.t4, marginTop: 6}}>
@@ -583,6 +648,50 @@ export default function AdminProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Confirm Image Delete Modal — Sprint 6 Gap 4 */}
+      {confirmImageId && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setConfirmImageId(null);
+          }}
+        >
+          <div
+            style={{
+              background: T.bg,
+              border: `1px solid ${al(T.tx, 0.2)}`,
+              borderRadius: 10,
+              padding: 24,
+              maxWidth: 400,
+              width: '100%',
+              boxShadow: '0 12px 32px rgba(0,0,0,.7)',
+            }}
+          >
+            <div style={{fontSize: 14, fontWeight: 800, color: T.tx, marginBottom: 16}}>
+              この画像を削除しますか？
+            </div>
+            <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+              <button type="button" onClick={() => setConfirmImageId(null)} style={{padding: '8px 16px', background: 'transparent', border: `1px solid ${al(T.tx, 0.25)}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}>
+                キャンセル
+              </button>
+              <button type="button" onClick={confirmDeleteImage} style={{padding: '8px 16px', background: T.r, border: `1px solid ${T.r}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}>
+                削除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Toast Container */}
       <div style={{position: 'fixed', bottom: 20, right: 20, display: 'flex', flexDirection: 'column', gap: 8, zIndex: 1000}}>

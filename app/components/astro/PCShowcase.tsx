@@ -31,14 +31,19 @@ function isLightColor(hex: string): boolean {
 }
 
 function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
+  // Sprint 6 Gap 3: merge (not replace) — Metaobject 優先で fallback と重複しないものを追加表示
   const activeMetaColors = useMemo(() => {
-    if (!metaColors || metaColors.length === 0) return null;
-    const filtered = metaColors.filter((m) => m.isActive);
-    if (filtered.length === 0) return null;
-    return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
+    if (!metaColors || metaColors.length === 0) return [] as MetaColorModel[];
+    return [...metaColors].filter((m) => m.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
   }, [metaColors]);
 
-  const titleCount = activeMetaColors ? activeMetaColors.length : 8;
+  const mergedFallbacks = useMemo(() => {
+    if (activeMetaColors.length === 0) return PC_COLORS;
+    const replacedSlugs = new Set(activeMetaColors.map((m) => m.slug.trim().toLowerCase()));
+    return PC_COLORS.filter((pc) => !replacedSlugs.has(pc.slug.toLowerCase()));
+  }, [activeMetaColors]);
+
+  const titleCount = activeMetaColors.length + mergedFallbacks.length;
 
   return (
     <section style={{...PAGE_WIDTH, paddingBottom: 'clamp(20px, 2.8vw, 32px)'}}>
@@ -62,8 +67,8 @@ function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
       </div>
 
       <div className="pc-color-grid">
-        {activeMetaColors
-          ? activeMetaColors.map((c, i) => {
+        {activeMetaColors.length > 0 &&
+          activeMetaColors.map((c, i) => {
               const imgUrl = c.image || colorImages[c.name] || null;
               const isDark = !isLightColor(c.colorCode);
               return (
@@ -156,7 +161,8 @@ function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
                 </Link>
               );
             })
-          : PC_COLORS.map((c, i) => {
+        }
+        {mergedFallbacks.map((c, i) => {
           const imgUrl = colorImages[c.n] || c.img || null;
           return (
             <Link

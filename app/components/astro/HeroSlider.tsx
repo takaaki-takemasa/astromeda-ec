@@ -40,9 +40,10 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
   // マウント完了フラグ — アニメーションをclient-onlyにしてSSR/Client差異を防止
   const [mounted, setMounted] = useState(false);
 
-  // Metaobject 優先: isActive && 表示期間内のエントリのみ、sortOrder 昇順
+  // Sprint 6 Gap 3: merge (not replace)
+  // Metaobject handle が fallback FEATURED.id と重複 → Metaobject 優先、未重複 → fallback 残す
   const activeMetaBanners = useMemo(() => {
-    if (!metaBanners || metaBanners.length === 0) return null;
+    if (!metaBanners || metaBanners.length === 0) return [] as MetaBanner[];
     const now = Date.now();
     const filtered = metaBanners.filter((m) => {
       if (!m.isActive) return false;
@@ -56,11 +57,16 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
       }
       return true;
     });
-    if (filtered.length === 0) return null;
     return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [metaBanners]);
 
-  const slidesCount = activeMetaBanners ? activeMetaBanners.length : FEATURED.length;
+  const mergedFallbacks = useMemo(() => {
+    if (activeMetaBanners.length === 0) return FEATURED;
+    const replacedIds = new Set(activeMetaBanners.map((m) => m.handle.trim().toLowerCase()));
+    return FEATURED.filter((f) => !replacedIds.has(f.id.toLowerCase()));
+  }, [activeMetaBanners]);
+
+  const slidesCount = activeMetaBanners.length + mergedFallbacks.length;
 
   useEffect(() => {
     setMounted(true);
@@ -87,8 +93,8 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
     <div className="hero-slider-wrap">
       {/* Slide container with rounded corners */}
       <div className="hero-slider-container">
-        {activeMetaBanners
-          ? activeMetaBanners.map((m, i) => {
+        {activeMetaBanners.length > 0 &&
+          activeMetaBanners.map((m, i) => {
               const collectionImgUrl = imageMap.get(m.handle) ?? null;
               const imgUrl = m.image || collectionImgUrl;
               const isActive = i === hi;
@@ -215,7 +221,9 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
                 </Link>
               );
             })
-          : FEATURED.map((feat, i) => {
+        }
+        {mergedFallbacks.map((feat, idx) => {
+          const i = activeMetaBanners.length + idx;
           const bannerUrl = feat.banner ?? null;
           const collectionImgUrl = imageMap.get(feat.shop) ?? null;
           const imgUrl = bannerUrl || collectionImgUrl;

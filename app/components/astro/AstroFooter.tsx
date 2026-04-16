@@ -310,13 +310,14 @@ export function AstroFooter() {
           </div>
         </div>
 
-        {/* Links & copyright — Sprint 2 Part 3-5: Metaobject 優先 */}
-        {footerMetaMode ? (
+        {/* Sprint 6 Gap 3: Metaobject columns (上段) + fallback bottom links (下段) を併存 */}
+        {footerMetaMode && (
           <div
             style={{
               fontSize: 'clamp(9px, 1.1vw, 11px)',
               color: T.t3,
               lineHeight: 1.8,
+              marginBottom: 24,
             }}
           >
             <div
@@ -324,7 +325,7 @@ export function AstroFooter() {
               style={{
                 display: 'grid',
                 gap: 'clamp(16px, 2vw, 28px)',
-                marginBottom: 20,
+                marginBottom: 16,
               }}
             >
               {metaSections.map((s) => (
@@ -367,12 +368,10 @@ export function AstroFooter() {
                 </div>
               ))}
             </div>
-            <div style={{textAlign: 'center', color: T.t3, fontSize: 'clamp(8px, 1.1vw, 10px)'}}>
-              © Mining Base Co., Ltd. ALL RIGHTS RESERVED.
-            </div>
           </div>
-        ) : (
-          <div
+        )}
+        {/* Fallback bottom links (常時表示) */}
+        <div
             style={{
               textAlign: 'center',
               fontSize: 'clamp(8px, 1.1vw, 10px)',
@@ -426,7 +425,6 @@ export function AstroFooter() {
               © Mining Base Co., Ltd. ALL RIGHTS RESERVED.
             </div>
           </div>
-        )}
       </section>
 
       {/* SSR-safe responsive: 1col mobile, 2col desktop */}
