@@ -879,6 +879,80 @@ export class ShopifyAdminClient {
   }
 
   /**
+   * Staged upload URL を作成（画像アップロード Step 1）
+   */
+  async createStagedUpload(filename: string, mimeType: string, fileSize: number): Promise<{url: string; resourceUrl: string; parameters: Array<{name: string; value: string}>}> {
+    const gql = `
+      mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+        stagedUploadsCreate(input: $input) {
+          stagedTargets {
+            url
+            resourceUrl
+            parameters { name value }
+          }
+          userErrors { field message }
+        }
+      }
+    `;
+    try {
+      const res = await this.query<{
+        stagedUploadsCreate: {
+          stagedTargets: Array<{url: string; resourceUrl: string; parameters: Array<{name: string; value: string}>}>;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        input: [{resource: 'IMAGE', filename, mimeType, fileSize: String(fileSize), httpMethod: 'POST'}],
+      });
+      const {stagedTargets, userErrors} = res.stagedUploadsCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`Staged upload 作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      const target = stagedTargets?.[0];
+      if (!target) throw new Error('Staged upload: レスポンスが空');
+      log.info(`[createStagedUpload] ${filename} → ${target.url}`);
+      return target;
+    } catch (err) {
+      this.notifyError('createStagedUpload', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Staged upload 完了後にファイルを Shopify に登録
+   */
+  async createFileFromUrl(resourceUrl: string, alt?: string): Promise<{id: string}> {
+    const gql = `
+      mutation fileCreate($files: [FileCreateInput!]!) {
+        fileCreate(files: $files) {
+          files { id }
+          userErrors { field message }
+        }
+      }
+    `;
+    try {
+      const res = await this.query<{
+        fileCreate: {
+          files: Array<{id: string}> | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {
+        files: [{originalSource: resourceUrl, alt: alt || '', contentType: 'IMAGE'}],
+      });
+      const {files, userErrors} = res.fileCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`File 作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      const created = files?.[0];
+      if (!created) throw new Error('File 作成: レスポンスが空');
+      log.info(`[createFileFromUrl] ${created.id}`);
+      return created;
+    } catch (err) {
+      this.notifyError('createFileFromUrl', err);
+      throw err;
+    }
+  }
+
+  /**
    * Shopify 公開チャネル (publications) 一覧を取得
    * Sprint 6 Gap 5: 商品公開タブでチェックボックス選択 UI に使用
    */
