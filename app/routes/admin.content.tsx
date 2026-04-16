@@ -12,6 +12,8 @@
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { ImageUploader } from '~/components/admin/ImageUploader';
+import type { ImageUploadResult } from '~/components/admin/ImageUploader';
 import {
   data,
   redirect,
@@ -641,30 +643,38 @@ export default function AdminContent() {
                 </p>
               </div>
 
-              {/* Featured Image */}
+              {/* Featured Image — ImageUploader + URL フォールバック */}
               <div style={{ marginBottom: 24 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: D.t4, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>
-                  フィーチャー画像 URL
-                </label>
-                <input
-                  type="url"
-                  name="featuredImageUrl"
-                  value={featuredImageUrl}
-                  onChange={(e) => setFeaturedImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  style={{
-                    width: '100%',
-                    padding: '12px 14px',
-                    fontSize: 13,
-                    color: D.tx,
-                    background: D.bg,
-                    border: `1px solid ${D.bd}`,
-                    borderRadius: 8,
-                    outline: 'none',
-                    boxSizing: 'border-box',
-                    fontFamily: 'inherit',
-                  }}
+                <ImageUploader
+                  label="フィーチャー画像"
+                  onUpload={(result: ImageUploadResult) => setFeaturedImageUrl(result.resourceUrl)}
+                  currentImageUrl={featuredImageUrl || null}
+                  height={140}
                 />
+                <input type="hidden" name="featuredImageUrl" value={featuredImageUrl} />
+                <div style={{ marginTop: 8 }}>
+                  <label style={{ display: 'block', fontSize: 10, fontWeight: 700, color: D.t4, letterSpacing: 1, marginBottom: 4 }}>
+                    URL直接入力（フォールバック）
+                  </label>
+                  <input
+                    type="url"
+                    value={featuredImageUrl}
+                    onChange={(e) => setFeaturedImageUrl(e.target.value)}
+                    placeholder="https://..."
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      fontSize: 12,
+                      color: D.tx,
+                      background: D.bg,
+                      border: `1px solid ${D.bd}`,
+                      borderRadius: 6,
+                      outline: 'none',
+                      boxSizing: 'border-box',
+                      fontFamily: 'monospace',
+                    }}
+                  />
+                </div>
               </div>
             </div>
 

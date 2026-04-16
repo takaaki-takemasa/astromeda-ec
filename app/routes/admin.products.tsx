@@ -13,11 +13,13 @@
  * - Admin API integration via useFetcher
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useLoaderData, useNavigation, useFetcher, Link } from 'react-router';
 import type { Route } from './+types/admin.products';
 import { AppError } from '~/lib/app-error';
 import { PAGE_WIDTH, T } from '~/lib/astromeda-data';
+import { ImageUploader } from '~/components/admin/ImageUploader';
+import type { ImageUploadResult } from '~/components/admin/ImageUploader';
 import {
   formatPrice,
   getProductStatus,
@@ -122,6 +124,7 @@ interface ProductFormData {
   status: 'ACTIVE' | 'DRAFT' | 'ARCHIVED';
   variantPrice: string;
   variantSku: string;
+  imageResourceUrl: string;
 }
 
 const EMPTY_FORM: ProductFormData = {
@@ -133,6 +136,7 @@ const EMPTY_FORM: ProductFormData = {
   status: 'DRAFT',
   variantPrice: '',
   variantSku: '',
+  imageResourceUrl: '',
 };
 
 // ─── Overlay / Modal Backdrop ──────
@@ -172,9 +176,37 @@ function ProductModal({
   productId?: string;
   onClose: () => void;
 }) {
-  const fetcher = useFetcher();
+  const fetcher = useFetcher<{success?: boolean; product?: {id: string}}>();
+  const imageFetcher = useFetcher();
   const [form, setForm] = useState<ProductFormData>(initialData);
+  const [imageAttaching, setImageAttaching] = useState(false);
   const isSubmitting = fetcher.state !== 'idle';
+
+  // 商品作成成功後に画像を自動 attach
+  useEffect(() => {
+    if (
+      fetcher.state === 'idle' &&
+      fetcher.data?.success &&
+      fetcher.data?.product?.id &&
+      form.imageResourceUrl &&
+      !imageAttaching
+    ) {
+      setImageAttaching(true);
+      imageFetcher.submit(
+        {
+          action: 'attach_product',
+          productId: fetcher.data.product.id,
+          resourceUrl: form.imageResourceUrl,
+          alt: form.title || '',
+        },
+        {
+          method: 'post',
+          action: '/api/admin/images',
+          encType: 'application/json',
+        },
+      );
+    }
+  }, [fetcher.state, fetcher.data, form.imageResourceUrl, form.title, imageAttaching, imageFetcher]);
 
   const handleSubmit = () => {
     const payload =
@@ -271,6 +303,14 @@ function ProductModal({
               <option value="ARCHIVED">アーカイブ</option>
             </select>
           </div>
+
+          <ImageUploader
+            label="商品画像"
+            onUpload={(result: ImageUploadResult) => setForm({...form, imageResourceUrl: result.resourceUrl})}
+            currentImageUrl={form.imageResourceUrl || null}
+            height={160}
+            disabled={isSubmitting}
+          />
 
           <FormField label="説明 (HTML可)" value={form.descriptionHtml} onChange={(v) => setForm({ ...form, descriptionHtml: v })} multiline placeholder="商品の説明文..." />
 
@@ -851,6 +891,7 @@ export default function AdminProductsDashboard() {
             status: 'ACTIVE',
             variantPrice: '',
             variantSku: '',
+            imageResourceUrl: getThumbnail(selectedProduct.images) || '',
           }}
           onClose={closeModal}
         />
