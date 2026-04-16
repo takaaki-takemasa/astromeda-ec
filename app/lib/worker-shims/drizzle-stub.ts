@@ -1,20 +1,35 @@
 /**
- * Stub for drizzle-orm / postgres / drizzle-orm/pg-core in Cloudflare Workers / Oxygen builds.
- * Database code is admin-only and never executes in worker runtime.
- * This shim allows the bundle to load without "No such module" errors.
+ * Drizzle ORM / postgres lazy stub — Oxygen/Cloudflare Workers 用
+ *
+ * Workers 環境では drizzle-orm は使用しない (InMemory storage のみ)。
+ * resolve.alias でこのスタブに差し替え、worker bundle から Node.js 依存を排除する。
+ *
+ * 全 export は無害な lazy Proxy を返す:
+ * - property access → 新しい Proxy を返す (chain 可能)
+ * - function call → 新しい Proxy を返す (compose 可能)
+ * - constructor call → 新しい Proxy を返す
+ * - throw しない、side effect なし
+ *
+ * Oxygen では storage.ts が InMemory adapter を選ぶため、
+ * drizzle の実コードパスには到達しない = lazy proxy で問題なし。
  */
 
-const stubError = () => {
-  throw new Error('[Oxygen Worker] Database modules are not available in worker runtime.');
-};
+const createLazyProxy = (name: string): any =>
+  new Proxy(function () {}, {
+    get: (_target, prop) => {
+      if (prop === Symbol.toPrimitive) return () => '';
+      if (prop === 'toString' || prop === 'valueOf') return () => `[drizzle-stub:${name}]`;
+      if (prop === Symbol.iterator) return undefined;
+      return createLazyProxy(`${name}.${String(prop)}`);
+    },
+    apply: () => createLazyProxy(name),
+    construct: () => createLazyProxy(name),
+    has: () => true,
+    set: () => true,
+    deleteProperty: () => true,
+  });
 
-const proxy: any = new Proxy(function () {}, {
-  get: () => proxy,
-  apply: stubError,
-  construct: stubError,
-});
-
-const s: any = proxy;
+const s: any = createLazyProxy('drizzle-orm');
 
 export default s;
 
