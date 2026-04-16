@@ -60,13 +60,13 @@ export default defineConfig({
     alias: [
       {find: '~', replacement: fileURLToPath(new URL('./app', import.meta.url))},
       // Oxygen/Workers fix: Node.js `module` builtin → no-op shim
-      {find: /^module$/, replacement: path.resolve('./app/lib/worker-shims/module.ts')},
-      // Oxygen/Workers fix: drizzle-orm / postgres → stub (Workers 環境で不使用)
+      {find: /^module$/, replacement: fileURLToPath(new URL('./app/lib/worker-shims/module.ts', import.meta.url))},
+      // Oxygen/Workers fix: drizzle-orm / postgres → lazy Proxy stub (Workers 環境で不使用)
       // ^...$ regex で exact match — prefix match による誤解決を防ぐ
-      {find: /^drizzle-orm$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
-      {find: /^drizzle-orm\/pg-core$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
-      {find: /^drizzle-orm\/postgres-js$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
-      {find: /^postgres$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
+      {find: /^drizzle-orm$/, replacement: fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url))},
+      {find: /^drizzle-orm\/pg-core$/, replacement: fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url))},
+      {find: /^drizzle-orm\/postgres-js$/, replacement: fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url))},
+      {find: /^postgres$/, replacement: fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url))},
     ],
   },
   build: {

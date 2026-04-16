@@ -88,10 +88,15 @@ export async function action({ request, context }: { request: Request; context: 
   // 共有セッション優先: hydrogenContext.session を再利用、無ければフォールバック
   const sharedSession = (context as unknown as {session?: AppSession}).session;
   const session = sharedSession ?? await AppSession.init(request, [env.SESSION_SECRET]);
-  const sessionCsrf = session.get('csrfToken') as string | undefined;
-  const formCsrf = String(formData.get('_csrf') || '');
-  if (!verifyCsrfToken(sessionCsrf, formCsrf)) {
-    return data({ error: 'セキュリティトークンが無効です。ページを再読み込みしてください。' }, { status: 403 });
+
+  // ADMIN_CSRF_BYPASS=true の場合、CSRF検証をスキップ（Oxygen deploy 直後のセッション不整合回避）
+  const csrfBypass = String((env as Record<string, string | undefined>).ADMIN_CSRF_BYPASS || '') === 'true';
+  if (!csrfBypass) {
+    const sessionCsrf = session.get('csrfToken') as string | undefined;
+    const formCsrf = String(formData.get('_csrf') || '');
+    if (!verifyCsrfToken(sessionCsrf, formCsrf)) {
+      return data({ error: 'セキュリティトークンが無効です。ページを再読み込みしてください。' }, { status: 403 });
+    }
   }
 
   // タイミング安全比較（Oxygen/Workers環境対応）
