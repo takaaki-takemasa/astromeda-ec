@@ -77,19 +77,20 @@ export default defineConfig({
     // Redirect manifest to non-dotfile path (sandbox limitation: dotfile dirs fail in mounted paths)
     manifest: 'vite-manifest.json',
     ssrManifest: 'vite-ssr-manifest.json',
-    // Externalize server-only DB packages from both client and SSR bundles
+    // Sprint 6 修正: drizzle-orm を external から除外
+    // Oxygen Workers に drizzle-orm が存在しないため external にすると runtime error
+    // 正しいアプローチ: @vite-ignore dynamic import + tree-shaking で消す
+    // postgres / cloudflare:sockets は Workers 環境で使わない限り問題なし
     rollupOptions: {
       external: [
-        'postgres',
-        'drizzle-orm',
-        'drizzle-orm/postgres-js',
-        'drizzle-orm/pg-core',
         'cloudflare:sockets',
       ],
     },
   },
   ssr: {
-    external: ['postgres', 'drizzle-orm', 'drizzle-orm/postgres-js', 'drizzle-orm/pg-core'],
+    // drizzle-orm / postgres を external 化しない (Workers に存在しないため)
+    // tree-shaking と @vite-ignore dynamic import で除外する
+    external: [],
     optimizeDeps: {
       /**
        * Include dependencies here if they throw CJS<>ESM errors.
