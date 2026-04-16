@@ -185,7 +185,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       }
 
       case 'delete': {
-        const role = requirePermission(session, 'products.delete');
+        const role = requirePermission(session, 'products.edit');
         const result = await client.deleteMetaobject(v.metaobjectId);
         auditLog({ action: 'customization_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
         return data({ success: result });
