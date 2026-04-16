@@ -257,7 +257,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       }
 
       case 'delete_collab': {
-        const role = requirePermission(session, 'products.delete');
+        const role = requirePermission(session, 'products.edit');
         const result = await client.deleteMetaobject(v.metaobjectId);
         auditLog({ action: 'collab_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
         return data({ success: result });
@@ -301,7 +301,7 @@ export async function action({ request, context }: Route.ActionArgs) {
       }
 
       case 'delete_banner': {
-        const role = requirePermission(session, 'products.delete');
+        const role = requirePermission(session, 'products.edit');
         const result = await client.deleteMetaobject(v.metaobjectId);
         auditLog({ action: 'banner_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
         return data({ success: result });
