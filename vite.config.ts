@@ -63,6 +63,13 @@ export default defineConfig({
       // `import { createRequire } from "module"` が Workers で "No such module" エラーを起こす。
       // Node.js `module` builtin をno-op shimに差し替えてバンドルを通す。
       'module': fileURLToPath(new URL('./app/lib/worker-shims/module.ts', import.meta.url)),
+      // Oxygen/Workers fix: drizzle-orm は Workers 環境で不使用 (InMemory storage のみ)。
+      // 静的 import chain (schema.ts → drizzle-orm/pg-core, drizzle-adapter.ts → drizzle-orm) を
+      // スタブに差し替えて "No such module 'drizzle-orm'" runtime error を回避。
+      'drizzle-orm': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
+      'drizzle-orm/pg-core': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
+      'drizzle-orm/postgres-js': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
+      'postgres': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
     },
   },
   build: {
@@ -77,10 +84,8 @@ export default defineConfig({
     // Redirect manifest to non-dotfile path (sandbox limitation: dotfile dirs fail in mounted paths)
     manifest: 'vite-manifest.json',
     ssrManifest: 'vite-ssr-manifest.json',
-    // Sprint 6 修正: drizzle-orm を external から除外
-    // Oxygen Workers に drizzle-orm が存在しないため external にすると runtime error
-    // 正しいアプローチ: @vite-ignore dynamic import + tree-shaking で消す
-    // postgres / cloudflare:sockets は Workers 環境で使わない限り問題なし
+    // drizzle-orm/postgres は resolve.alias でスタブに差し替え済みのため external 不要
+    // cloudflare:sockets のみ Workers 環境固有モジュールとして external 維持
     rollupOptions: {
       external: [
         'cloudflare:sockets',
@@ -88,8 +93,7 @@ export default defineConfig({
     },
   },
   ssr: {
-    // drizzle-orm / postgres を external 化しない (Workers に存在しないため)
-    // tree-shaking と @vite-ignore dynamic import で除外する
+    // drizzle-orm / postgres は alias スタブで置換されるため external 不要
     external: [],
     optimizeDeps: {
       /**
