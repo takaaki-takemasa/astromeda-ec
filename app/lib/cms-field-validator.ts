@@ -117,3 +117,54 @@ export function validateMetaobjectCompleteness(
   }
   return {valid: errors.length === 0, errors};
 }
+
+/**
+ * Metaobject フィールドの一括検証 + サニタイズ
+ * 管理画面の CRUD API で使用。入力値を検証し、安全な値に変換して返す。
+ */
+export function validateAndSanitizeFields(
+  fields: Record<string, unknown>,
+  schema: Array<{key: string; required?: boolean; maxLength?: number; type?: 'text' | 'html' | 'json_array' | 'json_object' | 'url' | 'hex_color' | 'int'}>,
+): {sanitized: Record<string, string>; validation: ValidationResult} {
+  const errors: string[] = [];
+  const sanitized: Record<string, string> = {};
+
+  for (const def of schema) {
+    const raw = fields[def.key];
+    const value = raw === null || raw === undefined ? '' : String(raw).trim();
+
+    if (def.required) {
+      const err = validateRequired(value, def.key);
+      if (err) errors.push(err);
+    }
+
+    if (value && def.maxLength) {
+      const err = validateMaxLength(value, def.maxLength, def.key);
+      if (err) errors.push(err);
+    }
+
+    if (value && def.type === 'html') {
+      const err = validateNoScript(value, def.key);
+      if (err) errors.push(err);
+    } else if (value && def.type === 'text') {
+      const err = validateNoHtml(value, def.key);
+      if (err) errors.push(err);
+    } else if (value && def.type === 'url') {
+      const err = validateUrl(value, def.key);
+      if (err) errors.push(err);
+    } else if (value && def.type === 'hex_color') {
+      const err = validateHexColor(value, def.key);
+      if (err) errors.push(err);
+    } else if (value && def.type === 'json_array') {
+      const err = validateJsonArray(value, def.key);
+      if (err) errors.push(err);
+    } else if (value && def.type === 'json_object') {
+      const err = validateJsonObject(value, def.key);
+      if (err) errors.push(err);
+    }
+
+    sanitized[def.key] = value;
+  }
+
+  return {sanitized, validation: {valid: errors.length === 0, errors}};
+}
