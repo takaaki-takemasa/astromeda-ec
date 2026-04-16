@@ -71,6 +71,9 @@ export default defineConfig({
     assetsInlineLimit: 0,
     // Dropbox locks dist/ on Windows — skip emptyOutDir to avoid EPERM
     emptyOutDir: false,
+    // Sprint 6 緊急修正: production sourcemap を完全無効化
+    // Oxygen worker bundle サイズ肥大化を防ぐ (sourcemap が worker bundle に inline される問題を回避)
+    sourcemap: false,
     // Redirect manifest to non-dotfile path (sandbox limitation: dotfile dirs fail in mounted paths)
     manifest: 'vite-manifest.json',
     ssrManifest: 'vite-ssr-manifest.json',

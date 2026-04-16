@@ -79,6 +79,10 @@ function scanDirectory(dirPath: string, basePath: string): Array<{ relativePath:
 }
 
 export function sourceBundlePlugin(): Plugin {
+  // Sprint 6 緊急修正: production build では空スタブを emit する
+  // 全ソースコードを worker bundle に焼き込むと ~3.9MB になり Oxygen upload が失敗
+  // dev mode でのみ実データを含める (ZIP download は dev でのみ機能)
+  const isProduction = process.env.NODE_ENV === 'production';
   return {
     name: 'vite-source-bundle',
     resolveId(id: string) {
@@ -87,16 +91,28 @@ export function sourceBundlePlugin(): Plugin {
     load(id: string) {
       if (id !== RESOLVED_ID) return;
 
+      // Production: 空スタブのみ (worker bundle 膨張を回避)
+      if (isProduction) {
+        const stub = {
+          generatedAt: new Date().toISOString(),
+          projectName: 'astromeda-ec',
+          fileCount: 0,
+          files: [],
+          stub: true,
+          message: 'Source bundle disabled in production build (worker size optimization)',
+        };
+        return `export default ${JSON.stringify(stub)};`;
+      }
+
+      // Dev: 全ソースをスキャンして含める (ZIP download 用)
       const basePath = process.cwd();
       const files: Array<{ relativePath: string; content: string }> = [];
 
-      // ディレクトリスキャン
       for (const dir of INCLUDE_DIRS) {
         const dirPath = path.join(basePath, dir);
         files.push(...scanDirectory(dirPath, basePath));
       }
 
-      // ルートファイル
       for (const fileName of INCLUDE_ROOT_FILES) {
         const filePath = path.join(basePath, fileName);
         if (fs.existsSync(filePath)) {
