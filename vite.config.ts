@@ -57,20 +57,17 @@ export default defineConfig({
     tailwindcss(),
   ],
   resolve: {
-    alias: {
-      '~': fileURLToPath(new URL('./app', import.meta.url)),
-      // Oxygen/Workers fix: hydrogen-middleware.ts (DEV専用) がSSRバンドルに混入し
-      // `import { createRequire } from "module"` が Workers で "No such module" エラーを起こす。
-      // Node.js `module` builtin をno-op shimに差し替えてバンドルを通す。
-      'module': fileURLToPath(new URL('./app/lib/worker-shims/module.ts', import.meta.url)),
-      // Oxygen/Workers fix: drizzle-orm は Workers 環境で不使用 (InMemory storage のみ)。
-      // 静的 import chain (schema.ts → drizzle-orm/pg-core, drizzle-adapter.ts → drizzle-orm) を
-      // スタブに差し替えて "No such module 'drizzle-orm'" runtime error を回避。
-      'drizzle-orm': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
-      'drizzle-orm/pg-core': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
-      'drizzle-orm/postgres-js': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
-      'postgres': fileURLToPath(new URL('./app/lib/worker-shims/drizzle-stub.ts', import.meta.url)),
-    },
+    alias: [
+      {find: '~', replacement: fileURLToPath(new URL('./app', import.meta.url))},
+      // Oxygen/Workers fix: Node.js `module` builtin → no-op shim
+      {find: /^module$/, replacement: path.resolve('./app/lib/worker-shims/module.ts')},
+      // Oxygen/Workers fix: drizzle-orm / postgres → stub (Workers 環境で不使用)
+      // ^...$ regex で exact match — prefix match による誤解決を防ぐ
+      {find: /^drizzle-orm$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
+      {find: /^drizzle-orm\/pg-core$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
+      {find: /^drizzle-orm\/postgres-js$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
+      {find: /^postgres$/, replacement: path.resolve('./app/lib/worker-shims/drizzle-stub.ts')},
+    ],
   },
   build: {
     // Allow a strict Content-Security-Policy
