@@ -470,18 +470,23 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
     setEditing(item.id);
     setForm({
       name: f(item, 'name'),
-      name_en: f(item, 'name_en'),
-      hex: f(item, 'hex'),
-      gradient_css: f(item, 'gradient_css'),
+      slug: f(item, 'slug'),
+      hex_color: f(item, 'hex_color'),
+      gradient_color: f(item, 'gradient_color'),
       collection_handle: f(item, 'collection_handle'),
-      sort_order: f(item, 'sort_order'),
+      color_keywords: f(item, 'color_keywords'),
+      display_order: f(item, 'display_order'),
       is_dark: f(item, 'is_dark'),
+      is_active: f(item, 'is_active') || 'true',
+      image_url: f(item, 'image_url'),
     });
   };
 
   const emptyForm = () => ({
-    name: '', name_en: '', hex: '#000000', gradient_css: '',
-    collection_handle: '', sort_order: String((items.length || 0) + 1), is_dark: 'false',
+    name: '', slug: '', hex_color: '#000000', gradient_color: '',
+    collection_handle: '', color_keywords: '',
+    display_order: String((items.length || 0) + 1),
+    is_dark: 'false', is_active: 'true', image_url: '',
   });
 
   const save = async (id: string) => {
@@ -496,7 +501,7 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
   };
 
   const create = async () => {
-    const handle = `color-${form.name_en || Date.now()}`.toLowerCase().replace(/\s+/g, '-');
+    const handle = `color-${form.slug || Date.now()}`.toLowerCase().replace(/\s+/g, '-');
     const res = await cmsPost({
       type: 'astromeda_pc_color',
       action: 'create',
@@ -517,14 +522,14 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
           <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ホワイト" />
         </div>
         <div>
-          <label style={labelStyle}>名前 (EN)</label>
-          <input style={inputStyle} value={form.name_en} onChange={(e) => setForm({ ...form, name_en: e.target.value })} placeholder="White" />
+          <label style={labelStyle}>スラッグ (EN)</label>
+          <input style={inputStyle} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="white" />
         </div>
         <div>
-          <label style={labelStyle}>HEX</label>
+          <label style={labelStyle}>HEX カラー</label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <input type="color" value={form.hex || '#000000'} onChange={(e) => setForm({ ...form, hex: e.target.value })} style={{ width: 36, height: 32, border: 'none', cursor: 'pointer' }} />
-            <input style={{ ...inputStyle, flex: 1 }} value={form.hex} onChange={(e) => setForm({ ...form, hex: e.target.value })} />
+            <input type="color" value={form.hex_color || '#000000'} onChange={(e) => setForm({ ...form, hex_color: e.target.value })} style={{ width: 36, height: 32, border: 'none', cursor: 'pointer' }} />
+            <input style={{ ...inputStyle, flex: 1 }} value={form.hex_color} onChange={(e) => setForm({ ...form, hex_color: e.target.value })} />
           </div>
         </div>
         <div>
@@ -532,16 +537,42 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
           <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="white" />
         </div>
         <div>
-          <label style={labelStyle}>並び順</label>
-          <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
         </div>
         <div>
           <label style={labelStyle}>ダーク (true/false)</label>
-          <input style={inputStyle} value={form.is_dark} onChange={(e) => setForm({ ...form, is_dark: e.target.value })} />
+          <input style={inputStyle} value={form.is_dark} onChange={(e) => setForm({ ...form, is_dark: e.target.value })} placeholder="false" />
+        </div>
+        <div>
+          <label style={labelStyle}>カラーキーワード (カンマ区切り)</label>
+          <input style={inputStyle} value={form.color_keywords} onChange={(e) => setForm({ ...form, color_keywords: e.target.value })} placeholder="ホワイト,White,WHITE" />
+        </div>
+        <div>
+          <label style={labelStyle}>表示中 (true/false)</label>
+          <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} placeholder="true" />
+        </div>
+        <div>
+          <label style={labelStyle}>グラデーションカラー (HEX・任意)</label>
+          <input style={inputStyle} value={form.gradient_color} onChange={(e) => setForm({ ...form, gradient_color: e.target.value })} placeholder="#E8E0FF" />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <label style={labelStyle}>グラデーションCSS (任意)</label>
-          <input style={inputStyle} value={form.gradient_css} onChange={(e) => setForm({ ...form, gradient_css: e.target.value })} placeholder="linear-gradient(...)" />
+          <label style={labelStyle}>バナー画像URL（ホームページ 8色カラーで表示）</label>
+          <input style={inputStyle} value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="/images/pc-setup/white.jpg または https://cdn.shopify.com/..." />
+          {form.image_url && (
+            <div style={{ marginTop: 8, padding: 8, background: color.bg0, border: `1px solid ${color.border}`, borderRadius: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <img
+                src={form.image_url}
+                alt="バナープレビュー"
+                style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 4, border: `1px solid ${color.border}` }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
+              />
+              <div style={{ fontSize: 11, color: color.textMuted }}>
+                プレビュー（実サイトでは aspect 16/10 で表示）
+                <div style={{ fontFamily: 'monospace', color: color.text, marginTop: 4, wordBreak: 'break-all' }}>{form.image_url}</div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
@@ -572,19 +603,31 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
               <div style={rowStyle}>
                 <div style={{
                   width: 28, height: 28, borderRadius: '50%',
-                  background: f(item, 'hex') || '#888',
+                  background: f(item, 'hex_color') || '#888',
                   border: '2px solid rgba(255,255,255,.2)',
                   flexShrink: 0,
                 }} />
+                {f(item, 'image_url') ? (
+                  <img
+                    src={f(item, 'image_url')}
+                    alt={f(item, 'name')}
+                    style={{ width: 64, height: 40, objectFit: 'cover', borderRadius: 4, border: `1px solid ${color.border}`, flexShrink: 0 }}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
+                  />
+                ) : (
+                  <div style={{ width: 64, height: 40, background: color.bg2, borderRadius: 4, border: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: color.textMuted, flexShrink: 0 }}>
+                    画像なし
+                  </div>
+                )}
                 <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-                  {f(item, 'sort_order') || '—'}
+                  {f(item, 'display_order') || '—'}
                 </div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>
-                    {f(item, 'name')} <span style={{ color: color.textMuted, fontWeight: 400 }}>({f(item, 'name_en')})</span>
+                    {f(item, 'name')} <span style={{ color: color.textMuted, fontWeight: 400 }}>({f(item, 'slug')})</span>
                   </div>
                   <div style={{ fontSize: 11, color: color.textMuted, fontFamily: 'monospace' }}>
-                    {f(item, 'hex')} → {f(item, 'collection_handle')}
+                    {f(item, 'hex_color')} → {f(item, 'collection_handle')}
                   </div>
                 </div>
                 <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>

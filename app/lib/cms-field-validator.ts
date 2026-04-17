@@ -110,6 +110,7 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     is_dark: { type: 'boolean' },
     collection_handle: { type: 'single_line_text_field', maxLength: 200 },
     color_keywords: { type: 'single_line_text_field', maxLength: 500 },
+    image_url: { type: 'single_line_text_field', maxLength: 2000 },
     display_order: { type: 'number_integer' },
     is_active: { type: 'boolean' },
   },

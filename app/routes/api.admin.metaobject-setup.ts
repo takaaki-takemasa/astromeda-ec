@@ -175,6 +175,7 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'color_keywords', name: 'カラーキーワード（カンマ区切り）', type: 'single_line_text_field' },
       { key: 'display_order', name: '表示順', type: 'number_integer' },
       { key: 'is_active', name: '表示中', type: 'boolean' },
+      { key: 'image_url', name: 'バナー画像URL（トップページ8色カラーで表示）', type: 'single_line_text_field' },
     ],
   },
   {

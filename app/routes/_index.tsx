@@ -234,7 +234,7 @@ export async function loader({context}: Route.LoaderArgs) {
       handle: mo.handle,
       name: f['name'] || '',
       slug: f['slug'] || '',
-      image: f['image'] || null,
+      image: f['image_url'] || f['image'] || null,
       colorCode: f['color_code'] || '#888888',
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
