@@ -168,7 +168,7 @@ export async function loader({context}: Route.LoaderArgs) {
     // Metaobject: ヒーローバナー（HeroSlider 用）
     adminClient ? adminClient.getMetaobjects('astromeda_hero_banner', 50) : emptyMo(),
     // Metaobject: PC カラーモデル（PCShowcase 用）
-    adminClient ? adminClient.getMetaobjects('astromeda_pc_color_model', 100) : emptyMo(),
+    adminClient ? adminClient.getMetaobjects('astromeda_pc_color', 100) : emptyMo(),
     // Metaobject: カテゴリカード（Category quick nav 用）
     adminClient ? adminClient.getMetaobjects('astromeda_category_card', 100) : emptyMo(),
     // Metaobject: 商品シェルフ（NEW ARRIVALS 代替用）
