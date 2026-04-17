@@ -118,74 +118,6 @@ export interface ProductSummary {
   avgPrice: number;
 }
 
-/** バリアント一括更新の入力型（productVariantsBulkUpdate 用） */
-export interface VariantBulkUpdateInput {
-  id: string;
-  price?: string;
-  compareAtPrice?: string;
-  sku?: string;
-  barcode?: string;
-  taxable?: boolean;
-  inventoryPolicy?: 'DENY' | 'CONTINUE';
-  inventoryItem?: {
-    sku?: string;
-    tracked?: boolean;
-  };
-}
-
-/** 商品画像メディア */
-export interface ProductImage {
-  id: string;
-  alt: string | null;
-  url: string;
-  width?: number;
-  height?: number;
-}
-
-/** 商品メタフィールド */
-export interface ProductMetafield {
-  id: string;
-  namespace: string;
-  key: string;
-  value: string;
-  type: string;
-}
-
-/** getProductDetail の返却型（全フィールド+variants+images+metafields） */
-export interface ProductDetail {
-  id: string;
-  title: string;
-  handle: string;
-  status: string;
-  descriptionHtml: string;
-  productType: string;
-  vendor: string;
-  tags: string[];
-  totalInventory: number;
-  createdAt: string;
-  updatedAt: string;
-  publishedAt: string | null;
-  seo: {title: string | null; description: string | null};
-  priceRangeV2: {
-    minVariantPrice: {amount: string; currencyCode: string};
-    maxVariantPrice: {amount: string; currencyCode: string};
-  };
-  featuredImage: {id: string; url: string; altText: string | null} | null;
-  variants: Array<{
-    id: string;
-    title: string;
-    price: string;
-    compareAtPrice: string | null;
-    sku: string;
-    barcode: string | null;
-    inventoryQuantity: number;
-    inventoryItem: {id: string; tracked: boolean};
-    selectedOptions: Array<{name: string; value: string}>;
-  }>;
-  images: ProductImage[];
-  metafields: ProductMetafield[];
-}
-
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -197,7 +129,7 @@ export class ShopifyAdminClient {
   constructor(storeDomain?: string, apiToken?: string) {
     this.storeDomain = storeDomain || '';
     this.apiToken = apiToken || '';
-    this.apiVersion = '2025-04';
+    this.apiVersion = '2025-10';
     this.isConfigured = !!(this.storeDomain && this.apiToken);
   }
 
@@ -418,8 +350,9 @@ export class ShopifyAdminClient {
    * 商品を作成（効果器: 新細胞の生成）
    */
   async createProduct(input: ProductCreateInput): Promise<{id: string; handle: string}> {
+    // 2025-10 API: productCreate は `product: ProductCreateInput!` を取る
     const gql = `
-      mutation productCreate($input: ProductInput!) {
+      mutation productCreate($input: ProductCreateInput!) {
         productCreate(product: $input) {
           product { id handle title status }
           userErrors { field message }
@@ -454,7 +387,7 @@ export class ShopifyAdminClient {
    */
   async updateProduct(id: string, input: Partial<ProductCreateInput>): Promise<{id: string; handle: string}> {
     const gql = `
-      mutation productUpdate($input: ProductInput!) {
+      mutation productUpdate($input: ProductUpdateInput!) {
         productUpdate(product: $input) {
           product { id handle title status }
           userErrors { field message }
@@ -656,80 +589,81 @@ export class ShopifyAdminClient {
   }
 
   /**
-   * 既存メタオブジェクト定義を type 指定で取得
+   * メタオブジェクト定義を更新（既存定義にフィールドを追加）
+   * 既に存在するフィールドはスキップし、不足分のみ追加する
    */
-  async getMetaobjectDefinitionByType(type: string): Promise<{id: string; type: string} | null> {
-    const gql = `
-      query metaobjectDefinitionByType($type: String!) {
-        metaobjectDefinitionByType(type: $type) {
-          id
-          type
-        }
-      }
-    `;
-    try {
-      const res = await this.query<{metaobjectDefinitionByType: {id: string; type: string} | null}>(gql, {type});
-      return res.metaobjectDefinitionByType;
-    } catch (err) {
-      this.notifyError('getMetaobjectDefinitionByType', err);
-      return null;
-    }
-  }
-
-  /**
-   * メタオブジェクト定義に新規フィールドを追加（既存データは保全、append のみ）
-   * Shopify の metaobjectDefinitionUpdate mutation を使用。
-   */
-  async updateMetaobjectDefinitionAppendFields(
-    type: string,
-    fieldsToAdd: MetaobjectFieldDefinition[],
-  ): Promise<{id: string; addedCount: number}> {
-    const existing = await this.getMetaobjectDefinitionByType(type);
-    if (!existing) {
-      throw new Error(`メタオブジェクト定義 ${type} が存在しません`);
-    }
-
+  async updateMetaobjectDefinition(
+    id: string,
+    fieldDefinitionsToAdd: MetaobjectFieldDefinition[],
+  ): Promise<{id: string}> {
     const gql = `
       mutation metaobjectDefinitionUpdate($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
         metaobjectDefinitionUpdate(id: $id, definition: $definition) {
           metaobjectDefinition { id type }
-          userErrors { field message code }
+          userErrors { field message }
         }
       }
     `;
-
-    const definition = {
-      fieldDefinitions: fieldsToAdd.map((f) => ({
-        create: {
-          key: f.key,
-          name: f.name,
-          type: f.type,
-        },
-      })),
-    };
 
     try {
       const res = await this.query<{
         metaobjectDefinitionUpdate: {
           metaobjectDefinition: {id: string; type: string} | null;
-          userErrors: Array<{field: string[]; message: string; code?: string}>;
+          userErrors: Array<{field: string[]; message: string}>;
         };
-      }>(gql, {id: existing.id, definition});
+      }>(gql, {
+        id,
+        definition: {
+          fieldDefinitions: fieldDefinitionsToAdd.map(f => ({
+            create: {
+              key: f.key,
+              name: f.name,
+              type: f.type,
+            },
+          })),
+        },
+      });
 
       const {metaobjectDefinition, userErrors} = res.metaobjectDefinitionUpdate;
-      // 既に同名フィールドが存在する場合は TAKEN エラー → 冪等として OK 扱い
-      const nonDuplicateErrors = userErrors.filter((e) => {
-        const msg = e.message.toLowerCase();
-        return !(msg.includes('already') || msg.includes('taken') || msg.includes('exists') || e.code === 'TAKEN');
-      });
-      if (nonDuplicateErrors.length > 0) {
-        throw new Error(`メタオブジェクト定義更新失敗: ${nonDuplicateErrors.map((e) => e.message).join(', ')}`);
+      if (userErrors.length > 0) {
+        throw new Error(`メタオブジェクト定義更新失敗: ${userErrors.map(e => e.message).join(', ')}`);
       }
-      const id = metaobjectDefinition?.id || existing.id;
-      log.info(`[updateMetaobjectDefinitionAppendFields] ${type} +${fieldsToAdd.length} fields (${userErrors.length} dup skipped)`);
-      return {id, addedCount: fieldsToAdd.length - userErrors.length};
+
+      log.info(`[updateMetaobjectDefinition] Updated: ${id} (+${fieldDefinitionsToAdd.length} fields)`);
+      return {id: metaobjectDefinition?.id || id};
     } catch (err) {
-      this.notifyError('updateMetaobjectDefinitionAppendFields', err);
+      this.notifyError('updateMetaobjectDefinition', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メタオブジェクト定義の現在のフィールドを取得
+   */
+  async getMetaobjectDefinition(type: string): Promise<{id: string; fieldDefinitions: Array<{key: string; name: string}>} | null> {
+    const gql = `
+      query getMetaobjectDefinitionByType($type: String!) {
+        metaobjectDefinitionByType(type: $type) {
+          id
+          fieldDefinitions {
+            key
+            name
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        metaobjectDefinitionByType: {
+          id: string;
+          fieldDefinitions: Array<{key: string; name: string}>;
+        } | null;
+      }>(gql, {type});
+
+      return res.metaobjectDefinitionByType;
+    } catch (err) {
+      this.notifyError('getMetaobjectDefinition', err);
       throw err;
     }
   }
@@ -878,502 +812,6 @@ export class ShopifyAdminClient {
     }
   }
 
-  /**
-   * Staged upload URL を作成（画像アップロード Step 1）
-   */
-  async createStagedUpload(filename: string, mimeType: string, fileSize: number): Promise<{url: string; resourceUrl: string; parameters: Array<{name: string; value: string}>}> {
-    const gql = `
-      mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
-        stagedUploadsCreate(input: $input) {
-          stagedTargets {
-            url
-            resourceUrl
-            parameters { name value }
-          }
-          userErrors { field message }
-        }
-      }
-    `;
-    try {
-      const res = await this.query<{
-        stagedUploadsCreate: {
-          stagedTargets: Array<{url: string; resourceUrl: string; parameters: Array<{name: string; value: string}>}>;
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        input: [{resource: 'IMAGE', filename, mimeType, fileSize: String(fileSize), httpMethod: 'POST'}],
-      });
-      const {stagedTargets, userErrors} = res.stagedUploadsCreate;
-      if (userErrors.length > 0) {
-        throw new Error(`Staged upload 作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      const target = stagedTargets?.[0];
-      if (!target) throw new Error('Staged upload: レスポンスが空');
-      log.info(`[createStagedUpload] ${filename} → ${target.url}`);
-      return target;
-    } catch (err) {
-      this.notifyError('createStagedUpload', err);
-      throw err;
-    }
-  }
-
-  /**
-   * Staged upload 完了後にファイルを Shopify に登録
-   */
-  async createFileFromUrl(resourceUrl: string, alt?: string): Promise<{id: string}> {
-    const gql = `
-      mutation fileCreate($files: [FileCreateInput!]!) {
-        fileCreate(files: $files) {
-          files { id }
-          userErrors { field message }
-        }
-      }
-    `;
-    try {
-      const res = await this.query<{
-        fileCreate: {
-          files: Array<{id: string}> | null;
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        files: [{originalSource: resourceUrl, alt: alt || '', contentType: 'IMAGE'}],
-      });
-      const {files, userErrors} = res.fileCreate;
-      if (userErrors.length > 0) {
-        throw new Error(`File 作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      const created = files?.[0];
-      if (!created) throw new Error('File 作成: レスポンスが空');
-      log.info(`[createFileFromUrl] ${created.id}`);
-      return created;
-    } catch (err) {
-      this.notifyError('createFileFromUrl', err);
-      throw err;
-    }
-  }
-
-  /**
-   * Shopify 公開チャネル (publications) 一覧を取得
-   * Sprint 6 Gap 5: 商品公開タブでチェックボックス選択 UI に使用
-   */
-  async getPublications(first = 50): Promise<Array<{id: string; name: string}>> {
-    const gql = `
-      query getPublications($first: Int!) {
-        publications(first: $first) {
-          nodes { id name }
-        }
-      }
-    `;
-    try {
-      const res = await this.query<{publications: {nodes: Array<{id: string; name: string}>}}>(gql, {first});
-      return res.publications?.nodes || [];
-    } catch (err) {
-      this.notifyError('getPublications', err);
-      return [];
-    }
-  }
-
-  // ══════════════════════════════════════════════════════════
-  // ── Sprint 1: 商品運用向け追加ミューテーション（2025-10 API） ──
-  // ══════════════════════════════════════════════════════════
-
-  /**
-   * バリアントを一括更新（productVariantsBulkUpdate）
-   * 価格/SKU/在庫ポリシー等を1回のAPIコールで複数バリアントに反映。
-   */
-  async productVariantsBulkUpdate(
-    productId: string,
-    variants: VariantBulkUpdateInput[],
-  ): Promise<Array<{id: string; title: string; price: string}>> {
-    const gql = `
-      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
-        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
-          productVariants { id title price }
-          userErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        productVariantsBulkUpdate: {
-          productVariants: Array<{id: string; title: string; price: string}> | null;
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {productId, variants});
-
-      const {productVariants, userErrors} = res.productVariantsBulkUpdate;
-      if (userErrors.length > 0) {
-        throw new Error(`バリアント一括更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      const updated = productVariants || [];
-      log.info(`[productVariantsBulkUpdate] Updated ${updated.length} variants for ${productId}`);
-      return updated;
-    } catch (err) {
-      this.notifyError('productVariantsBulkUpdate', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 在庫数量を相対調整（inventoryAdjustQuantities）
-   * delta は増減量（正で加算、負で減算）。available quantityName を使用。
-   */
-  async inventoryAdjustQuantity(
-    inventoryItemId: string,
-    locationId: string,
-    delta: number,
-  ): Promise<{createdAt: string; reason: string}> {
-    const gql = `
-      mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
-        inventoryAdjustQuantities(input: $input) {
-          inventoryAdjustmentGroup { createdAt reason }
-          userErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        inventoryAdjustQuantities: {
-          inventoryAdjustmentGroup: {createdAt: string; reason: string} | null;
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        input: {
-          reason: 'correction',
-          name: 'available',
-          changes: [{delta, inventoryItemId, locationId}],
-        },
-      });
-
-      const {inventoryAdjustmentGroup, userErrors} = res.inventoryAdjustQuantities;
-      if (userErrors.length > 0) {
-        throw new Error(`在庫調整失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      if (!inventoryAdjustmentGroup) {
-        throw new Error('在庫調整: レスポンスに inventoryAdjustmentGroup が含まれません');
-      }
-      log.info(`[inventoryAdjustQuantity] ${inventoryItemId} @${locationId} delta=${delta}`);
-      return inventoryAdjustmentGroup;
-    } catch (err) {
-      this.notifyError('inventoryAdjustQuantity', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品画像を追加（productCreateMedia, IMAGE タイプ）
-   */
-  async productImageCreate(
-    productId: string,
-    src: string,
-    altText?: string,
-  ): Promise<{id: string; alt: string | null}> {
-    const gql = `
-      mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
-        productCreateMedia(productId: $productId, media: $media) {
-          media { ... on MediaImage { id alt image { url } } }
-          mediaUserErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        productCreateMedia: {
-          media: Array<{id: string; alt: string | null}> | null;
-          mediaUserErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        productId,
-        media: [{originalSource: src, alt: altText || '', mediaContentType: 'IMAGE'}],
-      });
-
-      const {media, mediaUserErrors} = res.productCreateMedia;
-      if (mediaUserErrors.length > 0) {
-        throw new Error(`商品画像作成失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
-      }
-      const created = media?.[0];
-      if (!created) throw new Error('商品画像作成: レスポンスに media が含まれません');
-      log.info(`[productImageCreate] Created media ${created.id} for ${productId}`);
-      return created;
-    } catch (err) {
-      this.notifyError('productImageCreate', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品画像を削除（productDeleteMedia）
-   * 2025-10 API は productId が必須のため、第1引数に追加。
-   */
-  async productImageDelete(productId: string, imageId: string): Promise<boolean> {
-    const gql = `
-      mutation productDeleteMedia($productId: ID!, $mediaIds: [ID!]!) {
-        productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
-          deletedMediaIds
-          mediaUserErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        productDeleteMedia: {
-          deletedMediaIds: string[] | null;
-          mediaUserErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {productId, mediaIds: [imageId]});
-
-      const {deletedMediaIds, mediaUserErrors} = res.productDeleteMedia;
-      if (mediaUserErrors.length > 0) {
-        const isAlreadyDeleted = mediaUserErrors.some(
-          (e) =>
-            e.message.toLowerCase().includes('not found') ||
-            e.message.toLowerCase().includes('does not exist'),
-        );
-        if (isAlreadyDeleted) {
-          log.info(`[productImageDelete] Already deleted: ${imageId}`);
-          return true;
-        }
-        throw new Error(`商品画像削除失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
-      }
-      log.info(`[productImageDelete] Deleted ${deletedMediaIds?.length ?? 0} media from ${productId}`);
-      return true;
-    } catch (err) {
-      this.notifyError('productImageDelete', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品画像の表示順を変更（productReorderMedia）
-   * imageIds は希望順序で並べて渡す（0-indexed で newPosition を自動採番）。
-   */
-  async productImageReorder(productId: string, imageIds: string[]): Promise<boolean> {
-    const gql = `
-      mutation productReorderMedia($id: ID!, $moves: [MoveInput!]!) {
-        productReorderMedia(id: $id, moves: $moves) {
-          job { id }
-          mediaUserErrors { field message }
-        }
-      }
-    `;
-
-    const moves = imageIds.map((id, i) => ({id, newPosition: String(i)}));
-
-    try {
-      const res = await this.query<{
-        productReorderMedia: {
-          job: {id: string} | null;
-          mediaUserErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {id: productId, moves});
-
-      const {mediaUserErrors} = res.productReorderMedia;
-      if (mediaUserErrors.length > 0) {
-        throw new Error(`商品画像並び替え失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
-      }
-      log.info(`[productImageReorder] Reordered ${imageIds.length} images for ${productId}`);
-      return true;
-    } catch (err) {
-      this.notifyError('productImageReorder', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品を公開チャネルに公開（publishablePublish）
-   */
-  async productPublish(productId: string, publicationIds: string[]): Promise<boolean> {
-    const gql = `
-      mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
-        publishablePublish(id: $id, input: $input) {
-          userErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        publishablePublish: {
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        id: productId,
-        input: publicationIds.map((publicationId) => ({publicationId})),
-      });
-
-      const {userErrors} = res.publishablePublish;
-      if (userErrors.length > 0) {
-        throw new Error(`商品公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      log.info(`[productPublish] Published ${productId} to ${publicationIds.length} channels`);
-      return true;
-    } catch (err) {
-      this.notifyError('productPublish', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品を公開チャネルから非公開化（publishableUnpublish）
-   */
-  async productUnpublish(productId: string, publicationIds: string[]): Promise<boolean> {
-    const gql = `
-      mutation publishableUnpublish($id: ID!, $input: [PublicationInput!]!) {
-        publishableUnpublish(id: $id, input: $input) {
-          userErrors { field message }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        publishableUnpublish: {
-          userErrors: Array<{field: string[]; message: string}>;
-        };
-      }>(gql, {
-        id: productId,
-        input: publicationIds.map((publicationId) => ({publicationId})),
-      });
-
-      const {userErrors} = res.publishableUnpublish;
-      if (userErrors.length > 0) {
-        throw new Error(`商品非公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
-      }
-      log.info(`[productUnpublish] Unpublished ${productId} from ${publicationIds.length} channels`);
-      return true;
-    } catch (err) {
-      this.notifyError('productUnpublish', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 商品詳細を全フィールド取得（variants/images/metafields 含む）
-   */
-  async getProductDetail(productId: string): Promise<ProductDetail | null> {
-    const gql = `
-      query getProductDetail($id: ID!) {
-        product(id: $id) {
-          id
-          title
-          handle
-          status
-          descriptionHtml
-          productType
-          vendor
-          tags
-          totalInventory
-          createdAt
-          updatedAt
-          publishedAt
-          seo { title description }
-          priceRangeV2 {
-            minVariantPrice { amount currencyCode }
-            maxVariantPrice { amount currencyCode }
-          }
-          featuredImage { id url altText }
-          variants(first: 100) {
-            nodes {
-              id
-              title
-              price
-              compareAtPrice
-              sku
-              barcode
-              inventoryQuantity
-              inventoryItem { id tracked }
-              selectedOptions { name value }
-            }
-          }
-          media(first: 50, query: "media_type:IMAGE") {
-            nodes {
-              ... on MediaImage {
-                id
-                alt
-                image { url width height }
-              }
-            }
-          }
-          metafields(first: 50) {
-            nodes { id namespace key value type }
-          }
-        }
-      }
-    `;
-
-    try {
-      const res = await this.query<{
-        product: {
-          id: string;
-          title: string;
-          handle: string;
-          status: string;
-          descriptionHtml: string;
-          productType: string;
-          vendor: string;
-          tags: string[];
-          totalInventory: number;
-          createdAt: string;
-          updatedAt: string;
-          publishedAt: string | null;
-          seo: {title: string | null; description: string | null};
-          priceRangeV2: ProductDetail['priceRangeV2'];
-          featuredImage: {id: string; url: string; altText: string | null} | null;
-          variants: {nodes: ProductDetail['variants']};
-          media: {
-            nodes: Array<{
-              id?: string;
-              alt?: string | null;
-              image?: {url: string; width?: number; height?: number} | null;
-            }>;
-          };
-          metafields: {nodes: ProductMetafield[]};
-        } | null;
-      }>(gql, {id: productId});
-
-      if (!res.product) return null;
-      const p = res.product;
-
-      const images: ProductImage[] = (p.media?.nodes || [])
-        .filter((m) => m.id && m.image?.url)
-        .map((m) => ({
-          id: m.id as string,
-          alt: m.alt ?? null,
-          url: (m.image as {url: string}).url,
-          width: m.image?.width,
-          height: m.image?.height,
-        }));
-
-      return {
-        id: p.id,
-        title: p.title,
-        handle: p.handle,
-        status: p.status,
-        descriptionHtml: p.descriptionHtml,
-        productType: p.productType,
-        vendor: p.vendor,
-        tags: p.tags,
-        totalInventory: p.totalInventory,
-        createdAt: p.createdAt,
-        updatedAt: p.updatedAt,
-        publishedAt: p.publishedAt,
-        seo: p.seo,
-        priceRangeV2: p.priceRangeV2,
-        featuredImage: p.featuredImage,
-        variants: p.variants?.nodes || [],
-        images,
-        metafields: p.metafields?.nodes || [],
-      };
-    } catch (err) {
-      this.notifyError('getProductDetail', err);
-      throw err;
-    }
-  }
-
   // ── エラー通知（感覚神経の鈍麻防止） ──
 
   /** エラーコールバック（AgentBusへの橋渡し用） */
@@ -1390,6 +828,164 @@ export class ShopifyAdminClient {
       try { this.onErrorCallback(method, error); } catch (err) { log.warn('[ShopifyAdmin] error callback failed:', err instanceof Error ? err.message : err); }
     }
   }
+
+  // ── 画像アップロード（Staged Uploads + Product Media 作成）──
+
+  /**
+   * Staged Upload URLを取得（ブラウザからの直接アップロード用）
+   * Shopify CDN にファイルをアップロードするための署名付きURLを発行
+   */
+  async createStagedUpload(filename: string, mimeType: string, fileSize: number): Promise<{
+    url: string;
+    resourceUrl: string;
+    parameters: Array<{ name: string; value: string }>;
+  }> {
+    const gql = `
+      mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+        stagedUploadsCreate(input: $input) {
+          stagedTargets {
+            url
+            resourceUrl
+            parameters { name value }
+          }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const res = await this.query<{
+      stagedUploadsCreate: {
+        stagedTargets: Array<{
+          url: string;
+          resourceUrl: string;
+          parameters: Array<{ name: string; value: string }>;
+        }>;
+        userErrors: Array<{ field: string[]; message: string }>;
+      };
+    }>(gql, {
+      input: [{
+        filename,
+        mimeType,
+        resource: 'IMAGE',
+        fileSize: String(fileSize),
+        httpMethod: 'POST',
+      }],
+    });
+
+    const { stagedTargets, userErrors } = res.stagedUploadsCreate;
+    if (userErrors.length > 0) {
+      throw new Error(`Staged upload 作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+    }
+    if (!stagedTargets?.[0]) {
+      throw new Error('Staged upload: レスポンスにtargetが含まれません');
+    }
+
+    log.info(`[createStagedUpload] Created staged target for: ${filename}`);
+    return stagedTargets[0];
+  }
+
+  /**
+   * 商品にメディア（画像）を追加
+   * stagedUploadで取得したresourceUrlを使って商品画像として登録
+   */
+  async addProductMedia(productId: string, resourceUrl: string, alt?: string): Promise<{
+    id: string;
+    status: string;
+  }> {
+    const gql = `
+      mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+        productCreateMedia(productId: $productId, media: $media) {
+          media {
+            ... on MediaImage {
+              id
+              status
+              image { url altText }
+            }
+          }
+          mediaUserErrors { field message code }
+        }
+      }
+    `;
+
+    const res = await this.query<{
+      productCreateMedia: {
+        media: Array<{ id: string; status: string; image?: { url: string; altText: string | null } }>;
+        mediaUserErrors: Array<{ field: string[]; message: string; code: string }>;
+      };
+    }>(gql, {
+      productId,
+      media: [{
+        originalSource: resourceUrl,
+        alt: alt || '',
+        mediaContentType: 'IMAGE',
+      }],
+    });
+
+    const { media, mediaUserErrors } = res.productCreateMedia;
+    if (mediaUserErrors.length > 0) {
+      throw new Error(`商品メディア追加失敗: ${mediaUserErrors.map(e => e.message).join(', ')}`);
+    }
+    if (!media?.[0]) {
+      throw new Error('productCreateMedia: レスポンスにmediaが含まれません');
+    }
+
+    log.info(`[addProductMedia] Added media to ${productId}: ${media[0].id}`);
+    return { id: media[0].id, status: media[0].status };
+  }
+
+  /**
+   * ファイル（メタオブジェクト画像等）をShopify Files APIで登録
+   * 商品以外の画像（バナー、コレクション画像等）に使用
+   */
+  async createFileFromStagedUpload(resourceUrl: string, alt?: string): Promise<{
+    id: string;
+    url: string;
+  }> {
+    const gql = `
+      mutation fileCreate($files: [FileCreateInput!]!) {
+        fileCreate(files: $files) {
+          files {
+            ... on MediaImage {
+              id
+              image { url }
+            }
+            ... on GenericFile {
+              id
+              url
+            }
+          }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const res = await this.query<{
+      fileCreate: {
+        files: Array<{ id: string; image?: { url: string }; url?: string }>;
+        userErrors: Array<{ field: string[]; message: string }>;
+      };
+    }>(gql, {
+      files: [{
+        originalSource: resourceUrl,
+        alt: alt || '',
+        contentType: 'IMAGE',
+      }],
+    });
+
+    const { files, userErrors } = res.fileCreate;
+    if (userErrors.length > 0) {
+      throw new Error(`ファイル作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+    }
+    if (!files?.[0]) {
+      throw new Error('fileCreate: レスポンスにfileが含まれません');
+    }
+
+    const f = files[0];
+    const url = f.image?.url || f.url || '';
+    log.info(`[createFileFromStagedUpload] Created file: ${f.id}`);
+    return { id: f.id, url };
+  }
+
 }
 
 // ── 環境変数キャッシュ ──
