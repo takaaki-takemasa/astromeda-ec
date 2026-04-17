@@ -11,7 +11,7 @@
     "lint": "eslint --no-error-on-unmatched-pattern .",
     "lint:agents": "eslint agents/ --ext .ts --ignore-pattern '**/__tests__/**' --ignore-pattern '**/*.test.ts'",
     "typecheck": "react-router typegen && tsc --noEmit",
-    "postinstall": "node --experimental-vm-modules scripts/patch-shopify-cli.js && patch-package",
+    "postinstall": "node --experimental-vm-modules scripts/patch-shopify-cli.js && node --experimental-vm-modules scripts/patch-hydrogen-vendor.js",
     "codegen": "shopify hydrogen codegen && react-router typegen",
     "test": "vitest run",
     "test:watch": "vitest",
