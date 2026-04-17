@@ -75,7 +75,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Deploy to Staging
-        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
+        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check --token "$SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN"
         env:
           SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
           NODE_ENV: production
@@ -117,7 +117,7 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Deploy to Production
-        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check
+        run: npx shopify hydrogen deploy --force --entry server --no-lockfile-check --token "$SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN"
         env:
           SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
           NODE_ENV: production
