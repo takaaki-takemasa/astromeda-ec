@@ -1,7 +1,7 @@
 /**
  * PC カラーモデル管理API — Sprint 2 Part 4-A
  *
- * GET:  Metaobject「astromeda_pc_color_model」一覧取得
+ * GET:  Metaobject「astromeda_pc_color」一覧取得
  * POST: create / update / delete
  *
  * Metaobject 定義は api/admin/metaobject-setup で一括作成（本ファイルからは作成しない）
@@ -19,7 +19,7 @@ import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
-const METAOBJECT_TYPE = 'astromeda_pc_color_model';
+const METAOBJECT_TYPE = 'astromeda_pc_color';
 
 // ── Zod スキーマ ──
 const safeString = (maxLen: number = 500) =>
