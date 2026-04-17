@@ -1,200 +1,748 @@
 /**
- * AdminContent Tab — Content Management
+ * AdminContent Tab — コンテンツ管理（記事・IPバナー・SEO記事）
+ *
+ * CMS API経由でMetaobjectのCRUD。
+ * astromeda_article_content / astromeda_ip_banner / astromeda_seo_article
  */
 
-import { useState, useEffect } from 'react';
-import { color } from '~/lib/design-tokens';
+import { useState, useEffect, useCallback } from 'react';
+import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 
-// Type definitions for API responses
-interface ContentItem {
-  title?: string;
-  type?: string;
-  status?: 'draft' | 'review' | 'published';
+// ── Types ──
+interface MetaobjectNode {
+  id: string;
+  handle: string;
+  type: string;
+  updatedAt?: string;
+  [key: string]: string | undefined;
 }
 
-interface BannerItem {
-  collectionHandle?: string;
-  ipName?: string;
-  thumbnailUrl?: string;
-  status?: 'active' | 'inactive';
+type SubTab = 'articles' | 'banners' | 'seo';
+
+// ── Styles ──
+const cardStyle: React.CSSProperties = {
+  background: color.bg1,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.lg,
+  padding: space[4],
+  marginBottom: space[3],
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '8px 12px',
+  background: color.bg0,
+  border: `1px solid ${color.border}`,
+  borderRadius: radius.md,
+  color: color.text,
+  fontSize: font.sm,
+  fontFamily: font.family,
+  boxSizing: 'border-box' as const,
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: font.xs,
+  color: color.textMuted,
+  display: 'block',
+  marginBottom: '4px',
+  fontWeight: 500,
+};
+
+const tabStyle = (active: boolean): React.CSSProperties => ({
+  padding: '8px 16px',
+  fontSize: font.sm,
+  fontWeight: active ? 700 : 500,
+  color: active ? '#000' : color.cyan,
+  background: active ? color.cyan : 'transparent',
+  border: `1px solid ${active ? color.cyan : 'rgba(0,240,255,.3)'}`,
+  borderRadius: radius.md,
+  cursor: 'pointer',
+  fontFamily: font.family,
+});
+
+const btnPrimary: React.CSSProperties = {
+  padding: '8px 20px',
+  background: color.cyan,
+  color: '#000',
+  border: 'none',
+  borderRadius: radius.md,
+  fontSize: font.sm,
+  fontWeight: 600,
+  cursor: 'pointer',
+  fontFamily: font.family,
+};
+
+const btnDanger: React.CSSProperties = {
+  padding: '6px 12px',
+  background: color.red,
+  color: '#fff',
+  border: 'none',
+  borderRadius: radius.md,
+  fontSize: font.xs,
+  fontWeight: 500,
+  cursor: 'pointer',
+  fontFamily: font.family,
+};
+
+const btnOutline: React.CSSProperties = {
+  padding: '6px 14px',
+  background: 'transparent',
+  color: color.cyan,
+  border: `1px solid rgba(0,240,255,.3)`,
+  borderRadius: radius.md,
+  fontSize: font.xs,
+  fontWeight: 500,
+  cursor: 'pointer',
+  fontFamily: font.family,
+};
+
+// ── CMS API helpers ──
+async function cmsGet(type: string): Promise<MetaobjectNode[]> {
+  const res = await fetch(`/api/admin/cms?type=${type}`);
+  if (!res.ok) throw new Error(`${res.status}`);
+  const json = await res.json();
+  return json.items ?? [];
 }
 
-interface BannerStats {
-  active: number;
-  missing: number;
+async function cmsPost(body: Record<string, unknown>): Promise<{ success: boolean; error?: string }> {
+  const res = await fetch('/api/admin/cms', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
 }
 
-interface KeywordItem {
-  keyword?: string;
-  volume?: number;
-  difficulty?: number;
-  cpc?: string;
-  intent?: string;
+// ── Toast ──
+function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
+  return (
+    <div style={{
+      position: 'fixed', bottom: 24, right: 24, padding: '10px 20px',
+      borderRadius: radius.md, fontSize: font.sm, fontWeight: 600,
+      color: type === 'ok' ? '#000' : '#fff',
+      background: type === 'ok' ? color.cyan : color.red,
+      zIndex: 200, boxShadow: '0 4px 20px rgba(0,0,0,.5)',
+    }}>
+      {msg}
+    </div>
+  );
 }
 
-interface SEOAudit {
-  score?: number;
-  note?: string;
-}
-
-interface ContentResponse {
-  contents: ContentItem[];
-}
-
-interface BannerResponse {
-  banners: BannerItem[];
-  stats: BannerStats;
-}
-
-interface SEOResponse {
-  keywords: KeywordItem[];
-  audit: SEOAudit | null;
-}
-
-export default function AdminContent() {
-  const [contents, setContents] = useState<ContentItem[]>([]);
-  const [banners, setBanners] = useState<BannerItem[]>([]);
-  const [keywords, setKeywords] = useState<KeywordItem[]>([]);
-  const [seoAudit, setSeoAudit] = useState<SEOAudit | null>(null);
-  const [bannerStats, setBannerStats] = useState<BannerStats>({active: 0, missing: 0});
+// ══════════════════════════════════
+// ① ArticleList — 記事コンテンツ CRUD
+// ══════════════════════════════════
+function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
+  const [items, setItems] = useState<MetaobjectNode[]>([]);
   const [loading, setLoading] = useState(true);
-  const [subTab, setSubTab] = useState<'articles' | 'banners' | 'seo'>('articles');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    Promise.all([
-      fetch('/api/admin/content').then(r => r.json() as Promise<ContentResponse>).catch(() => ({contents: []})),
-      fetch('/api/admin/banners').then(r => r.json() as Promise<BannerResponse>).catch(() => ({banners: [], stats: {active: 0, missing: 0}})),
-      fetch('/api/admin/seo').then(r => r.json() as Promise<SEOResponse>).catch(() => ({keywords: [], audit: null})),
-    ]).then(([contentData, bannerData, seoData]) => {
-      setContents((contentData as unknown as ContentResponse).contents || []);
-      setBanners((bannerData as unknown as BannerResponse).banners || []);
-      setBannerStats((bannerData as unknown as BannerResponse).stats || {active: 0, missing: 0});
-      setKeywords((seoData as unknown as SEOResponse).keywords || []);
-      setSeoAudit((seoData as unknown as SEOResponse).audit || null);
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await cmsGet('astromeda_article_content');
+      setItems(data);
+    } catch {
+      onToast('記事取得失敗', 'err');
+    } finally {
       setLoading(false);
+    }
+  }, [onToast]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const startEdit = (item: MetaobjectNode) => {
+    setEditId(item.id);
+    setForm({
+      title: item.title || '',
+      slug: item.slug || '',
+      content_type: item.content_type || 'article',
+      body_html: item.body_html || '',
+      excerpt: item.excerpt || '',
+      status: item.status || 'draft',
+      author: item.author || '',
+      tags: item.tags || '',
+      display_order: item.display_order || '0',
     });
-  }, []);
+  };
 
-  const subTabs = [
-    {key: 'articles' as const, label: '📝 記事・コンテンツ', count: contents.length},
-    {key: 'banners' as const, label: '🖼️ IPバナー', count: banners.length},
-    {key: 'seo' as const, label: '🔍 SEO', count: keywords.length},
-  ];
+  const startCreate = () => {
+    setEditId('__new__');
+    setForm({
+      title: '',
+      slug: '',
+      content_type: 'article',
+      body_html: '',
+      excerpt: '',
+      status: 'draft',
+      author: '',
+      tags: '',
+      display_order: '0',
+    });
+  };
 
-  if (loading) return <div style={{color: color.textMuted, textAlign: 'center', padding: 60}}>読み込み中...</div>;
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const fields = Object.entries(form).map(([key, value]) => ({ key, value }));
+      if (editId === '__new__') {
+        const handle = `article-${form.slug || form.title?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || Date.now()}`;
+        const r = await cmsPost({ type: 'astromeda_article_content', action: 'create', handle, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('記事作成完了', 'ok');
+      } else {
+        const r = await cmsPost({ type: 'astromeda_article_content', action: 'update', id: editId, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('記事保存完了', 'ok');
+      }
+      setEditId(null);
+      await fetchData();
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : '保存失敗', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('この記事を削除しますか？')) return;
+    const r = await cmsPost({ type: 'astromeda_article_content', action: 'delete', id });
+    if (r.success) { onToast('記事削除完了', 'ok'); await fetchData(); }
+    else onToast(r.error || '削除失敗', 'err');
+  };
+
+  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+
+  const statusColor = (s: string) =>
+    s === 'published' ? color.green : s === 'review' ? color.yellow : color.textMuted;
+  const statusLabel = (s: string) =>
+    s === 'published' ? '公開中' : s === 'review' ? 'レビュー待ち' : '下書き';
 
   return (
     <div>
-      <div style={{display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap'}}>
-        {subTabs.map(st => (
-          <button key={st.key} onClick={() => setSubTab(st.key)} style={{
-            padding: '8px 16px', borderRadius: 8, border: `1px solid ${subTab === st.key ? color.cyan : color.border}`,
-            background: subTab === st.key ? 'rgba(0,240,255,.08)' : color.bg1,
-            color: subTab === st.key ? color.cyan : color.textMuted, fontSize: 12, cursor: 'pointer', fontWeight: 700,
-          }}>
-            {st.label} ({st.count})
-          </button>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <CompactKPI label="記事数" value={String(items.length)} />
+          <CompactKPI label="公開中" value={String(items.filter(i => i.status === 'published').length)} accent={color.green} />
+        </div>
+        <button onClick={startCreate} style={btnOutline}>+ 新規記事</button>
       </div>
 
-      {subTab === 'articles' && (
-        <div>
-          {contents.length === 0 ? (
-            <div style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, padding: 40, textAlign: 'center'}}>
-              <div style={{fontSize: 32, marginBottom: 12}}>📝</div>
-              <div style={{color: color.textMuted, fontSize: 13}}>コンテンツはまだありません</div>
-              <div style={{color: color.textDim, fontSize: 11, marginTop: 8}}>ContentWriter Agentが記事を生成すると、ここに表示されます</div>
+      {editId && (
+        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
+          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
+            {editId === '__new__' ? '新規記事作成' : '記事編集'}
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>タイトル</label>
+              <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="記事タイトル" />
             </div>
-          ) : (
-            <div style={{display: 'grid', gap: 12}}>
-              {contents.map((c: Record<string, unknown>, i: number) => (
-                <div key={i} style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <div>
-                    <div style={{fontSize: 13, fontWeight: 700, color: color.text}}>{c.title || '無題'}</div>
-                    <div style={{fontSize: 11, color: color.textMuted, marginTop: 4}}>{c.type || 'article'} · {c.status || 'draft'}</div>
-                  </div>
-                  <span style={{
-                    fontSize: 10, padding: '4px 10px', borderRadius: 20, fontWeight: 700,
-                    background: c.status === 'published' ? 'rgba(0,230,118,.1)' : c.status === 'review' ? 'rgba(255,179,0,.1)' : 'rgba(255,255,255,.05)',
-                    color: c.status === 'published' ? color.green : c.status === 'review' ? color.yellow : color.textMuted,
-                  }}>
-                    {c.status === 'published' ? '公開中' : c.status === 'review' ? 'レビュー待ち' : '下書き'}
-                  </span>
-                </div>
-              ))}
+            <div>
+              <label style={labelStyle}>スラッグ</label>
+              <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: gaming-pc-guide" />
             </div>
-          )}
+            <div>
+              <label style={labelStyle}>タイプ</label>
+              <select style={inputStyle} value={form.content_type || 'article'} onChange={(e) => setForm({ ...form, content_type: e.target.value })}>
+                <option value="article">記事</option>
+                <option value="guide">ガイド</option>
+                <option value="news">ニュース</option>
+                <option value="review">レビュー</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>ステータス</label>
+              <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="draft">下書き</option>
+                <option value="review">レビュー待ち</option>
+                <option value="published">公開</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>著者</label>
+              <input style={inputStyle} value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者名" />
+            </div>
+            <div>
+              <label style={labelStyle}>タグ（カンマ区切り）</label>
+              <input style={inputStyle} value={form.tags || ''} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="例: gaming,pc,guide" />
+            </div>
+            <div>
+              <label style={labelStyle}>表示順</label>
+              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>概要</label>
+            <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.excerpt || ''} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="記事の概要（検索結果に表示）" />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>本文HTML</label>
+            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={8} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} placeholder="<p>本文をHTMLで入力...</p>" />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+            </button>
+            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+          </div>
         </div>
       )}
 
-      {subTab === 'banners' && (
-        <div>
-          <div style={{display: 'flex', gap: 12, marginBottom: 16}}>
-            <CompactKPI label="ACTIVE" value={String(bannerStats.active)} accent={color.green} />
-            <CompactKPI label="MISSING" value={String(bannerStats.missing)} accent={bannerStats.missing > 0 ? color.yellow : color.green} />
-            <CompactKPI label="TOTAL" value={String(banners.length)} accent={color.cyan} />
+      {items.length === 0 ? (
+        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>📝</div>
+          <div style={{ color: color.textMuted, fontSize: 13 }}>記事はまだありません</div>
+          <div style={{ color: color.textDim, fontSize: 11, marginTop: 8 }}>「新規記事」から作成してください</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {items.map((item) => (
+            <div key={item.id} style={{
+              ...cardStyle,
+              marginBottom: 0,
+              padding: '12px 16px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: color.text }}>
+                  {item.title || item.handle}
+                </div>
+                <div style={{ fontSize: 11, color: color.textMuted, marginTop: 2 }}>
+                  {item.content_type || 'article'}
+                  {item.author && ` · ${item.author}`}
+                  {item.tags && ` · ${item.tags}`}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span style={{
+                  fontSize: 10, padding: '3px 10px', borderRadius: 20, fontWeight: 700,
+                  background: `${statusColor(item.status || 'draft')}20`,
+                  color: statusColor(item.status || 'draft'),
+                }}>
+                  {statusLabel(item.status || 'draft')}
+                </span>
+                <button onClick={() => startEdit(item)} style={btnOutline}>編集</button>
+                <button onClick={() => handleDelete(item.id)} style={btnDanger}>削除</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════
+// ② BannerList — IPバナー CRUD
+// ══════════════════════════════════
+function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
+  const [items, setItems] = useState<MetaobjectNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await cmsGet('astromeda_ip_banner');
+      setItems(data.sort((a, b) => Number(a.display_order ?? 0) - Number(b.display_order ?? 0)));
+    } catch {
+      onToast('IPバナー取得失敗', 'err');
+    } finally {
+      setLoading(false);
+    }
+  }, [onToast]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const startEdit = (item: MetaobjectNode) => {
+    setEditId(item.id);
+    setForm({
+      ip_name: item.ip_name || '',
+      collection_handle: item.collection_handle || '',
+      tagline: item.tagline || '',
+      label: item.label || '',
+      accent_color: item.accent_color || '#00F0FF',
+      is_featured: item.is_featured || 'false',
+      display_order: item.display_order || '0',
+      is_active: item.is_active || 'true',
+    });
+  };
+
+  const startCreate = () => {
+    setEditId('__new__');
+    setForm({
+      ip_name: '',
+      collection_handle: '',
+      tagline: '',
+      label: 'NEW',
+      accent_color: '#00F0FF',
+      is_featured: 'false',
+      display_order: String(items.length),
+      is_active: 'true',
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const fields = Object.entries(form).map(([key, value]) => ({ key, value }));
+      if (editId === '__new__') {
+        const handle = `ip-${form.collection_handle || form.ip_name?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || Date.now()}`;
+        const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'create', handle, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('IPバナー作成完了', 'ok');
+      } else {
+        const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'update', id: editId, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('IPバナー保存完了', 'ok');
+      }
+      setEditId(null);
+      await fetchData();
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : '保存失敗', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('このIPバナーを削除しますか？')) return;
+    const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'delete', id });
+    if (r.success) { onToast('IPバナー削除完了', 'ok'); await fetchData(); }
+    else onToast(r.error || '削除失敗', 'err');
+  };
+
+  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <CompactKPI label="IPバナー" value={String(items.length)} />
+          <CompactKPI label="表示中" value={String(items.filter(i => i.is_active === 'true').length)} accent={color.green} />
+          <CompactKPI label="注目" value={String(items.filter(i => i.is_featured === 'true').length)} accent={color.cyan} />
+        </div>
+        <button onClick={startCreate} style={btnOutline}>+ 新規IP</button>
+      </div>
+
+      {editId && (
+        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
+          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
+            {editId === '__new__' ? '新規IPバナー' : 'IPバナー編集'}
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={labelStyle}>IP名</label>
+              <input style={inputStyle} value={form.ip_name || ''} onChange={(e) => setForm({ ...form, ip_name: e.target.value })} placeholder="例: 呪術廻戦" />
+            </div>
+            <div>
+              <label style={labelStyle}>コレクションハンドル</label>
+              <input style={inputStyle} value={form.collection_handle || ''} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="例: jujutsukaisen-collaboration" />
+            </div>
+            <div>
+              <label style={labelStyle}>タグライン</label>
+              <input style={inputStyle} value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="例: 領域展開" />
+            </div>
+            <div>
+              <label style={labelStyle}>ラベル</label>
+              <input style={inputStyle} value={form.label || ''} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="例: NEW / HOT / SALE" />
+            </div>
+            <div>
+              <label style={labelStyle}>アクセントカラー</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input type="color" value={form.accent_color || '#00F0FF'} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+                <input style={{ ...inputStyle, flex: 1 }} value={form.accent_color || ''} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>表示順</label>
+              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+            </div>
           </div>
-          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12}}>
-            {banners.map((b: Record<string, unknown>) => (
-              <div key={b.collectionHandle} style={{
-                background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, overflow: 'hidden',
+          <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.is_featured === 'true'} onChange={(e) => setForm({ ...form, is_featured: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
+              <span style={{ fontSize: font.sm, color: color.text }}>注目IP</span>
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.is_active === 'true'} onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
+              <span style={{ fontSize: font.sm, color: color.text }}>表示中</span>
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+            </button>
+            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+          </div>
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🖼️</div>
+          <div style={{ color: color.textMuted, fontSize: 13 }}>IPバナーが未登録です</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {items.map((item) => (
+            <div key={item.id} style={{
+              ...cardStyle,
+              marginBottom: 0,
+              padding: 0,
+              overflow: 'hidden',
+              opacity: item.is_active === 'true' ? 1 : 0.5,
+              borderColor: item.is_featured === 'true' ? color.cyan : color.border,
+            }}>
+              <div style={{
+                height: 60,
+                background: `linear-gradient(135deg, ${item.accent_color || '#1a1a3e'}40, ${color.bg2})`,
+                display: 'flex',
+                alignItems: 'center',
+                padding: '0 12px',
               }}>
-                {b.thumbnailUrl ? (
-                  <img src={b.thumbnailUrl} alt={b.ipName} style={{width: '100%', height: 120, objectFit: 'cover'}} />
-                ) : (
-                  <div style={{width: '100%', height: 120, background: 'linear-gradient(135deg, #1a1a3e, #0a0a1e)', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                    <span style={{fontSize: 24}}>🖼️</span>
-                  </div>
-                )}
-                <div style={{padding: '10px 12px'}}>
-                  <div style={{fontSize: 11, fontWeight: 700, color: color.text, marginBottom: 4}}>{b.ipName}</div>
+                <span style={{ fontSize: 18, fontWeight: 900, color: color.text }}>
+                  {item.ip_name || item.handle}
+                </span>
+                {item.label && (
                   <span style={{
-                    fontSize: 9, padding: '2px 8px', borderRadius: 10, fontWeight: 700,
-                    background: b.status === 'active' ? 'rgba(0,230,118,.1)' : 'rgba(255,179,0,.1)',
-                    color: b.status === 'active' ? color.green : color.yellow,
+                    marginLeft: 8, fontSize: 9, fontWeight: 700, padding: '2px 6px',
+                    background: item.accent_color || color.cyan, color: '#000', borderRadius: 4,
                   }}>
-                    {b.status === 'active' ? '✓ 画像あり' : '⚠ 未設定'}
+                    {item.label}
                   </span>
+                )}
+              </div>
+              <div style={{ padding: '10px 12px' }}>
+                <div style={{ fontSize: 11, color: color.textMuted, marginBottom: 6 }}>
+                  {item.collection_handle || '（ハンドル未設定）'}
+                  {item.tagline && ` · ${item.tagline}`}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => startEdit(item)} style={btnOutline}>編集</button>
+                  <button onClick={() => handleDelete(item.id)} style={btnDanger}>削除</button>
                 </div>
               </div>
-            ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════
+// ③ SEOArticleList — SEO記事 CRUD
+// ══════════════════════════════════
+function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
+  const [items, setItems] = useState<MetaobjectNode[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState<Record<string, string>>({});
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await cmsGet('astromeda_seo_article');
+      setItems(data);
+    } catch {
+      onToast('SEO記事取得失敗', 'err');
+    } finally {
+      setLoading(false);
+    }
+  }, [onToast]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const startEdit = (item: MetaobjectNode) => {
+    setEditId(item.id);
+    setForm({
+      title: item.title || '',
+      slug: item.slug || '',
+      target_keyword: item.target_keyword || '',
+      meta_description: item.meta_description || '',
+      body_html: item.body_html || '',
+      schema_json: item.schema_json || '{}',
+      status: item.status || 'draft',
+      display_order: item.display_order || '0',
+    });
+  };
+
+  const startCreate = () => {
+    setEditId('__new__');
+    setForm({
+      title: '', slug: '', target_keyword: '', meta_description: '',
+      body_html: '', schema_json: '{}', status: 'draft', display_order: '0',
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const fields = Object.entries(form).map(([key, value]) => ({ key, value }));
+      if (editId === '__new__') {
+        const handle = `seo-${form.slug || Date.now()}`;
+        const r = await cmsPost({ type: 'astromeda_seo_article', action: 'create', handle, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('SEO記事作成完了', 'ok');
+      } else {
+        const r = await cmsPost({ type: 'astromeda_seo_article', action: 'update', id: editId, fields });
+        if (!r.success) throw new Error(r.error);
+        onToast('SEO記事保存完了', 'ok');
+      }
+      setEditId(null);
+      await fetchData();
+    } catch (e) {
+      onToast(e instanceof Error ? e.message : '保存失敗', 'err');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('このSEO記事を削除しますか？')) return;
+    const r = await cmsPost({ type: 'astromeda_seo_article', action: 'delete', id });
+    if (r.success) { onToast('SEO記事削除完了', 'ok'); await fetchData(); }
+    else onToast(r.error || '削除失敗', 'err');
+  };
+
+  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <CompactKPI label="SEO記事" value={String(items.length)} />
+        <button onClick={startCreate} style={btnOutline}>+ 新規SEO記事</button>
+      </div>
+
+      {editId && (
+        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
+          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
+            {editId === '__new__' ? '新規SEO記事' : 'SEO記事編集'}
+          </h4>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>タイトル</label>
+              <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="SEO記事タイトル" />
+            </div>
+            <div>
+              <label style={labelStyle}>スラッグ</label>
+              <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: best-gaming-pc-2026" />
+            </div>
+            <div>
+              <label style={labelStyle}>ターゲットキーワード</label>
+              <input style={inputStyle} value={form.target_keyword || ''} onChange={(e) => setForm({ ...form, target_keyword: e.target.value })} placeholder="例: ゲーミングPC おすすめ" />
+            </div>
+            <div>
+              <label style={labelStyle}>ステータス</label>
+              <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                <option value="draft">下書き</option>
+                <option value="review">レビュー待ち</option>
+                <option value="published">公開</option>
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>表示順</label>
+              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+            </div>
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>メタディスクリプション</label>
+            <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.meta_description || ''} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} placeholder="検索結果に表示される説明文（120文字以内推奨）" />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>本文HTML</label>
+            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={8} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <label style={labelStyle}>構造化データJSON</label>
+            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={4} value={form.schema_json || '{}'} onChange={(e) => setForm({ ...form, schema_json: e.target.value })} />
+          </div>
+          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+            </button>
+            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
           </div>
         </div>
       )}
 
-      {subTab === 'seo' && (
-        <div>
-          {seoAudit && (
-            <div style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, padding: 16, marginBottom: 16}}>
-              <div style={{fontSize: 11, fontWeight: 700, color: color.textDim, marginBottom: 8}}>SEO監査スコア</div>
-              <div style={{display: 'flex', alignItems: 'center', gap: 12}}>
-                <div style={{fontSize: 28, fontWeight: 900, color: seoAudit.score >= 80 ? color.green : seoAudit.score >= 50 ? color.yellow : color.red}}>
-                  {seoAudit.score || '—'}
-                </div>
-                <div style={{fontSize: 11, color: color.textMuted}}>{seoAudit.note || ''}</div>
-              </div>
-            </div>
-          )}
-          <div style={{fontSize: 12, fontWeight: 700, color: color.text, marginBottom: 12}}>キーワードランキング Top {keywords.length}</div>
-          <div style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, overflow: 'hidden'}}>
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 80px 70px 70px 80px', padding: '10px 14px', borderBottom: `1px solid ${color.border}`, fontSize: 10, fontWeight: 700, color: color.textDim}}>
-              <div>キーワード</div><div style={{textAlign:'right'}}>検索Vol</div><div style={{textAlign:'right'}}>難易度</div><div style={{textAlign:'right'}}>CPC</div><div style={{textAlign:'right'}}>意図</div>
-            </div>
-            {keywords.slice(0, 10).map((kw: Record<string, unknown>, i: number) => (
-              <div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 80px 70px 70px 80px', padding: '8px 14px', borderBottom: `1px solid ${color.border}`, fontSize: 11, color: color.text}}>
-                <div style={{fontWeight: 600}}>{kw.keyword}</div>
-                <div style={{textAlign:'right', color: color.cyan}}>{(kw.volume || 0).toLocaleString()}</div>
-                <div style={{textAlign:'right', color: kw.difficulty > 60 ? color.red : kw.difficulty > 40 ? color.yellow : color.green}}>{kw.difficulty}</div>
-                <div style={{textAlign:'right', color: color.textMuted}}>¥{kw.cpc}</div>
-                <div style={{textAlign:'right'}}>
-                  <span style={{fontSize: 9, padding: '2px 6px', borderRadius: 8, background: 'rgba(255,255,255,.05)', color: color.textMuted}}>{kw.intent}</span>
+      {items.length === 0 ? (
+        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+          <div style={{ color: color.textMuted, fontSize: 13 }}>SEO記事はまだありません</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {items.map((item) => (
+            <div key={item.id} style={{
+              ...cardStyle, marginBottom: 0, padding: '12px 16px',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: color.text }}>{item.title || item.handle}</div>
+                <div style={{ fontSize: 11, color: color.textMuted, marginTop: 2 }}>
+                  {item.target_keyword && `🎯 ${item.target_keyword}`}
+                  {item.slug && ` · /${item.slug}`}
                 </div>
               </div>
-            ))}
-          </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => startEdit(item)} style={btnOutline}>編集</button>
+                <button onClick={() => handleDelete(item.id)} style={btnDanger}>削除</button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════
+// Main Component
+// ══════════════════════════════════
+export default function AdminContent() {
+  const [tab, setTab] = useState<SubTab>('articles');
+  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
+
+  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
+          コンテンツ管理
+        </h2>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+        <button onClick={() => setTab('articles')} style={tabStyle(tab === 'articles')}>
+          記事コンテンツ
+        </button>
+        <button onClick={() => setTab('banners')} style={tabStyle(tab === 'banners')}>
+          IPバナー
+        </button>
+        <button onClick={() => setTab('seo')} style={tabStyle(tab === 'seo')}>
+          SEO記事
+        </button>
+      </div>
+
+      {tab === 'articles' && <ArticleList onToast={showToast} />}
+      {tab === 'banners' && <BannerList onToast={showToast} />}
+      {tab === 'seo' && <SEOArticleList onToast={showToast} />}
+
+      {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
   );
 }
