@@ -69,7 +69,11 @@ function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
       <div className="pc-color-grid">
         {activeMetaColors.length > 0 &&
           activeMetaColors.map((c, i) => {
-              const imgUrl = c.image || colorImages[c.name] || null;
+              // 優先順位: ①CMS image_url ②ローカル利用イメージ(/images/pc-setup/{slug}.jpg) ③Shopify商品画像フォールバック
+              const staticColor = PC_COLORS.find(
+                (pc) => pc.slug.toLowerCase() === c.slug.trim().toLowerCase(),
+              );
+              const imgUrl = c.image || staticColor?.img || colorImages[c.name] || null;
               const isDark = !isLightColor(c.colorCode);
               return (
                 <Link
@@ -163,7 +167,8 @@ function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
             })
         }
         {mergedFallbacks.map((c, i) => {
-          const imgUrl = colorImages[c.n] || c.img || null;
+          // 優先順位: ①ローカル利用イメージ(/images/pc-setup/{slug}.jpg) ②Shopify商品画像フォールバック
+          const imgUrl = c.img || colorImages[c.n] || null;
           return (
             <Link
               key={c.n}
