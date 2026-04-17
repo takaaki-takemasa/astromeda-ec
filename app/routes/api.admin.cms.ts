@@ -94,7 +94,7 @@ async function authenticateAdmin(request: Request, contextEnv: Env, context: unk
     ]));
 
   const { requirePermission } = await import('~/lib/rbac');
-  const role = requirePermission(session as AppSession, 'content.edit');
+  const role = requirePermission(session as AppSession, 'products.edit');
 
   return { role, session };
 }
