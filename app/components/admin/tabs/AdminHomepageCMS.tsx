@@ -128,6 +128,77 @@ async function cmsPost(body: Record<string, unknown>): Promise<{ success: boolea
   return res.json();
 }
 
+// ── Shopify コレクション画像の一括取得（プレビュー用フォールバック）──
+// 管理画面で画像を未設定でも、collection_handle/shop_handle から公開コレクションの画像を補完する。
+async function fetchCollectionImages(
+  handles: string[],
+): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(handles.filter(Boolean)));
+  if (unique.length === 0) return {};
+  try {
+    const res = await fetch('/api/admin/collection-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ handles: unique }),
+    });
+    if (!res.ok) return {};
+    const json = await res.json();
+    return (json?.images ?? {}) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+/** items の特定 key から handle を集めて Shopify 画像を取得し handle→url map を返す hook */
+function useShopifyCollectionImages(
+  items: MetaobjectNode[],
+  handleKey: string,
+  extraHandles: string[] = [],
+): Record<string, string> {
+  const [images, setImages] = useState<Record<string, string>>({});
+  const handles = useMemo(
+    () => {
+      const arr: string[] = [];
+      for (const item of items) {
+        const h = f(item, handleKey);
+        if (h) arr.push(h);
+      }
+      for (const h of extraHandles) if (h) arr.push(h);
+      return Array.from(new Set(arr));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [items, handleKey, extraHandles.join('|')],
+  );
+
+  useEffect(() => {
+    if (handles.length === 0) {
+      setImages({});
+      return;
+    }
+    let cancelled = false;
+    fetchCollectionImages(handles).then((map) => {
+      if (!cancelled) setImages(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [handles.join('|')]);
+
+  return images;
+}
+
+/** handle→image を CollabGrid/HeroSlider の collections[] 形式に変換 */
+function synthCollections(
+  images: Record<string, string>,
+): Array<{ id: string; title: string; handle: string; image: { url: string } }> {
+  return Object.entries(images).map(([handle, url]) => ({
+    id: `synth-${handle}`,
+    title: handle,
+    handle,
+    image: { url },
+  }));
+}
+
 // ══════════════════════════════════════
 // Main Component
 // ══════════════════════════════════════
@@ -276,6 +347,14 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
 
+  // 編集中のフォーム値にあるハンドルも含めて Shopify 画像を取得（プレビューをリアル反映）
+  const extraHandles = useMemo(
+    () => (editing && form.shop_handle ? [form.shop_handle] : []),
+    [editing, form.shop_handle],
+  );
+  const shopifyImages = useShopifyCollectionImages(items, 'shop_handle', extraHandles);
+  const synthCols = useMemo(() => synthCollections(shopifyImages), [shopifyImages]);
+
   // ── プレビュー: 編集中 item を form 値で上書き ──
   const previewMetaCollabs = useMemo<MetaCollab[]>(() => {
     const mapItem = (item: MetaobjectNode): MetaCollab => {
@@ -286,12 +365,15 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       const lb = useForm ? form.label : f(item, 'label');
       const ord = useForm ? form.sort_order : f(item, 'sort_order');
       const fe = useForm ? form.featured : f(item, 'featured');
+      // 画像: Metaobject image field（file_reference のURL形式）> Shopify collection 画像 > null
+      const storedImg = f(item, 'image');
+      const fallbackImg = sh ? shopifyImages[sh] : undefined;
       return {
         id: item.id,
         handle: item.handle,
         name: nm || '(未入力)',
         shopHandle: sh || '',
-        image: null, // CollabGrid が Shopify コレクション画像で補完
+        image: storedImg || fallbackImg || null,
         tagline: tl || null,
         label: lb || null,
         sortOrder: Number(ord || 99),
@@ -299,7 +381,7 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       };
     };
     return items.map(mapItem);
-  }, [items, editing, form]);
+  }, [items, editing, form, shopifyImages]);
 
   const isModalOpen = !!editing;
   const closeModal = () => { setEditing(null); };
@@ -308,7 +390,7 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
   const previewPane = (
     <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
       <div style={{background: T.bg, padding: 'clamp(8px, 2vw, 16px)'}}>
-        <CollabGrid collections={null} metaCollabs={previewMetaCollabs} />
+        <CollabGrid collections={synthCols} metaCollabs={previewMetaCollabs} />
       </div>
     </PreviewFrame>
   );
@@ -447,6 +529,13 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
 
+  // Shopify コレクション画像をプレビュー用に取得（IPバナーと同じ仕組み）
+  const bannerExtraHandles = useMemo(
+    () => (form.collection_handle ? [form.collection_handle] : []),
+    [form.collection_handle],
+  );
+  const bannerShopifyImages = useShopifyCollectionImages(items, 'collection_handle', bannerExtraHandles);
+
   // ── プレビュー: 編集中itemをform値で上書き / 新規追加中は合成item追加 ──
   const previewMetaBanners = useMemo<MetaBanner[]>(() => {
     const mapItem = (item: MetaobjectNode): MetaBanner => {
@@ -457,12 +546,14 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       const alt = useForm ? form.alt_text : f(item, 'alt_text');
       const ord = useForm ? form.sort_order : f(item, 'sort_order');
       const act = useForm ? form.active : f(item, 'active');
+      const storedImg = f(item, 'image');
+      const fallbackImg = ch ? bannerShopifyImages[ch] : undefined;
       return {
         id: item.id,
         handle: item.handle,
         title: title || '(無題)',
         subtitle: alt || null,
-        image: null, // HeroSlider がコレクション画像で補完
+        image: storedImg || fallbackImg || null,
         linkUrl: url || (ch ? `/collections/${ch}` : null),
         ctaLabel: null,
         sortOrder: Number(ord || 99),
@@ -473,13 +564,15 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     };
     const mapped = items.map(mapItem);
     if (showAdd) {
+      const ch = form.collection_handle;
+      const fallbackImg = ch ? bannerShopifyImages[ch] : undefined;
       mapped.push({
         id: 'preview-new',
         handle: 'preview-new',
         title: form.title || '(新規バナー)',
         subtitle: form.alt_text || null,
-        image: null,
-        linkUrl: form.link_url || (form.collection_handle ? `/collections/${form.collection_handle}` : null),
+        image: fallbackImg || null,
+        linkUrl: form.link_url || (ch ? `/collections/${ch}` : null),
         ctaLabel: null,
         sortOrder: Number(form.sort_order || items.length + 1),
         isActive: (form.active || 'true') === 'true',
@@ -488,7 +581,7 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       });
     }
     return mapped;
-  }, [items, editing, showAdd, form]);
+  }, [items, editing, showAdd, form, bannerShopifyImages]);
 
   const isModalOpen = !!editing || showAdd;
   const modalTitle = editing ? 'バナー編集' : 'バナー 新規追加';
