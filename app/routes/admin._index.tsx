@@ -31,6 +31,7 @@ const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCusto
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
 const AdminSiteMap = lazy(() => import('~/components/admin/tabs/AdminSiteMap'));
+const AdminSiteConfig = lazy(() => import('~/components/admin/tabs/AdminSiteConfig'));
 
 // Type imports
 import type {
@@ -226,11 +227,11 @@ export const meta = () => [
 ];
 
 // ── Tab configuration ──
-type SubTab = 'siteMap' | 'summary' | 'content' | 'products' | 'customization' | 'homepage' | 'pageEditor' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'siteMap' | 'summary' | 'content' | 'products' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   home: { tabs: ['siteMap', 'summary'], default: 'siteMap' },
-  commerce: { tabs: ['content', 'products', 'customization', 'homepage', 'pageEditor', 'marketing', 'analytics'], default: 'content' },
+  commerce: { tabs: ['content', 'products', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -244,6 +245,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   customization: 'カスタマイズ',
   homepage: 'ホームページ',
   pageEditor: 'ページ編集',
+  siteConfig: 'サイト設定',
   marketing: 'マーケティング',
   analytics: 'データ分析',
   agents: 'AI運用',
@@ -517,6 +519,11 @@ export default function AdminDashboard() {
           {subTab === 'pageEditor' && (
             <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
               <AdminPageEditor />
+            </Suspense>
+          )}
+          {subTab === 'siteConfig' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminSiteConfig />
             </Suspense>
           )}
           {subTab === 'siteMap' && (

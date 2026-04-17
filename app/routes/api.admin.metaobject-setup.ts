@@ -243,6 +243,51 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'privacy_text', name: 'プライバシーポリシー', type: 'multi_line_text_field' },
     ],
   },
+  // ── 14. ABOUT セクション ──
+  {
+    type: 'astromeda_about_section',
+    name: 'Astromeda ABOUTセクション',
+    description: 'トップページ「ASTROMEDAとは？」コンパクトバナー。管理画面「ホームページCMS > ABOUT」で管理。',
+    fieldDefinitions: [
+      { key: 'title', name: 'タイトル', type: 'single_line_text_field' },
+      { key: 'body_html', name: '説明文（HTML可）', type: 'multi_line_text_field' },
+      { key: 'image', name: '画像', type: 'file_reference' },
+      { key: 'link_url', name: 'リンク先URL', type: 'single_line_text_field' },
+      { key: 'link_label', name: 'CTAボタン文言', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 15. 商品シェルフ ──
+  {
+    type: 'astromeda_product_shelf',
+    name: 'Astromeda 商品シェルフ',
+    description: 'トップページ「NEW ARRIVALS」等の商品並び。管理画面「ホームページCMS > 商品シェルフ」で管理。',
+    fieldDefinitions: [
+      { key: 'title', name: 'セクション見出し', type: 'single_line_text_field' },
+      { key: 'subtitle', name: 'サブタイトル', type: 'single_line_text_field' },
+      { key: 'product_ids_json', name: '商品ID JSON配列', type: 'multi_line_text_field' },
+      { key: 'limit', name: '表示件数', type: 'number_integer' },
+      { key: 'sort_key', name: '並び順（manual/best_selling/newest）', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 16. 固定ページ（保証/FAQ/こだわり/お問い合わせ等） ──
+  {
+    type: 'astromeda_static_page',
+    name: 'Astromeda 固定ページ',
+    description: '保証/FAQ/こだわり/お問い合わせ等の固定ページ。管理画面「サイト設定 > 固定ページ」で管理。',
+    fieldDefinitions: [
+      { key: 'title', name: 'ページタイトル', type: 'single_line_text_field' },
+      { key: 'page_slug', name: 'ページパス（例: warranty, faq）', type: 'single_line_text_field' },
+      { key: 'meta_description', name: 'メタディスクリプション', type: 'multi_line_text_field' },
+      { key: 'body_html', name: '本文HTML', type: 'multi_line_text_field' },
+      { key: 'sections_json', name: 'セクションJSON（見出し+本文リスト）', type: 'multi_line_text_field' },
+      { key: 'updated_label', name: '最終更新日ラベル', type: 'single_line_text_field' },
+      { key: 'is_published', name: '公開中', type: 'boolean' },
+    ],
+  },
 ];
 
 export async function action({ request, context }: Route.ActionArgs) {

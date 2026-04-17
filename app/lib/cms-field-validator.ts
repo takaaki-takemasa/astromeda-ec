@@ -156,6 +156,33 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     warranty_json: { type: 'multi_line_text_field', maxLength: 20000 },
     privacy_text: { type: 'multi_line_text_field', maxLength: 50000 },
   },
+  astromeda_about_section: {
+    title: { type: 'single_line_text_field', maxLength: 200, required: true },
+    body_html: { type: 'multi_line_text_field', maxLength: 20000 },
+    image: { type: 'file_reference' },
+    link_url: { type: 'single_line_text_field', maxLength: 500 },
+    link_label: { type: 'single_line_text_field', maxLength: 100 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  astromeda_product_shelf: {
+    title: { type: 'single_line_text_field', maxLength: 200, required: true },
+    subtitle: { type: 'single_line_text_field', maxLength: 300 },
+    product_ids_json: { type: 'multi_line_text_field', maxLength: 5000 },
+    limit: { type: 'number_integer' },
+    sort_key: { type: 'single_line_text_field', maxLength: 50 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  astromeda_static_page: {
+    title: { type: 'single_line_text_field', maxLength: 200, required: true },
+    page_slug: { type: 'single_line_text_field', maxLength: 100, required: true },
+    meta_description: { type: 'multi_line_text_field', maxLength: 500 },
+    body_html: { type: 'multi_line_text_field', maxLength: 50000 },
+    sections_json: { type: 'multi_line_text_field', maxLength: 50000 },
+    updated_label: { type: 'single_line_text_field', maxLength: 100 },
+    is_published: { type: 'boolean' },
+  },
 };
 
 // ── バリデーションエラー ──
