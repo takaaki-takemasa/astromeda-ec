@@ -8,6 +8,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
+import { Modal } from '~/components/admin/Modal';
+import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
+import { T, al } from '~/lib/astromeda-data';
 
 // ── Types ──
 interface ProductSummary {
@@ -244,6 +247,292 @@ function ProductList() {
 }
 
 // ══════════════════════════════════
+// Preview Components
+// ══════════════════════════════════
+
+/**
+ * TierCardPreview — PCShowcase の PCティアカードに合わせたライブプレビュー
+ */
+function TierCardPreview({
+  tier_name,
+  gpu_range,
+  cpu_range,
+  ram,
+  base_price,
+  is_popular,
+}: {
+  tier_name?: string;
+  gpu_range?: string;
+  cpu_range?: string;
+  ram?: string;
+  base_price?: string;
+  is_popular?: string;
+}) {
+  const popular = is_popular === 'true';
+  const priceNum = Number(base_price || 0);
+  const cyan = T.c; // theme accent
+
+  return (
+    <div style={{ background: T.bg, color: T.tx, fontFamily: 'inherit', padding: 20 }}>
+      <div style={{
+        fontSize: 11,
+        color: T.t4,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: `1px solid ${al(T.tx, 0.1)}`,
+      }}>
+        トップページ「SPEC TIERS」エリアのイメージ
+      </div>
+
+      <div
+        style={{
+          background: T.bgC || '#0a0a0a',
+          borderRadius: 18,
+          border: popular ? `2px solid ${al(cyan, 0.3)}` : `1px solid ${al(T.tx, 0.15)}`,
+          padding: 22,
+          position: 'relative',
+          overflow: 'hidden',
+          maxWidth: 280,
+        }}
+      >
+        {popular && (
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            background: cyan,
+          }} />
+        )}
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{
+            fontSize: 14,
+            fontWeight: 900,
+            color: popular ? cyan : T.t5,
+            letterSpacing: '0.05em',
+          }}>
+            {tier_name || '(ティア名未入力)'}
+          </span>
+          {popular && (
+            <span style={{
+              fontSize: 9,
+              fontWeight: 900,
+              padding: '3px 8px',
+              borderRadius: 4,
+              background: al(cyan, 0.12),
+              color: cyan,
+              border: `1px solid ${al(cyan, 0.3)}`,
+            }}>
+              人気No.1
+            </span>
+          )}
+        </div>
+
+        <div style={{
+          fontSize: 10,
+          color: T.t4,
+          marginBottom: 12,
+          lineHeight: 1.5,
+        }}>
+          {gpu_range || '—'}
+          {cpu_range && ` / ${cpu_range}`}
+          {ram && ` / ${ram}`}
+        </div>
+
+        <div style={{
+          fontSize: 26,
+          fontWeight: 900,
+          color: cyan,
+          marginBottom: 14,
+          letterSpacing: '-0.01em',
+        }}>
+          ¥{priceNum.toLocaleString('ja-JP')}
+          <span style={{ fontSize: 11, color: T.t4, fontWeight: 500, marginLeft: 2 }}>〜</span>
+        </div>
+
+        <div style={{
+          display: 'block',
+          width: '100%',
+          padding: '12px',
+          fontSize: 12,
+          fontWeight: 800,
+          textAlign: 'center',
+          background: popular ? cyan : 'transparent',
+          color: popular ? '#000' : cyan,
+          border: `1px solid ${cyan}`,
+          borderRadius: 8,
+          boxSizing: 'border-box',
+          cursor: 'default',
+        }}>
+          この構成で見る →
+        </div>
+      </div>
+
+      <div style={{
+        marginTop: 14,
+        padding: 10,
+        background: al(T.tx, 0.02),
+        border: `1px dashed ${al(T.tx, 0.1)}`,
+        borderRadius: 6,
+        fontSize: 10,
+        color: T.t4,
+        lineHeight: 1.5,
+      }}>
+        「人気ティア」にチェックを入れると、上部アクセントラインと「人気No.1」バッジが表示されます。
+      </div>
+    </div>
+  );
+}
+
+/**
+ * ReviewCardPreview — _index.tsx のUGC REVIEWSセクションに合わせたライブプレビュー
+ */
+function ReviewCardPreview({
+  username,
+  review_text,
+  accent_color,
+  rating,
+  date_label,
+  likes,
+  product_name,
+  is_active,
+}: {
+  username?: string;
+  review_text?: string;
+  accent_color?: string;
+  rating?: string;
+  date_label?: string;
+  likes?: string;
+  product_name?: string;
+  is_active?: string;
+}) {
+  const active = is_active !== 'false';
+  const accent = accent_color || '#00F0FF';
+  const ratingNum = Math.max(0, Math.min(5, Number(rating || 5)));
+  const likesNum = Number(likes || 0);
+  const initial = (username || 'A').slice(0, 1).toUpperCase();
+
+  return (
+    <div style={{ background: T.bg, color: T.tx, fontFamily: 'inherit', padding: 20 }}>
+      <div style={{
+        fontSize: 11,
+        color: T.t4,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: `1px solid ${al(T.tx, 0.1)}`,
+      }}>
+        トップページ「REVIEWS」セクションのイメージ
+      </div>
+
+      <div style={{
+        background: T.bgC || '#0a0a0a',
+        borderRadius: 16,
+        border: `1px solid ${al(accent, 0.2)}`,
+        padding: 18,
+        opacity: active ? 1 : 0.5,
+        maxWidth: 320,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+          <div style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: `linear-gradient(135deg, ${accent}, ${al(accent, 0.4)})`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 15,
+            fontWeight: 900,
+            color: '#000',
+            flexShrink: 0,
+          }}>
+            {initial}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: T.t5,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}>
+              {username || '(ユーザー名未入力)'}
+            </div>
+            <div style={{ fontSize: 10, color: T.t3 }}>
+              {date_label || '—'}
+              {product_name && <span style={{ marginLeft: 6 }}>· {product_name}</span>}
+            </div>
+          </div>
+          {!active && (
+            <span style={{
+              fontSize: 9,
+              padding: '2px 6px',
+              borderRadius: 4,
+              background: al(T.tx, 0.08),
+              color: T.t4,
+              flexShrink: 0,
+            }}>
+              非表示
+            </span>
+          )}
+        </div>
+
+        <div style={{
+          fontSize: 12,
+          color: T.t5,
+          lineHeight: 1.6,
+          whiteSpace: 'pre-wrap',
+          marginBottom: 12,
+        }}>
+          {review_text || '（本文未入力）'}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          paddingTop: 10,
+          borderTop: `1px solid ${al(T.tx, 0.06)}`,
+        }}>
+          <div style={{ display: 'flex', gap: 2 }}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <span key={i} style={{
+                fontSize: 14,
+                color: i < ratingNum ? '#FFB300' : al(T.tx, 0.15),
+              }}>
+                ★
+              </span>
+            ))}
+            <span style={{ fontSize: 11, color: T.t4, marginLeft: 4 }}>
+              {ratingNum}/5
+            </span>
+          </div>
+          <span style={{ fontSize: 11, color: T.t3 }}>
+            ♡ {likesNum}
+          </span>
+        </div>
+      </div>
+
+      <div style={{
+        marginTop: 14,
+        padding: 10,
+        background: al(T.tx, 0.02),
+        border: `1px dashed ${al(T.tx, 0.1)}`,
+        borderRadius: 6,
+        fontSize: 10,
+        color: T.t4,
+        lineHeight: 1.5,
+      }}>
+        アクセントカラーはカード枠線色とアバターグラデに反映されます。
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════
 // ② TierList — PCティア CRUD
 // ══════════════════════════════════
 function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
@@ -252,6 +541,7 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -331,6 +621,80 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
 
   if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
 
+  const isModalOpen = !!editId;
+  const modalTitle = editId === '__new__' ? '新規ティア作成' : 'ティア編集';
+  const closeModal = () => setEditId(null);
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <TierCardPreview
+        tier_name={form.tier_name}
+        gpu_range={form.gpu_range}
+        cpu_range={form.cpu_range}
+        ram={form.ram}
+        base_price={form.base_price}
+        is_popular={form.is_popular}
+      />
+    </PreviewFrame>
+  );
+
+  const editForm = (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>ティア名</label>
+          <input style={inputStyle} value={form.tier_name || ''} onChange={(e) => setForm({ ...form, tier_name: e.target.value })} placeholder="例: GAMER ENTRY" />
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>GPU範囲</label>
+          <input style={inputStyle} value={form.gpu_range || ''} onChange={(e) => setForm({ ...form, gpu_range: e.target.value })} placeholder="例: RTX 4060 ~ RTX 4070" />
+        </div>
+        <div>
+          <label style={labelStyle}>CPU範囲</label>
+          <input style={inputStyle} value={form.cpu_range || ''} onChange={(e) => setForm({ ...form, cpu_range: e.target.value })} placeholder="例: Ryzen 5 7600 ~ i7-14700" />
+        </div>
+        <div>
+          <label style={labelStyle}>RAM</label>
+          <input style={inputStyle} value={form.ram || ''} onChange={(e) => setForm({ ...form, ram: e.target.value })} placeholder="例: 16GB ~ 32GB" />
+        </div>
+        <div>
+          <label style={labelStyle}>最低価格（円）</label>
+          <input style={inputStyle} type="number" value={form.base_price || '0'} onChange={(e) => setForm({ ...form, base_price: e.target.value })} />
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>ベンチマークJSON</label>
+        <textarea
+          style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }}
+          rows={4}
+          value={form.benchmarks_json || '{}'}
+          onChange={(e) => setForm({ ...form, benchmarks_json: e.target.value })}
+        />
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={form.is_popular === 'true'}
+            onChange={(e) => setForm({ ...form, is_popular: String(e.target.checked) })}
+            style={{ width: 16, height: 16, accentColor: color.cyan }}
+          />
+          <span style={{ fontSize: font.sm, color: color.text }}>人気ティア</span>
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={closeModal} style={btnOutline}>キャンセル</button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -338,65 +702,10 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
         <button onClick={startCreate} style={btnOutline}>+ 新規ティア</button>
       </div>
 
-      {/* Edit form */}
-      {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規ティア作成' : 'ティア編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>ティア名</label>
-              <input style={inputStyle} value={form.tier_name || ''} onChange={(e) => setForm({ ...form, tier_name: e.target.value })} placeholder="例: GAMER ENTRY" />
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-            <div>
-              <label style={labelStyle}>GPU範囲</label>
-              <input style={inputStyle} value={form.gpu_range || ''} onChange={(e) => setForm({ ...form, gpu_range: e.target.value })} placeholder="例: RTX 4060 ~ RTX 4070" />
-            </div>
-            <div>
-              <label style={labelStyle}>CPU範囲</label>
-              <input style={inputStyle} value={form.cpu_range || ''} onChange={(e) => setForm({ ...form, cpu_range: e.target.value })} placeholder="例: Ryzen 5 7600 ~ i7-14700" />
-            </div>
-            <div>
-              <label style={labelStyle}>RAM</label>
-              <input style={inputStyle} value={form.ram || ''} onChange={(e) => setForm({ ...form, ram: e.target.value })} placeholder="例: 16GB ~ 32GB" />
-            </div>
-            <div>
-              <label style={labelStyle}>最低価格（円）</label>
-              <input style={inputStyle} type="number" value={form.base_price || '0'} onChange={(e) => setForm({ ...form, base_price: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>ベンチマークJSON</label>
-            <textarea
-              style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }}
-              rows={4}
-              value={form.benchmarks_json || '{}'}
-              onChange={(e) => setForm({ ...form, benchmarks_json: e.target.value })}
-            />
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={form.is_popular === 'true'}
-                onChange={(e) => setForm({ ...form, is_popular: String(e.target.checked) })}
-                style={{ width: 16, height: 16, accentColor: color.cyan }}
-              />
-              <span style={{ fontSize: font.sm, color: color.text }}>人気ティア</span>
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane}>
+          {editForm}
+        </Modal>
       )}
 
       {/* Item list */}
@@ -464,6 +773,7 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -550,6 +860,107 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
     return '★'.repeat(Math.min(5, Math.max(0, rating))) + '☆'.repeat(Math.max(0, 5 - rating));
   };
 
+  const isModalOpen = !!editId;
+  const modalTitle = editId === '__new__' ? '新規レビュー作成' : 'レビュー編集';
+  const closeModal = () => setEditId(null);
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <ReviewCardPreview
+        username={form.username}
+        review_text={form.review_text}
+        accent_color={form.accent_color}
+        rating={form.rating}
+        date_label={form.date_label}
+        likes={form.likes}
+        product_name={form.product_name}
+        is_active={form.is_active}
+      />
+    </PreviewFrame>
+  );
+
+  const editForm = (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>ユーザー名</label>
+          <input style={inputStyle} value={form.username || ''} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="例: gaming_user123" />
+        </div>
+        <div>
+          <label style={labelStyle}>商品名</label>
+          <input style={inputStyle} value={form.product_name || ''} onChange={(e) => setForm({ ...form, product_name: e.target.value })} placeholder="例: Astromeda Sirius" />
+        </div>
+        <div>
+          <label style={labelStyle}>評価（1-5）</label>
+          <select
+            style={inputStyle}
+            value={form.rating || '5'}
+            onChange={(e) => setForm({ ...form, rating: e.target.value })}
+          >
+            {[5, 4, 3, 2, 1].map(n => (
+              <option key={n} value={String(n)}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>日付ラベル</label>
+          <input style={inputStyle} value={form.date_label || ''} onChange={(e) => setForm({ ...form, date_label: e.target.value })} placeholder="例: 2026-04-15" />
+        </div>
+        <div>
+          <label style={labelStyle}>いいね数</label>
+          <input style={inputStyle} type="number" value={form.likes || '0'} onChange={(e) => setForm({ ...form, likes: e.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>アクセントカラー</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input
+              type="color"
+              value={form.accent_color || '#00F0FF'}
+              onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
+              style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }}
+            />
+            <input
+              style={{ ...inputStyle, flex: 1 }}
+              value={form.accent_color || ''}
+              onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'end', paddingBottom: 4 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={form.is_active === 'true'}
+              onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })}
+              style={{ width: 16, height: 16, accentColor: color.cyan }}
+            />
+            <span style={{ fontSize: font.sm, color: color.text }}>表示中</span>
+          </label>
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>レビュー本文</label>
+        <textarea
+          style={{ ...inputStyle, resize: 'vertical' }}
+          rows={4}
+          value={form.review_text || ''}
+          onChange={(e) => setForm({ ...form, review_text: e.target.value })}
+          placeholder="レビュー本文を入力..."
+        />
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={closeModal} style={btnOutline}>キャンセル</button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -560,90 +971,10 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
         <button onClick={startCreate} style={btnOutline}>+ 新規レビュー</button>
       </div>
 
-      {/* Edit form */}
-      {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規レビュー作成' : 'レビュー編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>ユーザー名</label>
-              <input style={inputStyle} value={form.username || ''} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="例: gaming_user123" />
-            </div>
-            <div>
-              <label style={labelStyle}>商品名</label>
-              <input style={inputStyle} value={form.product_name || ''} onChange={(e) => setForm({ ...form, product_name: e.target.value })} placeholder="例: Astromeda Sirius" />
-            </div>
-            <div>
-              <label style={labelStyle}>評価（1-5）</label>
-              <select
-                style={inputStyle}
-                value={form.rating || '5'}
-                onChange={(e) => setForm({ ...form, rating: e.target.value })}
-              >
-                {[5, 4, 3, 2, 1].map(n => (
-                  <option key={n} value={String(n)}>{'★'.repeat(n)}{'☆'.repeat(5 - n)} ({n})</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>日付ラベル</label>
-              <input style={inputStyle} value={form.date_label || ''} onChange={(e) => setForm({ ...form, date_label: e.target.value })} placeholder="例: 2026-04-15" />
-            </div>
-            <div>
-              <label style={labelStyle}>いいね数</label>
-              <input style={inputStyle} type="number" value={form.likes || '0'} onChange={(e) => setForm({ ...form, likes: e.target.value })} />
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-            <div>
-              <label style={labelStyle}>アクセントカラー</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  type="color"
-                  value={form.accent_color || '#00F0FF'}
-                  onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                  style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }}
-                />
-                <input
-                  style={{ ...inputStyle, flex: 1 }}
-                  value={form.accent_color || ''}
-                  onChange={(e) => setForm({ ...form, accent_color: e.target.value })}
-                />
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'end', paddingBottom: 4 }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={form.is_active === 'true'}
-                  onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })}
-                  style={{ width: 16, height: 16, accentColor: color.cyan }}
-                />
-                <span style={{ fontSize: font.sm, color: color.text }}>表示中</span>
-              </label>
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>レビュー本文</label>
-            <textarea
-              style={{ ...inputStyle, resize: 'vertical' }}
-              rows={4}
-              value={form.review_text || ''}
-              onChange={(e) => setForm({ ...form, review_text: e.target.value })}
-              placeholder="レビュー本文を入力..."
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane}>
+          {editForm}
+        </Modal>
       )}
 
       {/* Item list */}
