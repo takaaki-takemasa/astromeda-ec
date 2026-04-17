@@ -7,13 +7,49 @@
  * セキュリティ: 既存 admin._index.tsx の authGuard 継承、各 API が RateLimit→AdminAuth→RBAC→CSRF→Zod。
  */
 
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
-import {T, al} from '~/lib/astromeda-data';
+import {T, al, COLLABS} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {PCShowcase} from '~/components/astro/PCShowcase';
 import {CollabGrid} from '~/components/astro/CollabGrid';
 import {HeroSlider} from '~/components/astro/HeroSlider';
+
+// patch 0006: Shopify コレクション画像一括取得（プレビュー用フォールバック）
+// IPコラボ/ヒーローバナー editor の preview で、Metaobject image 未設定でも
+// 公開コレクションの画像を表示するための helper。
+type SynthCollection = {
+  id: string;
+  title: string;
+  handle: string;
+  image: {url: string; altText: string} | null;
+};
+
+async function fetchCollectionImagesMap(handles: string[]): Promise<Record<string, string>> {
+  const unique = Array.from(new Set(handles.filter(Boolean)));
+  if (unique.length === 0) return {};
+  try {
+    const res = await fetch('/api/admin/collection-images', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({handles: unique}),
+    });
+    if (!res.ok) return {};
+    const json = await res.json();
+    return (json?.images ?? {}) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
+
+function synthesizeCollections(imageMap: Record<string, string>): SynthCollection[] {
+  return Object.entries(imageMap).map(([handle, url]) => ({
+    id: `gid://shopify/Collection/synth-${handle}`,
+    title: handle,
+    handle,
+    image: url ? {url, altText: ''} : null,
+  }));
+}
 
 // ══════════════════════════════════════════════════════════
 // 型定義
@@ -2133,6 +2169,8 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
   const [editing, setEditing] = useState<IpBanner | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // patch 0006: Shopify コレクション画像マップ (handle -> CDN URL)
+  const [collabImages, setCollabImages] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2143,6 +2181,22 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // patch 0006: items 変化時 + マウント時に Shopify collection 画像を一括取得
+  useEffect(() => {
+    const handles: string[] = [];
+    for (const it of items) if (it.shopHandle) handles.push(it.shopHandle);
+    for (const c of COLLABS) if (c.shop) handles.push(c.shop);
+    let cancelled = false;
+    fetchCollectionImagesMap(handles).then((map) => {
+      if (!cancelled) setCollabImages(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items.map((i) => i.shopHandle).join('|')]);
+
+  const synthCols = useMemo(() => synthesizeCollections(collabImages), [collabImages]);
 
   const handleSave = async (form: Partial<IpBanner> & {handle?: string}, isCreate: boolean) => {
     setSaving(true);
@@ -2240,6 +2294,8 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
           initial={initial}
           isCreate={creating}
           saving={saving}
+          collections={synthCols}
+          collabImages={collabImages}
           onCancel={() => {
             setEditing(null);
             setCreating(false);
@@ -2255,12 +2311,16 @@ function IpBannerForm({
   initial,
   isCreate,
   saving,
+  collections,
+  collabImages,
   onCancel,
   onSubmit,
 }: {
   initial: Partial<IpBanner>;
   isCreate: boolean;
   saving: boolean;
+  collections: SynthCollection[];
+  collabImages: Record<string, string>;
   onCancel: () => void;
   onSubmit: (form: Partial<IpBanner> & {handle?: string}) => void;
 }) {
@@ -2274,14 +2334,16 @@ function IpBannerForm({
   const [featured, setFeatured] = useState(initial.featured ?? true);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
-  // Live preview: CollabGrid に 1 件の MetaCollab を渡して 1 カードを描画
+  // patch 0006: Live preview — Shopify collection 画像フォールバックを image URL に組込
+  // 画像フィールドが空なら shopHandle から公開コレクション画像を引き当てる
+  const resolvedImage = image || (shopHandle ? collabImages[shopHandle] || null : null);
   const previewMeta = [
     {
       id: initial.id || 'preview',
       handle: handle || 'preview',
       name: name || '(未入力)',
       shopHandle: shopHandle || 'preview',
-      image: image || null,
+      image: resolvedImage,
       tagline: tagline || null,
       label: label || null,
       sortOrder,
@@ -2291,7 +2353,7 @@ function IpBannerForm({
 
   const previewPane = (
     <PreviewFrame device={device} onDeviceChange={setDevice}>
-      <CollabGrid collections={null} metaCollabs={previewMeta} />
+      <CollabGrid collections={collections} metaCollabs={previewMeta} />
     </PreviewFrame>
   );
 
@@ -2364,6 +2426,8 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
   const [editing, setEditing] = useState<HeroBanner | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // patch 0006: Shopify コレクション画像マップ (handle -> CDN URL)
+  const [heroImages, setHeroImages] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2374,6 +2438,23 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // patch 0006: items 変化時 + マウント時に Shopify collection 画像を一括取得
+  // HeroSlider は MetaBanner.handle をコレクション handle として imageMap を引く
+  useEffect(() => {
+    const handles: string[] = [];
+    for (const it of items) if (it.handle) handles.push(it.handle);
+    for (const c of COLLABS) if (c.shop) handles.push(c.shop);
+    let cancelled = false;
+    fetchCollectionImagesMap(handles).then((map) => {
+      if (!cancelled) setHeroImages(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [items.map((i) => i.handle).join('|')]);
+
+  const synthCols = useMemo(() => synthesizeCollections(heroImages), [heroImages]);
 
   const handleSave = async (form: Partial<HeroBanner> & {handle?: string}, isCreate: boolean) => {
     setSaving(true);
@@ -2477,6 +2558,8 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
           initial={initial}
           isCreate={creating}
           saving={saving}
+          collections={synthCols}
+          heroImages={heroImages}
           onCancel={() => {
             setEditing(null);
             setCreating(false);
@@ -2492,12 +2575,16 @@ function HeroBannerForm({
   initial,
   isCreate,
   saving,
+  collections,
+  heroImages,
   onCancel,
   onSubmit,
 }: {
   initial: Partial<HeroBanner>;
   isCreate: boolean;
   saving: boolean;
+  collections: SynthCollection[];
+  heroImages: Record<string, string>;
   onCancel: () => void;
   onSubmit: (form: Partial<HeroBanner> & {handle?: string}) => void;
 }) {
@@ -2513,13 +2600,16 @@ function HeroBannerForm({
   const [endAt, setEndAt] = useState(initial.endAt || '');
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
+  // patch 0006: Live preview — Shopify collection 画像フォールバック
+  // 画像フィールドが空なら handle から公開コレクション画像を引き当てる
+  const resolvedImage = image || (handle ? heroImages[handle] || null : null);
   const previewMeta = [
     {
       id: initial.id || 'preview',
       handle: handle || 'preview',
       title: title || '(タイトル未入力)',
       subtitle: subtitle || null,
-      image: image || null,
+      image: resolvedImage,
       linkUrl: linkUrl || null,
       ctaLabel: ctaLabel || null,
       sortOrder,
@@ -2531,7 +2621,7 @@ function HeroBannerForm({
 
   const previewPane = (
     <PreviewFrame device={device} onDeviceChange={setDevice}>
-      <HeroSlider collections={null} metaBanners={previewMeta} />
+      <HeroSlider collections={collections} metaBanners={previewMeta} />
     </PreviewFrame>
   );
 
