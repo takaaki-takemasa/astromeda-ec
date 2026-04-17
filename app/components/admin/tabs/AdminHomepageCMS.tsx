@@ -5,9 +5,15 @@
  * /api/admin/cms 統一エンドポイントと連携。CRUDフォーム付き。
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { color } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
+import { Modal } from '~/components/admin/Modal';
+import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
+import { PCShowcase, type MetaColorModel } from '~/components/astro/PCShowcase';
+import { HeroSlider, type MetaBanner } from '~/components/astro/HeroSlider';
+import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
+import { T, al } from '~/lib/astromeda-data';
 
 // ── Types ──
 interface MetaField {
@@ -243,6 +249,7 @@ export default function AdminHomepageCMS() {
 function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRefresh: () => void; onMsg: (s: string) => void }) {
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const startEdit = (item: MetaobjectNode) => {
     setEditing(item.id);
@@ -269,67 +276,113 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
 
+  // ── プレビュー: 編集中 item を form 値で上書き ──
+  const previewMetaCollabs = useMemo<MetaCollab[]>(() => {
+    const mapItem = (item: MetaobjectNode): MetaCollab => {
+      const useForm = editing === item.id;
+      const nm = useForm ? form.name : f(item, 'name');
+      const sh = useForm ? form.shop_handle : f(item, 'shop_handle');
+      const tl = useForm ? form.tagline : f(item, 'tagline');
+      const lb = useForm ? form.label : f(item, 'label');
+      const ord = useForm ? form.sort_order : f(item, 'sort_order');
+      const fe = useForm ? form.featured : f(item, 'featured');
+      return {
+        id: item.id,
+        handle: item.handle,
+        name: nm || '(未入力)',
+        shopHandle: sh || '',
+        image: null, // CollabGrid が Shopify コレクション画像で補完
+        tagline: tl || null,
+        label: lb || null,
+        sortOrder: Number(ord || 99),
+        featured: fe === 'true',
+      };
+    };
+    return items.map(mapItem);
+  }, [items, editing, form]);
+
+  const isModalOpen = !!editing;
+  const closeModal = () => { setEditing(null); };
+  const modalSave = () => { if (editing) save(editing); };
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <div style={{background: T.bg, padding: 'clamp(8px, 2vw, 16px)'}}>
+        <CollabGrid collections={null} metaCollabs={previewMetaCollabs} />
+      </div>
+    </PreviewFrame>
+  );
+
+  const renderForm = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div>
+        <label style={labelStyle}>IP名</label>
+        <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>Shopifyハンドル</label>
+        <input style={inputStyle} value={form.shop_handle} onChange={(e) => setForm({ ...form, shop_handle: e.target.value })} />
+      </div>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={labelStyle}>タグライン</label>
+        <input style={inputStyle} value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>ラベル (HOT/NEW)</label>
+        <input style={inputStyle} value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>並び順</label>
+        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+      </div>
+      <div style={{ gridColumn: '1 / -1' }}>
+        <label style={labelStyle}>フィーチャー (true/false)</label>
+        <input style={inputStyle} value={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.value })} />
+      </div>
+    </div>
+  );
+
   return (
-    <div style={cardStyle}>
-      {sorted.length === 0 ? (
-        <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-          IPコラボ未登録（astromeda-data.tsのフォールバックが使用されます）
-        </div>
-      ) : sorted.map((item) => (
-        <div key={item.id} style={rowStyle}>
-          {editing === item.id ? (
-            <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              <div>
-                <label style={labelStyle}>IP名</label>
-                <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>Shopifyハンドル</label>
-                <input style={inputStyle} value={form.shop_handle} onChange={(e) => setForm({ ...form, shop_handle: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>タグライン</label>
-                <input style={inputStyle} value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>ラベル (HOT/NEW)</label>
-                <input style={inputStyle} value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>並び順</label>
-                <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>フィーチャー (true/false)</label>
-                <input style={inputStyle} value={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.value })} />
-              </div>
-              <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 8, marginTop: 4 }}>
-                <button style={btnPrimary} onClick={() => save(item.id)}>保存</button>
-                <button style={btnSecondary} onClick={() => setEditing(null)}>キャンセル</button>
-              </div>
+    <div>
+      <div style={cardStyle}>
+        {sorted.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
+            IPコラボ未登録（astromeda-data.tsのフォールバックが使用されます）
+          </div>
+        ) : sorted.map((item) => (
+          <div key={item.id} style={rowStyle}>
+            <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
+              {f(item, 'sort_order') || '—'}
             </div>
-          ) : (
-            <>
-              <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-                {f(item, 'sort_order') || '—'}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'name')}</div>
-                <div style={{ fontSize: 11, color: color.textMuted }}>{item.handle} → {f(item, 'shop_handle')}</div>
-              </div>
-              <div style={{ fontSize: 11, color: f(item, 'featured') === 'true' ? color.cyan : color.textMuted }}>
-                {f(item, 'featured') === 'true' ? '★ Featured' : ''}
-              </div>
-              {f(item, 'label') && (
-                <span style={{ fontSize: 10, padding: '2px 8px', background: `${color.cyan}20`, color: color.cyan, borderRadius: 4 }}>
-                  {f(item, 'label')}
-                </span>
-              )}
-              <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
-            </>
-          )}
-        </div>
-      ))}
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'name')}</div>
+              <div style={{ fontSize: 11, color: color.textMuted }}>{item.handle} → {f(item, 'shop_handle')}</div>
+            </div>
+            <div style={{ fontSize: 11, color: f(item, 'featured') === 'true' ? color.cyan : color.textMuted }}>
+              {f(item, 'featured') === 'true' ? '★ Featured' : ''}
+            </div>
+            {f(item, 'label') && (
+              <span style={{ fontSize: 10, padding: '2px 8px', background: `${color.cyan}20`, color: color.cyan, borderRadius: 4 }}>
+                {f(item, 'label')}
+              </span>
+            )}
+            <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
+          </div>
+        ))}
+      </div>
+
+      {isModalOpen && (
+        <Modal title="IPコラボ編集" onClose={closeModal} preview={previewPane} maxWidth={1400}>
+          {renderForm()}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+            <button style={btnPrimary} onClick={modalSave}>保存</button>
+            <button style={btnSecondary} onClick={closeModal}>キャンセル</button>
+          </div>
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+            💡 右側プレビューはIPコラボグリッド全体を表示。編集中のIPはフォーム入力で即時反映されます。
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -341,6 +394,7 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const emptyForm = () => ({
     title: '', collection_handle: '', link_url: '', alt_text: '',
@@ -393,37 +447,87 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
 
-  const renderForm = (onSave: () => void, onCancel: () => void) => (
-    <div style={{ padding: 16, borderBottom: `1px solid ${color.border}`, background: color.bg2 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-        <div>
-          <label style={labelStyle}>タイトル</label>
-          <input style={inputStyle} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="バナータイトル" />
-        </div>
-        <div>
-          <label style={labelStyle}>コレクションハンドル</label>
-          <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
-        </div>
-        <div>
-          <label style={labelStyle}>リンクURL (任意)</label>
-          <input style={inputStyle} value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} placeholder="/collections/..." />
-        </div>
-        <div>
-          <label style={labelStyle}>代替テキスト</label>
-          <input style={inputStyle} value={form.alt_text} onChange={(e) => setForm({ ...form, alt_text: e.target.value })} />
-        </div>
-        <div>
-          <label style={labelStyle}>並び順</label>
-          <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-        </div>
-        <div>
-          <label style={labelStyle}>有効 (true/false)</label>
-          <input style={inputStyle} value={form.active} onChange={(e) => setForm({ ...form, active: e.target.value })} />
-        </div>
+  // ── プレビュー: 編集中itemをform値で上書き / 新規追加中は合成item追加 ──
+  const previewMetaBanners = useMemo<MetaBanner[]>(() => {
+    const mapItem = (item: MetaobjectNode): MetaBanner => {
+      const useForm = editing === item.id;
+      const title = useForm ? form.title : f(item, 'title');
+      const ch = useForm ? form.collection_handle : f(item, 'collection_handle');
+      const url = useForm ? form.link_url : f(item, 'link_url');
+      const alt = useForm ? form.alt_text : f(item, 'alt_text');
+      const ord = useForm ? form.sort_order : f(item, 'sort_order');
+      const act = useForm ? form.active : f(item, 'active');
+      return {
+        id: item.id,
+        handle: item.handle,
+        title: title || '(無題)',
+        subtitle: alt || null,
+        image: null, // HeroSlider がコレクション画像で補完
+        linkUrl: url || (ch ? `/collections/${ch}` : null),
+        ctaLabel: null,
+        sortOrder: Number(ord || 99),
+        isActive: act === 'true',
+        startAt: null,
+        endAt: null,
+      };
+    };
+    const mapped = items.map(mapItem);
+    if (showAdd) {
+      mapped.push({
+        id: 'preview-new',
+        handle: 'preview-new',
+        title: form.title || '(新規バナー)',
+        subtitle: form.alt_text || null,
+        image: null,
+        linkUrl: form.link_url || (form.collection_handle ? `/collections/${form.collection_handle}` : null),
+        ctaLabel: null,
+        sortOrder: Number(form.sort_order || items.length + 1),
+        isActive: (form.active || 'true') === 'true',
+        startAt: null,
+        endAt: null,
+      });
+    }
+    return mapped;
+  }, [items, editing, showAdd, form]);
+
+  const isModalOpen = !!editing || showAdd;
+  const modalTitle = editing ? 'バナー編集' : 'バナー 新規追加';
+  const closeModal = () => { setEditing(null); setShowAdd(false); };
+  const modalSave = () => { if (editing) save(editing); else create(); };
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <div style={{background: T.bg}}>
+        <HeroSlider collections={null} metaBanners={previewMetaBanners} />
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button style={btnPrimary} onClick={onSave}>保存</button>
-        <button style={btnSecondary} onClick={onCancel}>キャンセル</button>
+    </PreviewFrame>
+  );
+
+  const renderForm = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      <div>
+        <label style={labelStyle}>タイトル</label>
+        <input style={inputStyle} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="バナータイトル" />
+      </div>
+      <div>
+        <label style={labelStyle}>コレクションハンドル</label>
+        <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
+      </div>
+      <div>
+        <label style={labelStyle}>リンクURL (任意)</label>
+        <input style={inputStyle} value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} placeholder="/collections/..." />
+      </div>
+      <div>
+        <label style={labelStyle}>代替テキスト</label>
+        <input style={inputStyle} value={form.alt_text} onChange={(e) => setForm({ ...form, alt_text: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>並び順</label>
+        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>有効 (true/false)</label>
+        <input style={inputStyle} value={form.active} onChange={(e) => setForm({ ...form, active: e.target.value })} />
       </div>
     </div>
   );
@@ -436,36 +540,42 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         </button>
       </div>
       <div style={cardStyle}>
-        {showAdd && renderForm(create, () => setShowAdd(false))}
-        {sorted.length === 0 && !showAdd ? (
+        {sorted.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
             バナー未登録（コレクション画像が自動使用されます）
           </div>
         ) : sorted.map((item) => (
-          <div key={item.id}>
-            {editing === item.id ? (
-              renderForm(() => save(item.id), () => setEditing(null))
-            ) : (
-              <div style={rowStyle}>
-                <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-                  {f(item, 'sort_order') || '—'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'title') || '(無題)'}</div>
-                  <div style={{ fontSize: 11, color: color.textMuted }}>
-                    {f(item, 'collection_handle') || f(item, 'link_url') || '—'}
-                  </div>
-                </div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: f(item, 'active') === 'true' ? '#6bff7b' : '#ff6b6b' }}>
-                  {f(item, 'active') === 'true' ? '有効' : '無効'}
-                </div>
-                <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
-                <button style={btnDanger} onClick={() => remove(item.id)}>削除</button>
+          <div key={item.id} style={rowStyle}>
+            <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
+              {f(item, 'sort_order') || '—'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'title') || '(無題)'}</div>
+              <div style={{ fontSize: 11, color: color.textMuted }}>
+                {f(item, 'collection_handle') || f(item, 'link_url') || '—'}
               </div>
-            )}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 600, color: f(item, 'active') === 'true' ? '#6bff7b' : '#ff6b6b' }}>
+              {f(item, 'active') === 'true' ? '有効' : '無効'}
+            </div>
+            <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
+            <button style={btnDanger} onClick={() => remove(item.id)}>削除</button>
           </div>
         ))}
       </div>
+
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane} maxWidth={1400}>
+          {renderForm()}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+            <button style={btnPrimary} onClick={modalSave}>保存</button>
+            <button style={btnSecondary} onClick={closeModal}>キャンセル</button>
+          </div>
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+            💡 右側プレビューは現行ヒーロースライダー全体を表示。編集中のバナーはフォーム入力で即時反映されます。
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -477,6 +587,7 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [showAdd, setShowAdd] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const startEdit = (item: MetaobjectNode) => {
     setEditing(item.id);
@@ -524,11 +635,60 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
     else onMsg(`エラー: ${res.error}`);
   };
 
-  const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
+  // ── プレビュー用: 全items + 編集中のform値で該当itemを上書き / 新規追加中なら末尾に合成item追加 ──
+  const previewMetaColors = useMemo<MetaColorModel[]>(() => {
+    const mapItem = (item: MetaobjectNode): MetaColorModel => {
+      const useForm = editing === item.id;
+      const nm = useForm ? form.name : f(item, 'name');
+      const sl = useForm ? form.slug : f(item, 'slug');
+      const hx = useForm ? form.hex_color : f(item, 'hex_color');
+      const img = useForm ? form.image_url : f(item, 'image_url');
+      const ord = useForm ? form.display_order : f(item, 'display_order');
+      const act = useForm ? form.is_active : (f(item, 'is_active') || 'true');
+      return {
+        id: item.id,
+        handle: item.handle,
+        name: nm || '(未入力)',
+        slug: sl || 'preview',
+        image: img || null,
+        colorCode: /^#[0-9A-Fa-f]{6}$/.test(hx || '') ? hx : '#888888',
+        sortOrder: Number(ord || 99),
+        isActive: act === 'true',
+      };
+    };
+    const mapped = items.map(mapItem);
+    if (showAdd) {
+      mapped.push({
+        id: 'preview-new',
+        handle: 'preview-new',
+        name: form.name || '(新規)',
+        slug: form.slug || 'preview-new',
+        image: form.image_url || null,
+        colorCode: /^#[0-9A-Fa-f]{6}$/.test(form.hex_color || '') ? form.hex_color : '#888888',
+        sortOrder: Number(form.display_order || (items.length + 1)),
+        isActive: (form.is_active || 'true') === 'true',
+      });
+    }
+    return mapped.filter((c) => c.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+  }, [items, editing, showAdd, form]);
 
-  const renderForm = (onSave: () => void, onCancel: () => void) => (
-    <div style={{ padding: 16, borderBottom: `1px solid ${color.border}`, background: color.bg2 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+  const isModalOpen = !!editing || showAdd;
+  const modalTitle = editing ? 'カラー編集' : 'カラー 新規追加';
+  const closeModal = () => { setEditing(null); setShowAdd(false); };
+  const modalSave = () => { if (editing) save(editing); else create(); };
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <div style={{padding: 'clamp(12px, 2vw, 20px)', background: T.bg}}>
+        <PCShowcase colorImages={{}} metaColors={previewMetaColors} />
+      </div>
+    </PreviewFrame>
+  );
+
+  const sorted = [...items].sort((a, b) => Number(f(a, 'display_order') || 99) - Number(f(b, 'display_order') || 99));
+
+  const renderForm = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div>
           <label style={labelStyle}>名前 (JP)</label>
           <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ホワイト" />
@@ -571,27 +731,11 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
         <div style={{ gridColumn: '1 / -1' }}>
           <label style={labelStyle}>バナー画像URL（ホームページ 8色カラーで表示）</label>
           <input style={inputStyle} value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="/images/pc-setup/white.jpg または https://cdn.shopify.com/..." />
-          {form.image_url && (
-            <div style={{ marginTop: 8, padding: 8, background: color.bg0, border: `1px solid ${color.border}`, borderRadius: 8, display: 'flex', gap: 12, alignItems: 'center' }}>
-              <img
-                src={form.image_url}
-                alt="バナープレビュー"
-                style={{ width: 160, height: 100, objectFit: 'cover', borderRadius: 4, border: `1px solid ${color.border}` }}
-                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
-              />
-              <div style={{ fontSize: 11, color: color.textMuted }}>
-                プレビュー（実サイトでは aspect 16/10 で表示）
-                <div style={{ fontFamily: 'monospace', color: color.text, marginTop: 4, wordBreak: 'break-all' }}>{form.image_url}</div>
-              </div>
-            </div>
-          )}
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 6 }}>
+            ※ PC本体ではなく「PC利用シーン」のライフスタイル画像を推奨。空の場合は /images/pc-setup/{`{slug}`}.jpg が自動使用されます。
+          </div>
         </div>
       </div>
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button style={btnPrimary} onClick={onSave}>保存</button>
-        <button style={btnSecondary} onClick={onCancel}>キャンセル</button>
-      </div>
-    </div>
   );
 
   return (
@@ -602,52 +746,58 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
         </button>
       </div>
       <div style={cardStyle}>
-        {showAdd && renderForm(create, () => setShowAdd(false))}
-        {sorted.length === 0 && !showAdd ? (
+        {sorted.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
             カラー未登録（astromeda-data.tsのPC_COLORSフォールバックが使用されます）
           </div>
         ) : sorted.map((item) => (
-          <div key={item.id}>
-            {editing === item.id ? (
-              renderForm(() => save(item.id), () => setEditing(null))
+          <div key={item.id} style={rowStyle}>
+            <div style={{
+              width: 28, height: 28, borderRadius: '50%',
+              background: f(item, 'hex_color') || '#888',
+              border: '2px solid rgba(255,255,255,.2)',
+              flexShrink: 0,
+            }} />
+            {f(item, 'image_url') ? (
+              <img
+                src={f(item, 'image_url')}
+                alt={f(item, 'name')}
+                style={{ width: 64, height: 40, objectFit: 'cover', borderRadius: 4, border: `1px solid ${color.border}`, flexShrink: 0 }}
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
+              />
             ) : (
-              <div style={rowStyle}>
-                <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: f(item, 'hex_color') || '#888',
-                  border: '2px solid rgba(255,255,255,.2)',
-                  flexShrink: 0,
-                }} />
-                {f(item, 'image_url') ? (
-                  <img
-                    src={f(item, 'image_url')}
-                    alt={f(item, 'name')}
-                    style={{ width: 64, height: 40, objectFit: 'cover', borderRadius: 4, border: `1px solid ${color.border}`, flexShrink: 0 }}
-                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.opacity = '0.3'; }}
-                  />
-                ) : (
-                  <div style={{ width: 64, height: 40, background: color.bg2, borderRadius: 4, border: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: color.textMuted, flexShrink: 0 }}>
-                    画像なし
-                  </div>
-                )}
-                <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-                  {f(item, 'display_order') || '—'}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>
-                    {f(item, 'name')} <span style={{ color: color.textMuted, fontWeight: 400 }}>({f(item, 'slug')})</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: color.textMuted, fontFamily: 'monospace' }}>
-                    {f(item, 'hex_color')} → {f(item, 'collection_handle')}
-                  </div>
-                </div>
-                <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
+              <div style={{ width: 64, height: 40, background: color.bg2, borderRadius: 4, border: `1px solid ${color.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: color.textMuted, flexShrink: 0 }}>
+                画像なし
               </div>
             )}
+            <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
+              {f(item, 'display_order') || '—'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>
+                {f(item, 'name')} <span style={{ color: color.textMuted, fontWeight: 400 }}>({f(item, 'slug')})</span>
+              </div>
+              <div style={{ fontSize: 11, color: color.textMuted, fontFamily: 'monospace' }}>
+                {f(item, 'hex_color')} → {f(item, 'collection_handle')}
+              </div>
+            </div>
+            <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
           </div>
         ))}
       </div>
+
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane} maxWidth={1400}>
+          {renderForm()}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+            <button style={btnPrimary} onClick={modalSave}>保存</button>
+            <button style={btnSecondary} onClick={closeModal}>キャンセル</button>
+          </div>
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+            💡 右側プレビューは「現在のサイト全カラー」を表示中。編集中のカラーはフォームの入力値が即時反映されます。
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -655,10 +805,46 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
 // ══════════════════════════════════════
 // マーキー管理 + 新規追加
 // ══════════════════════════════════════
+// ── Marquee プレビュー用の軽量レンダラ ──
+function MarqueePreview({items}: {items: Array<{icon: string; text: string}>}) {
+  const list = items.length > 0 ? items : [{icon: '✦', text: '(マーキー未登録)'}];
+  return (
+    <div style={{
+      width: '100%',
+      background: '#000',
+      borderTop: `1px solid ${al(T.tx, 0.1)}`,
+      borderBottom: `1px solid ${al(T.tx, 0.1)}`,
+      padding: '10px 0',
+      overflow: 'hidden',
+      whiteSpace: 'nowrap',
+    }}>
+      <div style={{
+        display: 'inline-flex',
+        gap: 40,
+        animation: 'admin-marquee-scroll 20s linear infinite',
+      }}>
+        {[...list, ...list, ...list].map((m, i) => (
+          <span key={i} style={{fontSize: 13, color: T.tx, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6}}>
+            <span style={{color: T.c}}>{m.icon}</span>
+            <span>{m.text}</span>
+          </span>
+        ))}
+      </div>
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes admin-marquee-scroll {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-33.33%); }
+        }
+      `}} />
+    </div>
+  );
+}
+
 function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRefresh: () => void; onMsg: (s: string) => void }) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const emptyForm = () => ({
     text: '', icon: '✦', sort_order: String((items.length || 0) + 1),
@@ -704,6 +890,56 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
 
   const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
 
+  // ── プレビュー: 編集中 item を form 値で上書き / 新規追加中は合成 item 追加 ──
+  const previewItems = useMemo<Array<{icon: string; text: string; sort: number}>>(() => {
+    const mapped = items.map((item) => {
+      const useForm = editing === item.id;
+      return {
+        icon: (useForm ? form.icon : f(item, 'icon')) || '✦',
+        text: (useForm ? form.text : f(item, 'text')) || '',
+        sort: Number((useForm ? form.sort_order : f(item, 'sort_order')) || 99),
+      };
+    });
+    if (showAdd) {
+      mapped.push({
+        icon: form.icon || '✦',
+        text: form.text || '(新規)',
+        sort: Number(form.sort_order || items.length + 1),
+      });
+    }
+    return mapped.filter((m) => m.text).sort((a, b) => a.sort - b.sort);
+  }, [items, editing, showAdd, form]);
+
+  const isModalOpen = !!editing || showAdd;
+  const modalTitle = editing ? 'マーキー編集' : 'マーキー 新規追加';
+  const closeModal = () => { setEditing(null); setShowAdd(false); };
+  const modalSave = () => { if (editing) save(editing); else create(); };
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <div style={{background: T.bg, paddingTop: 30, paddingBottom: 30}}>
+        <MarqueePreview items={previewItems} />
+      </div>
+    </PreviewFrame>
+  );
+
+  const renderForm = () => (
+    <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px', gap: 10 }}>
+      <div>
+        <label style={labelStyle}>アイコン</label>
+        <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>テキスト</label>
+        <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="送料無料" />
+      </div>
+      <div>
+        <label style={labelStyle}>並び順</label>
+        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -712,69 +948,35 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
         </button>
       </div>
       <div style={cardStyle}>
-        {showAdd && (
-          <div style={{ padding: 16, borderBottom: `1px solid ${color.border}`, background: color.bg2 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px', gap: 8 }}>
-              <div>
-                <label style={labelStyle}>アイコン</label>
-                <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>テキスト</label>
-                <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="送料無料" />
-              </div>
-              <div>
-                <label style={labelStyle}>並び順</label>
-                <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-              <button style={btnPrimary} onClick={create}>追加</button>
-              <button style={btnSecondary} onClick={() => setShowAdd(false)}>キャンセル</button>
-            </div>
-          </div>
-        )}
-        {sorted.length === 0 && !showAdd ? (
+        {sorted.length === 0 ? (
           <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
             マーキー未登録（astromeda-data.tsのMARQUEE_ITEMSフォールバックが使用されます）
           </div>
         ) : sorted.map((item) => (
-          <div key={item.id}>
-            {editing === item.id ? (
-              <div style={{ padding: 16, borderBottom: `1px solid ${color.border}`, background: color.bg2 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 80px', gap: 8 }}>
-                  <div>
-                    <label style={labelStyle}>アイコン</label>
-                    <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>テキスト</label>
-                    <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>並び順</label>
-                    <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <button style={btnPrimary} onClick={() => save(item.id)}>保存</button>
-                  <button style={btnSecondary} onClick={() => setEditing(null)}>キャンセル</button>
-                </div>
-              </div>
-            ) : (
-              <div style={rowStyle}>
-                <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-                  {f(item, 'sort_order') || '—'}
-                </div>
-                <div style={{ fontSize: 18, width: 28, textAlign: 'center' }}>{f(item, 'icon') || '✦'}</div>
-                <div style={{ flex: 1, fontSize: 13, color: color.text }}>{f(item, 'text')}</div>
-                <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
-                <button style={btnDanger} onClick={() => remove(item.id)}>削除</button>
-              </div>
-            )}
+          <div key={item.id} style={rowStyle}>
+            <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
+              {f(item, 'sort_order') || '—'}
+            </div>
+            <div style={{ fontSize: 18, width: 28, textAlign: 'center' }}>{f(item, 'icon') || '✦'}</div>
+            <div style={{ flex: 1, fontSize: 13, color: color.text }}>{f(item, 'text')}</div>
+            <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
+            <button style={btnDanger} onClick={() => remove(item.id)}>削除</button>
           </div>
         ))}
       </div>
+
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane} maxWidth={1400}>
+          {renderForm()}
+          <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+            <button style={btnPrimary} onClick={modalSave}>保存</button>
+            <button style={btnSecondary} onClick={closeModal}>キャンセル</button>
+          </div>
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+            💡 右側プレビューはマーキー全体をスクロール表示。編集中の項目はフォーム入力で即時反映されます。
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
