@@ -96,7 +96,7 @@ export async function loadAllCMSData(
   const [collabsRaw, bannersRaw, colorsRaw, cardsRaw, shelvesRaw, aboutRaw, footerRaw] = await Promise.all([
     safe(adminClient.getMetaobjects('astromeda_ip_banner', 100)),
     safe(adminClient.getMetaobjects('astromeda_hero_banner', 50)),
-    safe(adminClient.getMetaobjects('astromeda_pc_color_model', 100)),
+    safe(adminClient.getMetaobjects('astromeda_pc_color', 100)),
     safe(adminClient.getMetaobjects('astromeda_category_card', 100)),
     safe(adminClient.getMetaobjects('astromeda_product_shelf', 50)),
     safe(adminClient.getMetaobjects('astromeda_about_section', 10)),
