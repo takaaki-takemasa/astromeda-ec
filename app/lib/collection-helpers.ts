@@ -118,6 +118,18 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     throw redirect('/collections');
   }
 
+  // 販売停止 IP の 301 リダイレクト（SEO・UX保全）
+  // imas-millionlive-collaboration: Shopify にコレクション不在で 500 を返していた
+  // milpr-pc / black-desert-collaboration: 販売停止方針に合わせて誘導
+  const DISCONTINUED_IP_HANDLES = new Set([
+    'imas-millionlive-collaboration',
+    'milpr-pc',
+    'black-desert-collaboration',
+  ]);
+  if (DISCONTINUED_IP_HANDLES.has(handle)) {
+    throw redirect('/collections/gaming-pc', 301);
+  }
+
   const url = new URL(request.url);
   const sortParam = url.searchParams.get('sort') ?? 'newest';
   let sortKey = 'CREATED';

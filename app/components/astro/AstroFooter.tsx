@@ -406,6 +406,14 @@ export function AstroFooter() {
             <Link to="/contact-houjin" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
               法人のお問い合わせ
             </Link>
+            <a
+              href="https://mining-base.co.jp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}
+            >
+              運営会社
+            </a>
             <Link to="/recycle" style={{color: T.t4, textDecoration: 'underline', marginRight: 12}}>
               家電リサイクル
             </Link>
