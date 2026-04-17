@@ -273,7 +273,7 @@ function buildSeeds(): SeedSpec[] {
               '全8色のカラーバリエーション、26タイトルのIPコラボ、最長3年保証。' +
               '「推しの世界観」と「確かな品質」を両立させる、日本発のクラフトPC。</p>',
           },
-          { key: 'link_url', value: '/pages/about' },
+          { key: 'link_url', value: 'https://shop.mining-base.co.jp/pages/about' },
           { key: 'link_label', value: 'ブランドについて' },
           { key: 'display_order', value: '1' },
           { key: 'is_active', value: 'true' },
