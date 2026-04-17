@@ -23,9 +23,10 @@
  *   />
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, type ReactNode } from 'react';
 import { color } from '~/lib/design-tokens';
 import { Modal } from '~/components/admin/Modal';
+import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
 import {
   DraftBadge,
   PublishButtons,
@@ -88,9 +89,24 @@ export interface GenericCrudProps {
   emptyMessage?: string;
   /** モーダルフッターに表示する補助テキスト */
   footerHint?: string;
+  /**
+   * ライブプレビューを描画する関数（オプショナル）。
+   * 指定すると編集モーダル右側に実サイト風のプレビューが表示される。
+   * form 値が変わるたびに再描画される（リアルタイム反映）。
+   */
+  renderPreview?: (args: {
+    items: MetaobjectNode[];
+    form: Record<string, string>;
+    editingId: string | null;
+    isCreating: boolean;
+  }) => ReactNode;
 }
 
 // ── Helper: field value extractor (v166+ flat format + legacy) ──
+export function extractField(node: MetaobjectNode | Record<string, unknown>, key: string): string {
+  return f(node, key);
+}
+
 function f(node: MetaobjectNode | Record<string, unknown>, key: string): string {
   const n = node as Record<string, unknown>;
   const direct = n[key];
@@ -189,12 +205,14 @@ export function GenericCrudSublist({
   allowCreate = true,
   emptyMessage,
   footerHint,
+  renderPreview,
 }: GenericCrudProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [publishFilter, setPublishFilter] = useState<'all' | 'active' | 'draft'>('all');
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
   const editingItem = useMemo(
     () => (editing ? items.find((i) => i.id === editing) : undefined),
     [editing, items],
@@ -413,7 +431,23 @@ export function GenericCrudSublist({
       </div>
 
       {isModalOpen && (
-        <Modal title={modalTitle} onClose={closeModal} maxWidth={900}>
+        <Modal
+          title={modalTitle}
+          onClose={closeModal}
+          maxWidth={renderPreview ? 1400 : 900}
+          preview={
+            renderPreview ? (
+              <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+                {renderPreview({
+                  items,
+                  form,
+                  editingId: editing,
+                  isCreating: showAdd,
+                })}
+              </PreviewFrame>
+            ) : undefined
+          }
+        >
           {renderForm()}
           <div style={{ borderTop: `1px solid ${color.border}`, marginTop: 16, paddingTop: 12 }}>
             <PublishButtons
