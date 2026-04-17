@@ -8,6 +8,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
+import { Modal } from '~/components/admin/Modal';
+import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
+import { T, al } from '~/lib/astromeda-data';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -130,6 +133,320 @@ function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
 }
 
 // ══════════════════════════════════
+// Preview Components
+// ══════════════════════════════════
+
+/**
+ * CampaignBannerPreview — サイトバナーでのキャンペーン表示イメージ
+ * banner_text / accent_color / discount_rate / status を視覚化
+ */
+function CampaignBannerPreview({
+  name,
+  banner_text,
+  accent_color,
+  discount_rate,
+  status,
+  campaign_type,
+  start_date,
+  end_date,
+  description,
+  is_active,
+}: {
+  name?: string;
+  banner_text?: string;
+  accent_color?: string;
+  discount_rate?: string;
+  status?: string;
+  campaign_type?: string;
+  start_date?: string;
+  end_date?: string;
+  description?: string;
+  is_active?: string;
+}) {
+  const accent = accent_color || '#00F0FF';
+  const active = is_active !== 'false';
+  const discount = Number(discount_rate || 0);
+  const statusLabel = status === 'active' ? '実施中' : status === 'planned' ? '予定' : status === 'completed' ? '完了' : '';
+  const typeLabel = campaign_type === 'sale' ? 'SALE' :
+    campaign_type === 'promotion' ? 'PROMO' :
+    campaign_type === 'collab' ? 'COLLAB' :
+    campaign_type === 'seasonal' ? 'SEASONAL' :
+    campaign_type === 'clearance' ? 'CLEARANCE' : '';
+
+  return (
+    <div style={{ background: T.bg, color: T.tx, fontFamily: 'inherit', padding: 0 }}>
+      {/* Top banner strip */}
+      <div style={{
+        background: `linear-gradient(90deg, ${accent} 0%, ${al(accent, 0.6)} 100%)`,
+        color: '#000',
+        padding: '12px 20px',
+        textAlign: 'center',
+        fontWeight: 800,
+        fontSize: 14,
+        letterSpacing: '0.02em',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        {banner_text || '(バナーテキスト未入力)'}
+        {discount > 0 && (
+          <span style={{
+            marginLeft: 12,
+            background: '#000',
+            color: accent,
+            padding: '2px 10px',
+            borderRadius: 999,
+            fontSize: 12,
+            fontWeight: 900,
+          }}>
+            {discount}% OFF
+          </span>
+        )}
+      </div>
+
+      {/* Detail card (mocked hero-below campaign card) */}
+      <div style={{ padding: 20 }}>
+        <div style={{
+          background: al(accent, 0.08),
+          border: `1px solid ${al(accent, 0.4)}`,
+          borderRadius: 12,
+          padding: 16,
+          position: 'relative',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
+            {typeLabel && (
+              <span style={{
+                fontSize: 10,
+                fontWeight: 900,
+                letterSpacing: '0.08em',
+                padding: '3px 8px',
+                borderRadius: 4,
+                background: accent,
+                color: '#000',
+              }}>
+                {typeLabel}
+              </span>
+            )}
+            {statusLabel && (
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: '3px 8px',
+                borderRadius: 999,
+                background: status === 'active' ? '#22c55e' : status === 'planned' ? accent : al(T.tx, 0.2),
+                color: status === 'active' ? '#fff' : status === 'planned' ? '#000' : T.t4,
+              }}>
+                {statusLabel}
+              </span>
+            )}
+            {!active && (
+              <span style={{
+                fontSize: 10,
+                fontWeight: 700,
+                padding: '3px 8px',
+                borderRadius: 4,
+                background: al(T.tx, 0.1),
+                color: T.t4,
+              }}>
+                非表示
+              </span>
+            )}
+          </div>
+
+          <h3 style={{
+            fontSize: 18,
+            fontWeight: 900,
+            margin: '0 0 8px',
+            color: T.tx,
+            lineHeight: 1.3,
+          }}>
+            {name || '(キャンペーン名未入力)'}
+          </h3>
+
+          {(start_date || end_date) && (
+            <div style={{
+              fontSize: 11,
+              color: T.t4,
+              marginBottom: 10,
+              fontFamily: 'monospace',
+            }}>
+              {start_date || '...'} 〜 {end_date || '...'}
+            </div>
+          )}
+
+          {description && (
+            <p style={{
+              fontSize: 12,
+              lineHeight: 1.6,
+              color: al(T.tx, 0.8),
+              margin: '0 0 12px',
+              whiteSpace: 'pre-wrap',
+            }}>
+              {description}
+            </p>
+          )}
+
+          <button style={{
+            background: accent,
+            color: '#000',
+            border: 'none',
+            borderRadius: 6,
+            padding: '8px 18px',
+            fontSize: 12,
+            fontWeight: 800,
+            cursor: 'default',
+            marginTop: 4,
+          }}>
+            詳しく見る →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * OptionCardPreview — 商品カスタマイズUIでのオプション表示イメージ
+ * option_name / option_type / price / description を視覚化
+ */
+function OptionCardPreview({
+  option_name,
+  option_type,
+  price,
+  description,
+  is_active,
+}: {
+  option_name?: string;
+  option_type?: string;
+  price?: string;
+  description?: string;
+  is_active?: string;
+}) {
+  const active = is_active !== 'false';
+  const priceNum = Number(price || 0);
+  const typeLabel = option_type === 'upgrade' ? 'アップグレード' :
+    option_type === 'accessory' ? 'アクセサリー' :
+    option_type === 'service' ? 'サービス' :
+    option_type === 'warranty' ? '保証延長' : option_type || '';
+  const typeColor = option_type === 'upgrade' ? '#06f' :
+    option_type === 'accessory' ? '#22c55e' :
+    option_type === 'service' ? '#f59e0b' :
+    option_type === 'warranty' ? '#a855f7' : '#888';
+
+  return (
+    <div style={{ background: T.bg, color: T.tx, fontFamily: 'inherit', padding: 20 }}>
+      <div style={{
+        fontSize: 11,
+        color: T.t4,
+        marginBottom: 12,
+        paddingBottom: 8,
+        borderBottom: `1px solid ${al(T.tx, 0.1)}`,
+      }}>
+        商品カスタマイズ画面でのイメージ
+      </div>
+
+      {/* Option card */}
+      <label style={{
+        display: 'block',
+        background: al(T.tx, 0.03),
+        border: `2px solid ${active ? al(T.tx, 0.15) : al(T.tx, 0.08)}`,
+        borderRadius: 10,
+        padding: 14,
+        cursor: 'pointer',
+        transition: 'all .15s',
+        opacity: active ? 1 : 0.5,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+          <input
+            type="checkbox"
+            disabled
+            style={{
+              marginTop: 3,
+              width: 18,
+              height: 18,
+              accentColor: typeColor,
+              flexShrink: 0,
+            }}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+              {typeLabel && (
+                <span style={{
+                  fontSize: 10,
+                  fontWeight: 700,
+                  padding: '2px 7px',
+                  borderRadius: 4,
+                  background: al(typeColor, 0.15),
+                  color: typeColor,
+                  border: `1px solid ${al(typeColor, 0.3)}`,
+                }}>
+                  {typeLabel}
+                </span>
+              )}
+              {!active && (
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 700,
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  background: al(T.tx, 0.1),
+                  color: T.t4,
+                }}>
+                  非表示
+                </span>
+              )}
+            </div>
+            <div style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: T.tx,
+              marginBottom: description ? 6 : 0,
+              lineHeight: 1.3,
+            }}>
+              {option_name || '(オプション名未入力)'}
+            </div>
+            {description && (
+              <p style={{
+                fontSize: 11,
+                lineHeight: 1.5,
+                color: al(T.tx, 0.7),
+                margin: 0,
+                whiteSpace: 'pre-wrap',
+              }}>
+                {description}
+              </p>
+            )}
+          </div>
+          <div style={{
+            fontSize: 15,
+            fontWeight: 900,
+            color: priceNum > 0 ? T.tx : T.t4,
+            whiteSpace: 'nowrap',
+            flexShrink: 0,
+          }}>
+            {priceNum > 0 ? `+¥${priceNum.toLocaleString('ja-JP')}` : '無料'}
+          </div>
+        </div>
+      </label>
+
+      {/* Hint */}
+      <div style={{
+        marginTop: 12,
+        padding: 10,
+        background: al(T.tx, 0.02),
+        border: `1px dashed ${al(T.tx, 0.1)}`,
+        borderRadius: 6,
+        fontSize: 10,
+        color: T.t4,
+        lineHeight: 1.5,
+      }}>
+        商品ページ「カスタマイズ」セクションに表示されます。
+        <br />チェックを入れると合計金額に加算されます。
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════
 // ① CampaignList — キャンペーン CRUD
 // ══════════════════════════════════
 function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
@@ -138,6 +455,7 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -232,23 +550,29 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
   const plannedCount = items.filter(i => i.status === 'planned').length;
   const completedCount = items.filter(i => i.status === 'completed').length;
 
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <CompactKPI label="実施中" value={String(activeCount)} accent={color.green} />
-          <CompactKPI label="予定" value={String(plannedCount)} accent={color.cyan} />
-          <CompactKPI label="完了" value={String(completedCount)} accent={color.textMuted} />
-        </div>
-        <button onClick={startCreate} style={btnOutline}>+ 新規キャンペーン</button>
-      </div>
+  const isModalOpen = !!editId;
+  const modalTitle = editId === '__new__' ? '新規キャンペーン' : 'キャンペーン編集';
 
-      {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規キャンペーン' : 'キャンペーン編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <CampaignBannerPreview
+        name={form.name}
+        banner_text={form.banner_text}
+        accent_color={form.accent_color}
+        discount_rate={form.discount_rate}
+        status={form.status}
+        campaign_type={form.campaign_type}
+        start_date={form.start_date}
+        end_date={form.end_date}
+        description={form.description}
+        is_active={form.is_active}
+      />
+    </PreviewFrame>
+  );
+
+  const editForm = (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>キャンペーン名</label>
               <input style={inputStyle} value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="例: GWスペシャルセール" />
@@ -317,13 +641,32 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
               <span style={{ fontSize: font.sm, color: color.text }}>有効</span>
             </label>
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+      </div>
+    </div>
+  );
+
+  const closeModal = () => setEditId(null);
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <CompactKPI label="実施中" value={String(activeCount)} accent={color.green} />
+          <CompactKPI label="予定" value={String(plannedCount)} accent={color.cyan} />
+          <CompactKPI label="完了" value={String(completedCount)} accent={color.textMuted} />
         </div>
+        <button onClick={startCreate} style={btnOutline}>+ 新規キャンペーン</button>
+      </div>
+
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane}>
+          {editForm}
+        </Modal>
       )}
 
       {items.length === 0 ? (
@@ -396,6 +739,7 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -465,6 +809,70 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
 
   if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
 
+  const isModalOpen = !!editId;
+  const modalTitle = editId === '__new__' ? '新規オプション' : 'オプション編集';
+  const closeModal = () => setEditId(null);
+
+  const previewPane = (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <OptionCardPreview
+        option_name={form.option_name}
+        option_type={form.option_type}
+        price={form.price}
+        description={form.description}
+        is_active={form.is_active}
+      />
+    </PreviewFrame>
+  );
+
+  const editForm = (
+    <div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>オプション名</label>
+          <input style={inputStyle} value={form.option_name || ''} onChange={(e) => setForm({ ...form, option_name: e.target.value })} placeholder="例: メモリ32GB増設" />
+        </div>
+        <div>
+          <label style={labelStyle}>タイプ</label>
+          <select style={inputStyle} value={form.option_type || 'upgrade'} onChange={(e) => setForm({ ...form, option_type: e.target.value })}>
+            <option value="upgrade">アップグレード</option>
+            <option value="accessory">アクセサリー</option>
+            <option value="service">サービス</option>
+            <option value="warranty">保証延長</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>価格（円）</label>
+          <input style={inputStyle} type="number" value={form.price || '0'} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>対象商品（カンマ区切り）</label>
+          <input style={inputStyle} value={form.applicable_products || ''} onChange={(e) => setForm({ ...form, applicable_products: e.target.value })} placeholder="空=全商品 / 商品ハンドルをカンマ区切り" />
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>説明</label>
+        <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="オプションの詳細説明" />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={form.is_active === 'true'} onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
+          <span style={{ fontSize: font.sm, color: color.text }}>有効</span>
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={closeModal} style={btnOutline}>キャンセル</button>
+      </div>
+    </div>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -472,55 +880,10 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
         <button onClick={startCreate} style={btnOutline}>+ 新規オプション</button>
       </div>
 
-      {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規オプション' : 'オプション編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>オプション名</label>
-              <input style={inputStyle} value={form.option_name || ''} onChange={(e) => setForm({ ...form, option_name: e.target.value })} placeholder="例: メモリ32GB増設" />
-            </div>
-            <div>
-              <label style={labelStyle}>タイプ</label>
-              <select style={inputStyle} value={form.option_type || 'upgrade'} onChange={(e) => setForm({ ...form, option_type: e.target.value })}>
-                <option value="upgrade">アップグレード</option>
-                <option value="accessory">アクセサリー</option>
-                <option value="service">サービス</option>
-                <option value="warranty">保証延長</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>価格（円）</label>
-              <input style={inputStyle} type="number" value={form.price || '0'} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>対象商品（カンマ区切り）</label>
-              <input style={inputStyle} value={form.applicable_products || ''} onChange={(e) => setForm({ ...form, applicable_products: e.target.value })} placeholder="空=全商品 / 商品ハンドルをカンマ区切り" />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>説明</label>
-            <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={3} value={form.description || ''} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="オプションの詳細説明" />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_active === 'true'} onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
-              <span style={{ fontSize: font.sm, color: color.text }}>有効</span>
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+      {isModalOpen && (
+        <Modal title={modalTitle} onClose={closeModal} preview={previewPane}>
+          {editForm}
+        </Modal>
       )}
 
       {items.length === 0 ? (

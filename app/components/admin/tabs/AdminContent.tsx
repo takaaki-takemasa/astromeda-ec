@@ -5,9 +5,65 @@
  * astromeda_article_content / astromeda_ip_banner / astromeda_seo_article
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
+import { Modal } from '~/components/admin/Modal';
+import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
+import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
+import { T } from '~/lib/astromeda-data';
+
+// ── Article/SEO 用軽量プレビュー ──
+function ArticlePreview({title, body, excerpt, author, tags, metaDesc}: {
+  title: string;
+  body: string;
+  excerpt?: string;
+  author?: string;
+  tags?: string;
+  metaDesc?: string;
+}) {
+  return (
+    <article style={{
+      background: T.bg,
+      color: T.tx,
+      padding: 'clamp(16px, 3vw, 32px)',
+      fontFamily: font.family,
+      lineHeight: 1.7,
+    }}>
+      {metaDesc && (
+        <div style={{
+          background: 'rgba(0,240,255,0.08)',
+          border: '1px dashed rgba(0,240,255,0.3)',
+          borderRadius: 6, padding: '8px 12px', marginBottom: 20,
+          fontSize: 11, color: '#9ad',
+        }}>
+          <div style={{fontSize: 9, color: '#6cf', marginBottom: 2, fontWeight: 700}}>検索結果プレビュー</div>
+          <div>{metaDesc}</div>
+        </div>
+      )}
+      <h1 style={{fontSize: 'clamp(22px, 4vw, 34px)', fontWeight: 900, margin: '0 0 12px', lineHeight: 1.3}}>
+        {title || '(タイトル未入力)'}
+      </h1>
+      <div style={{fontSize: 12, color: '#888', marginBottom: 20, display: 'flex', gap: 10, flexWrap: 'wrap'}}>
+        {author && <span>✒️ {author}</span>}
+        {tags && <span>🏷 {tags.split(',').slice(0, 3).join(' · ')}</span>}
+      </div>
+      {excerpt && (
+        <div style={{
+          fontSize: 14, color: '#bbb',
+          borderLeft: '3px solid #06f', paddingLeft: 12, marginBottom: 20,
+          fontStyle: 'italic',
+        }}>
+          {excerpt}
+        </div>
+      )}
+      <div
+        style={{fontSize: 14, color: '#ddd'}}
+        dangerouslySetInnerHTML={{__html: body || '<p style="color:#666">(本文未入力)</p>'}}
+      />
+    </article>
+  );
+}
 
 // ── Types ──
 interface MetaobjectNode {
@@ -138,6 +194,7 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -220,6 +277,81 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const statusLabel = (s: string) =>
     s === 'published' ? '公開中' : s === 'review' ? 'レビュー待ち' : '下書き';
 
+  const previewPane = editId ? (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <ArticlePreview
+        title={form.title || ''}
+        body={form.body_html || ''}
+        excerpt={form.excerpt}
+        author={form.author}
+        tags={form.tags}
+      />
+    </PreviewFrame>
+  ) : null;
+
+  const modalTitle = editId === '__new__' ? '新規記事作成' : '記事編集';
+
+  const editForm = (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>タイトル</label>
+          <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="記事タイトル" />
+        </div>
+        <div>
+          <label style={labelStyle}>スラッグ</label>
+          <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: gaming-pc-guide" />
+        </div>
+        <div>
+          <label style={labelStyle}>タイプ</label>
+          <select style={inputStyle} value={form.content_type || 'article'} onChange={(e) => setForm({ ...form, content_type: e.target.value })}>
+            <option value="article">記事</option>
+            <option value="guide">ガイド</option>
+            <option value="news">ニュース</option>
+            <option value="review">レビュー</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>ステータス</label>
+          <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="draft">下書き</option>
+            <option value="review">レビュー待ち</option>
+            <option value="published">公開</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>著者</label>
+          <input style={inputStyle} value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者名" />
+        </div>
+        <div>
+          <label style={labelStyle}>タグ（カンマ区切り）</label>
+          <input style={inputStyle} value={form.tags || ''} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="例: gaming,pc,guide" />
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>概要</label>
+        <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.excerpt || ''} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="記事の概要（検索結果に表示）" />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>本文HTML</label>
+        <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={10} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} placeholder="<p>本文をHTMLで入力...</p>" />
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+      </div>
+      <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+        💡 右側プレビューは実際の記事ページと同じスタイルでリアルタイム反映されます。
+      </div>
+    </>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -231,64 +363,9 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       </div>
 
       {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規記事作成' : '記事編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>タイトル</label>
-              <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="記事タイトル" />
-            </div>
-            <div>
-              <label style={labelStyle}>スラッグ</label>
-              <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: gaming-pc-guide" />
-            </div>
-            <div>
-              <label style={labelStyle}>タイプ</label>
-              <select style={inputStyle} value={form.content_type || 'article'} onChange={(e) => setForm({ ...form, content_type: e.target.value })}>
-                <option value="article">記事</option>
-                <option value="guide">ガイド</option>
-                <option value="news">ニュース</option>
-                <option value="review">レビュー</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>ステータス</label>
-              <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="draft">下書き</option>
-                <option value="review">レビュー待ち</option>
-                <option value="published">公開</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>著者</label>
-              <input style={inputStyle} value={form.author || ''} onChange={(e) => setForm({ ...form, author: e.target.value })} placeholder="著者名" />
-            </div>
-            <div>
-              <label style={labelStyle}>タグ（カンマ区切り）</label>
-              <input style={inputStyle} value={form.tags || ''} onChange={(e) => setForm({ ...form, tags: e.target.value })} placeholder="例: gaming,pc,guide" />
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>概要</label>
-            <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.excerpt || ''} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} placeholder="記事の概要（検索結果に表示）" />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>本文HTML</label>
-            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={8} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} placeholder="<p>本文をHTMLで入力...</p>" />
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+        <Modal title={modalTitle} onClose={() => setEditId(null)} preview={previewPane} maxWidth={1400}>
+          {editForm}
+        </Modal>
       )}
 
       {items.length === 0 ? (
@@ -346,6 +423,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -421,6 +499,97 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
 
   if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
 
+  // ── プレビュー用: 全items + 編集中itemをform値で上書き / 新規追加中は末尾に合成item追加 ──
+  const previewMetaCollabs: MetaCollab[] = items.map((item) => {
+    const useForm = editId === item.id;
+    return {
+      id: item.id,
+      handle: item.handle,
+      name: (useForm ? form.ip_name : item.ip_name) || '(未入力)',
+      shopHandle: (useForm ? form.collection_handle : item.collection_handle) || '',
+      image: null,
+      tagline: (useForm ? form.tagline : item.tagline) || null,
+      label: (useForm ? form.label : item.label) || null,
+      sortOrder: Number((useForm ? form.display_order : item.display_order) || 99),
+      featured: (useForm ? form.is_featured : item.is_featured) === 'true',
+    };
+  });
+  if (editId === '__new__') {
+    previewMetaCollabs.push({
+      id: 'preview-new',
+      handle: 'preview-new',
+      name: form.ip_name || '(新規)',
+      shopHandle: form.collection_handle || '',
+      image: null,
+      tagline: form.tagline || null,
+      label: form.label || null,
+      sortOrder: Number(form.display_order || items.length + 1),
+      featured: form.is_featured === 'true',
+    });
+  }
+  const previewPane = editId ? (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <div style={{background: T.bg, padding: 'clamp(8px, 2vw, 16px)'}}>
+        <CollabGrid collections={null} metaCollabs={previewMetaCollabs} />
+      </div>
+    </PreviewFrame>
+  ) : null;
+
+  const modalTitle = editId === '__new__' ? '新規IPバナー' : 'IPバナー編集';
+
+  const editForm = (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div>
+          <label style={labelStyle}>IP名</label>
+          <input style={inputStyle} value={form.ip_name || ''} onChange={(e) => setForm({ ...form, ip_name: e.target.value })} placeholder="例: 呪術廻戦" />
+        </div>
+        <div>
+          <label style={labelStyle}>コレクションハンドル</label>
+          <input style={inputStyle} value={form.collection_handle || ''} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="例: jujutsukaisen-collaboration" />
+        </div>
+        <div>
+          <label style={labelStyle}>タグライン</label>
+          <input style={inputStyle} value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="例: 領域展開" />
+        </div>
+        <div>
+          <label style={labelStyle}>ラベル</label>
+          <input style={inputStyle} value={form.label || ''} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="例: NEW / HOT / SALE" />
+        </div>
+        <div>
+          <label style={labelStyle}>アクセントカラー</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <input type="color" value={form.accent_color || '#00F0FF'} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
+            <input style={{ ...inputStyle, flex: 1 }} value={form.accent_color || ''} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} />
+          </div>
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={form.is_featured === 'true'} onChange={(e) => setForm({ ...form, is_featured: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
+          <span style={{ fontSize: font.sm, color: color.text }}>注目IP</span>
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+          <input type="checkbox" checked={form.is_active === 'true'} onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
+          <span style={{ fontSize: font.sm, color: color.text }}>表示中</span>
+        </label>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+      </div>
+      <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+        💡 右側プレビューはホームページのIPコラボグリッド全体を表示。編集中のIPはフォーム入力で即時反映されます。
+      </div>
+    </>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -433,56 +602,9 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       </div>
 
       {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規IPバナー' : 'IPバナー編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <label style={labelStyle}>IP名</label>
-              <input style={inputStyle} value={form.ip_name || ''} onChange={(e) => setForm({ ...form, ip_name: e.target.value })} placeholder="例: 呪術廻戦" />
-            </div>
-            <div>
-              <label style={labelStyle}>コレクションハンドル</label>
-              <input style={inputStyle} value={form.collection_handle || ''} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="例: jujutsukaisen-collaboration" />
-            </div>
-            <div>
-              <label style={labelStyle}>タグライン</label>
-              <input style={inputStyle} value={form.tagline || ''} onChange={(e) => setForm({ ...form, tagline: e.target.value })} placeholder="例: 領域展開" />
-            </div>
-            <div>
-              <label style={labelStyle}>ラベル</label>
-              <input style={inputStyle} value={form.label || ''} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="例: NEW / HOT / SALE" />
-            </div>
-            <div>
-              <label style={labelStyle}>アクセントカラー</label>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input type="color" value={form.accent_color || '#00F0FF'} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} style={{ width: 40, height: 32, border: 'none', cursor: 'pointer', borderRadius: 4 }} />
-                <input style={{ ...inputStyle, flex: 1 }} value={form.accent_color || ''} onChange={(e) => setForm({ ...form, accent_color: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_featured === 'true'} onChange={(e) => setForm({ ...form, is_featured: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
-              <span style={{ fontSize: font.sm, color: color.text }}>注目IP</span>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.is_active === 'true'} onChange={(e) => setForm({ ...form, is_active: String(e.target.checked) })} style={{ width: 16, height: 16, accentColor: color.cyan }} />
-              <span style={{ fontSize: font.sm, color: color.text }}>表示中</span>
-            </label>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+        <Modal title={modalTitle} onClose={() => setEditId(null)} preview={previewPane} maxWidth={1400}>
+          {editForm}
+        </Modal>
       )}
 
       {items.length === 0 ? (
@@ -547,6 +669,7 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
+  const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -616,6 +739,71 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
 
   if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
 
+  const previewPane = editId ? (
+    <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
+      <ArticlePreview
+        title={form.title || ''}
+        body={form.body_html || ''}
+        excerpt={form.target_keyword ? `🎯 ターゲット: ${form.target_keyword}` : undefined}
+        metaDesc={form.meta_description}
+      />
+    </PreviewFrame>
+  ) : null;
+
+  const modalTitle = editId === '__new__' ? '新規SEO記事' : 'SEO記事編集';
+
+  const editForm = (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div style={{ gridColumn: '1 / -1' }}>
+          <label style={labelStyle}>タイトル</label>
+          <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="SEO記事タイトル" />
+        </div>
+        <div>
+          <label style={labelStyle}>スラッグ</label>
+          <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: best-gaming-pc-2026" />
+        </div>
+        <div>
+          <label style={labelStyle}>ターゲットキーワード</label>
+          <input style={inputStyle} value={form.target_keyword || ''} onChange={(e) => setForm({ ...form, target_keyword: e.target.value })} placeholder="例: ゲーミングPC おすすめ" />
+        </div>
+        <div>
+          <label style={labelStyle}>ステータス</label>
+          <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+            <option value="draft">下書き</option>
+            <option value="review">レビュー待ち</option>
+            <option value="published">公開</option>
+          </select>
+        </div>
+        <div>
+          <label style={labelStyle}>表示順</label>
+          <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>メタディスクリプション</label>
+        <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.meta_description || ''} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} placeholder="検索結果に表示される説明文（120文字以内推奨）" />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>本文HTML</label>
+        <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={10} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} />
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <label style={labelStyle}>構造化データJSON</label>
+        <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={4} value={form.schema_json || '{}'} onChange={(e) => setForm({ ...form, schema_json: e.target.value })} />
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 16, paddingTop: 16, borderTop: `1px solid ${color.border}` }}>
+        <button onClick={handleSave} disabled={saving} style={btnPrimary}>
+          {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
+        </button>
+        <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
+      </div>
+      <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
+        💡 右側プレビューはGoogle検索結果（上部）と記事ページの見た目をリアルタイム反映。
+      </div>
+    </>
+  );
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -624,55 +812,9 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
       </div>
 
       {editId && (
-        <div style={{ ...cardStyle, borderColor: color.cyan, marginBottom: 16 }}>
-          <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: color.cyan }}>
-            {editId === '__new__' ? '新規SEO記事' : 'SEO記事編集'}
-          </h4>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div style={{ gridColumn: '1 / -1' }}>
-              <label style={labelStyle}>タイトル</label>
-              <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="SEO記事タイトル" />
-            </div>
-            <div>
-              <label style={labelStyle}>スラッグ</label>
-              <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: best-gaming-pc-2026" />
-            </div>
-            <div>
-              <label style={labelStyle}>ターゲットキーワード</label>
-              <input style={inputStyle} value={form.target_keyword || ''} onChange={(e) => setForm({ ...form, target_keyword: e.target.value })} placeholder="例: ゲーミングPC おすすめ" />
-            </div>
-            <div>
-              <label style={labelStyle}>ステータス</label>
-              <select style={inputStyle} value={form.status || 'draft'} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option value="draft">下書き</option>
-                <option value="review">レビュー待ち</option>
-                <option value="published">公開</option>
-              </select>
-            </div>
-            <div>
-              <label style={labelStyle}>表示順</label>
-              <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-            </div>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>メタディスクリプション</label>
-            <textarea style={{ ...inputStyle, resize: 'vertical' }} rows={2} value={form.meta_description || ''} onChange={(e) => setForm({ ...form, meta_description: e.target.value })} placeholder="検索結果に表示される説明文（120文字以内推奨）" />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>本文HTML</label>
-            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={8} value={form.body_html || ''} onChange={(e) => setForm({ ...form, body_html: e.target.value })} />
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <label style={labelStyle}>構造化データJSON</label>
-            <textarea style={{ ...inputStyle, fontFamily: font.mono, fontSize: font.xs, resize: 'vertical' }} rows={4} value={form.schema_json || '{}'} onChange={(e) => setForm({ ...form, schema_json: e.target.value })} />
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-            <button onClick={handleSave} disabled={saving} style={btnPrimary}>
-              {saving ? '保存中...' : editId === '__new__' ? '作成' : '保存'}
-            </button>
-            <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
-          </div>
-        </div>
+        <Modal title={modalTitle} onClose={() => setEditId(null)} preview={previewPane} maxWidth={1400}>
+          {editForm}
+        </Modal>
       )}
 
       {items.length === 0 ? (
