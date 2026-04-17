@@ -89,8 +89,20 @@ const btnDanger: React.CSSProperties = {
 };
 
 // ── Helper: extract field value ──
-function f(node: MetaobjectNode, key: string): string {
-  return node.fields.find((x) => x.key === key)?.value ?? '';
+// v166+ /api/admin/cms はフィールドをノード直下にフラット化して返す。
+// 旧形式 (node.fields[]) も後方互換で対応。
+function f(node: MetaobjectNode | Record<string, unknown>, key: string): string {
+  const n = node as Record<string, unknown>;
+  // 直接プロパティ (v166+ フラット形式)
+  const direct = n[key];
+  if (typeof direct === 'string') return direct;
+  if (typeof direct === 'number' || typeof direct === 'boolean') return String(direct);
+  // 旧形式: fields[] 配列
+  const fields = (n as {fields?: Array<{key: string; value: string}>}).fields;
+  if (Array.isArray(fields)) {
+    return fields.find((x) => x.key === key)?.value ?? '';
+  }
+  return '';
 }
 
 // ── CMS API wrapper ──
