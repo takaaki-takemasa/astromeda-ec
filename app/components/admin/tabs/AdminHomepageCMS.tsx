@@ -326,11 +326,11 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     setEditing(item.id);
     setForm({
       name: f(item, 'name'),
-      shop_handle: f(item, 'shop_handle'),
+      collection_handle: f(item, 'collection_handle'),
       tagline: f(item, 'tagline'),
       label: f(item, 'label'),
-      sort_order: f(item, 'sort_order'),
-      featured: f(item, 'featured'),
+      display_order: f(item, 'display_order'),
+      is_active: f(item, 'is_active'),
     });
   };
 
@@ -345,14 +345,14 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     else onMsg(`エラー: ${res.error}`);
   };
 
-  const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
+  const sorted = [...items].sort((a, b) => Number(f(a, 'display_order') || 99) - Number(f(b, 'display_order') || 99));
 
   // 編集中のフォーム値にあるハンドルも含めて Shopify 画像を取得（プレビューをリアル反映）
   const extraHandles = useMemo(
-    () => (editing && form.shop_handle ? [form.shop_handle] : []),
-    [editing, form.shop_handle],
+    () => (editing && form.collection_handle ? [form.collection_handle] : []),
+    [editing, form.collection_handle],
   );
-  const shopifyImages = useShopifyCollectionImages(items, 'shop_handle', extraHandles);
+  const shopifyImages = useShopifyCollectionImages(items, 'collection_handle', extraHandles);
   const synthCols = useMemo(() => synthCollections(shopifyImages), [shopifyImages]);
 
   // ── プレビュー: 編集中 item を form 値で上書き ──
@@ -360,11 +360,11 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     const mapItem = (item: MetaobjectNode): MetaCollab => {
       const useForm = editing === item.id;
       const nm = useForm ? form.name : f(item, 'name');
-      const sh = useForm ? form.shop_handle : f(item, 'shop_handle');
+      const sh = useForm ? form.collection_handle : f(item, 'collection_handle');
       const tl = useForm ? form.tagline : f(item, 'tagline');
       const lb = useForm ? form.label : f(item, 'label');
-      const ord = useForm ? form.sort_order : f(item, 'sort_order');
-      const fe = useForm ? form.featured : f(item, 'featured');
+      const ord = useForm ? form.display_order : f(item, 'display_order');
+      const fe = useForm ? form.is_active : f(item, 'is_active');
       // 画像: Metaobject image field（file_reference のURL形式）> Shopify collection 画像 > null
       const storedImg = f(item, 'image');
       const fallbackImg = sh ? shopifyImages[sh] : undefined;
@@ -403,7 +403,7 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       </div>
       <div>
         <label style={labelStyle}>Shopifyハンドル</label>
-        <input style={inputStyle} value={form.shop_handle} onChange={(e) => setForm({ ...form, shop_handle: e.target.value })} />
+        <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} />
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <label style={labelStyle}>タグライン</label>
@@ -415,11 +415,11 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       </div>
       <div>
         <label style={labelStyle}>並び順</label>
-        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+        <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <label style={labelStyle}>フィーチャー (true/false)</label>
-        <input style={inputStyle} value={form.featured} onChange={(e) => setForm({ ...form, featured: e.target.value })} />
+        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} />
       </div>
     </div>
   );
@@ -434,14 +434,14 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-              {f(item, 'sort_order') || '—'}
+              {f(item, 'display_order') || '—'}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'name')}</div>
-              <div style={{ fontSize: 11, color: color.textMuted }}>{item.handle} → {f(item, 'shop_handle')}</div>
+              <div style={{ fontSize: 11, color: color.textMuted }}>{item.handle} → {f(item, 'collection_handle')}</div>
             </div>
-            <div style={{ fontSize: 11, color: f(item, 'featured') === 'true' ? color.cyan : color.textMuted }}>
-              {f(item, 'featured') === 'true' ? '★ Featured' : ''}
+            <div style={{ fontSize: 11, color: f(item, 'is_active') === 'true' ? color.cyan : color.textMuted }}>
+              {f(item, 'is_active') === 'true' ? '★ Featured' : ''}
             </div>
             {f(item, 'label') && (
               <span style={{ fontSize: 10, padding: '2px 8px', background: `${color.cyan}20`, color: color.cyan, borderRadius: 4 }}>
@@ -480,7 +480,7 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const emptyForm = () => ({
     title: '', collection_handle: '', link_url: '', alt_text: '',
-    sort_order: String((items.length || 0) + 1), active: 'true',
+    display_order: String((items.length || 0) + 1), is_active: 'true',
     schedule_start: '', schedule_end: '',
   });
 
@@ -491,8 +491,8 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       collection_handle: f(item, 'collection_handle'),
       link_url: f(item, 'link_url'),
       alt_text: f(item, 'alt_text'),
-      sort_order: f(item, 'sort_order'),
-      active: f(item, 'active'),
+      display_order: f(item, 'display_order'),
+      is_active: f(item, 'is_active'),
       schedule_start: f(item, 'schedule_start'),
       schedule_end: f(item, 'schedule_end'),
     });
@@ -527,7 +527,7 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     else onMsg(`エラー: ${res.error}`);
   };
 
-  const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
+  const sorted = [...items].sort((a, b) => Number(f(a, 'display_order') || 99) - Number(f(b, 'display_order') || 99));
 
   // Shopify コレクション画像をプレビュー用に取得（IPバナーと同じ仕組み）
   const bannerExtraHandles = useMemo(
@@ -544,8 +544,8 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       const ch = useForm ? form.collection_handle : f(item, 'collection_handle');
       const url = useForm ? form.link_url : f(item, 'link_url');
       const alt = useForm ? form.alt_text : f(item, 'alt_text');
-      const ord = useForm ? form.sort_order : f(item, 'sort_order');
-      const act = useForm ? form.active : f(item, 'active');
+      const ord = useForm ? form.display_order : f(item, 'display_order');
+      const act = useForm ? form.is_active : f(item, 'is_active');
       const storedImg = f(item, 'image');
       const fallbackImg = ch ? bannerShopifyImages[ch] : undefined;
       return {
@@ -574,8 +574,8 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         image: fallbackImg || null,
         linkUrl: form.link_url || (ch ? `/collections/${ch}` : null),
         ctaLabel: null,
-        sortOrder: Number(form.sort_order || items.length + 1),
-        isActive: (form.active || 'true') === 'true',
+        sortOrder: Number(form.display_order || items.length + 1),
+        isActive: (form.is_active || 'true') === 'true',
         startAt: null,
         endAt: null,
       });
@@ -616,11 +616,11 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       </div>
       <div>
         <label style={labelStyle}>並び順</label>
-        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+        <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
       </div>
       <div>
         <label style={labelStyle}>有効 (true/false)</label>
-        <input style={inputStyle} value={form.active} onChange={(e) => setForm({ ...form, active: e.target.value })} />
+        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} />
       </div>
     </div>
   );
@@ -640,7 +640,7 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-              {f(item, 'sort_order') || '—'}
+              {f(item, 'display_order') || '—'}
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: color.text }}>{f(item, 'title') || '(無題)'}</div>
@@ -648,8 +648,8 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
                 {f(item, 'collection_handle') || f(item, 'link_url') || '—'}
               </div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 600, color: f(item, 'active') === 'true' ? '#6bff7b' : '#ff6b6b' }}>
-              {f(item, 'active') === 'true' ? '有効' : '無効'}
+            <div style={{ fontSize: 11, fontWeight: 600, color: f(item, 'is_active') === 'true' ? '#6bff7b' : '#ff6b6b' }}>
+              {f(item, 'is_active') === 'true' ? '有効' : '無効'}
             </div>
             <button style={btnSecondary} onClick={() => startEdit(item)}>編集</button>
             <button style={btnDanger} onClick={() => remove(item.id)}>削除</button>
@@ -940,7 +940,7 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
 
   const emptyForm = () => ({
-    text: '', icon: '✦', sort_order: String((items.length || 0) + 1),
+    text: '', icon: '✦', display_order: String((items.length || 0) + 1),
   });
 
   const startEdit = (item: MetaobjectNode) => {
@@ -948,7 +948,7 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
     setForm({
       text: f(item, 'text'),
       icon: f(item, 'icon'),
-      sort_order: f(item, 'sort_order'),
+      display_order: f(item, 'display_order'),
     });
   };
 
@@ -981,7 +981,7 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
     else onMsg(`エラー: ${res.error}`);
   };
 
-  const sorted = [...items].sort((a, b) => Number(f(a, 'sort_order') || 99) - Number(f(b, 'sort_order') || 99));
+  const sorted = [...items].sort((a, b) => Number(f(a, 'display_order') || 99) - Number(f(b, 'display_order') || 99));
 
   // ── プレビュー: 編集中 item を form 値で上書き / 新規追加中は合成 item 追加 ──
   const previewItems = useMemo<Array<{icon: string; text: string; sort: number}>>(() => {
@@ -990,14 +990,14 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
       return {
         icon: (useForm ? form.icon : f(item, 'icon')) || '✦',
         text: (useForm ? form.text : f(item, 'text')) || '',
-        sort: Number((useForm ? form.sort_order : f(item, 'sort_order')) || 99),
+        sort: Number((useForm ? form.display_order : f(item, 'display_order')) || 99),
       };
     });
     if (showAdd) {
       mapped.push({
         icon: form.icon || '✦',
         text: form.text || '(新規)',
-        sort: Number(form.sort_order || items.length + 1),
+        sort: Number(form.display_order || items.length + 1),
       });
     }
     return mapped.filter((m) => m.text).sort((a, b) => a.sort - b.sort);
@@ -1028,7 +1028,7 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
       </div>
       <div>
         <label style={labelStyle}>並び順</label>
-        <input style={inputStyle} type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+        <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
       </div>
     </div>
   );
@@ -1048,7 +1048,7 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
-              {f(item, 'sort_order') || '—'}
+              {f(item, 'display_order') || '—'}
             </div>
             <div style={{ fontSize: 18, width: 28, textAlign: 'center' }}>{f(item, 'icon') || '✦'}</div>
             <div style={{ flex: 1, fontSize: 13, color: color.text }}>{f(item, 'text')}</div>
