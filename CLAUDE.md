@@ -160,8 +160,13 @@ GUI設計書: `Astromeda_GUI設計書_完全版.xlsx`（市場調査フォルダ
 - **Phase 1**: ECサイト構築（現在進行中 — デプロイ・IPバナー表示まで到達）
 - **Phase 2**: 47体AIエージェントシステム構築（EC完成後に着手）
 
-## 作業復帰ポイント（2026/04/10 最新）
-**v135 デプロイ済み・ガジェット/グッズ商品分類修正完了**: Storefront API `title:` プレフィックス検索が日本語で機能しない根本バグを発見し修正。ベア検索+キーワード別並列検索に全面書き換え。ガジェット: キーボード0件→21件、マウスパッド/PCケース/パネル全復旧。グッズ: 缶バッジ/メタルカード/トートバッグ/モバイルバッテリーの4タブ新設+全商品表示。動的検証: ガジェット173商品・グッズ69商品・コンソールエラーゼロ。次: L-phase Go-Live（本番ドメイン切り替え準備）。
+## 作業復帰ポイント（2026/04/17 最新）
+**v166 auto-deploy 配管完成 + CMS API ラウンドトリップ全合格**:
+- **GitHub Actions 自動デプロイ稼働**: commit fbed988 (run #70) で main push → npm ci → build → `npx shopify hydrogen deploy --force --entry server --no-lockfile-check --token "$SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN"` の配管完成。ci.yml の `if: false` ガード解除、`scripts/patch-hydrogen-vendor.js` 追加で npm install 後も Hydrogen vendor COMPAT_DATE パッチ永続化。
+- **Fix B (RBAC 解消, commit 6549c48, run #74)**: `api.admin.cms.ts` line 97 の `requirePermission(..., 'content.edit')` を `'products.edit'` に変更。`content.edit` は rbac.ts 未定義だったため全ロールで 403 → owner/admin/editor が CMS API を使えるように。Run #74: Test 182s + Deploy 55s で success。
+- **13 Metaobject definition 作成完了**: `SETUP-METAOBJECTS.mjs` で POST /api/admin/metaobject-setup 実行。既存7 (article_content/ip_banner/hero_banner/seo_article/custom_option/campaign/category_card) + 新規6 (site_config/pc_color/pc_tier/ugc_review/marquee_item/legal_info) = 13種を Shopify 本番ストアに配備。errors=0。
+- **CMS API E2E 合格**: `VERIFY-CMS-API-V7.mjs` で GET /admin/login → POST /admin/login (_csrf込) → GET /api/admin/cms (新版 `{success,type,items,total}` 200) → POST create (200, id発行) → POST delete (200) の全 5 Step 合格。Production URL: `https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev`。
+- **次**: Dependabot PR (#71-73 で失敗検知の eslint/react/typescript 更新) のトリアージ、および Gantt v50 S5 テストフェーズ着手。
 
 ### Lighthouse計測結果（v133 Preview・モバイル）
 - **パフォーマンス: 99** ✅（目標90+を大幅超過）
