@@ -19,6 +19,9 @@ const CUSTOM_ROUTE_HANDLES: Record<string, string> = {
   commitment: '/commitment',
   recycle: '/recycle',
   yojimaru: '/yojimaru',
+  // patch 0013: /pages/about も内部 /about ルートへ 301。CMS about_section の
+  // link_url 旧データ対策＋ブックマーク保全。
+  about: '/about',
 };
 
 export const meta: Route.MetaFunction = ({data}) => {
