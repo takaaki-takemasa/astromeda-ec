@@ -132,7 +132,7 @@ interface HeroBanner {
   endAt: string | null;
 }
 
-type SubTab = 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix';
+type SubTab = 'visual' | 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix';
 
 type Toast = {id: number; message: string; type: 'success' | 'error'};
 
@@ -454,13 +454,13 @@ async function apiGet<T>(endpoint: string): Promise<T | null> {
 // メインコンポーネント
 // ══════════════════════════════════════════════════════════
 
-const VALID_SUB_TABS: SubTab[] = ['color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix'];
+const VALID_SUB_TABS: SubTab[] = ['visual', 'color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix'];
 
 export default function AdminPageEditor() {
   const [searchParams] = useSearchParams();
   const subParam = searchParams.get('sub');
   const initialSubTab: SubTab =
-    subParam && (VALID_SUB_TABS as string[]).includes(subParam) ? (subParam as SubTab) : 'color_models';
+    subParam && (VALID_SUB_TABS as string[]).includes(subParam) ? (subParam as SubTab) : 'visual';
   const [subTab, setSubTab] = useState<SubTab>(initialSubTab);
 
   // URL の sub パラメータ変化に追従（Site Map からの遷移対応）
@@ -473,7 +473,10 @@ export default function AdminPageEditor() {
   const {toasts, push} = useToasts();
   const {state: confirmState, confirm, handleOk: confirmOk, handleCancel: confirmCancel} = useConfirmDialog();
 
+  // patch 0027: CEO 要望「現在のサイトUIを表示し、クリックしたところの修正画面に行けるようにして」
+  // → 先頭に「ビジュアル編集」タブを配置し、live site を iframe 表示＋各セクションへのショートカット。
   const tabs: Array<{key: SubTab; label: string}> = [
+    {key: 'visual', label: '🖼 ビジュアル編集'},
     {key: 'ip_banners', label: 'IPコラボ'},
     {key: 'hero_banners', label: 'ヒーローバナー'},
     {key: 'color_models', label: 'カラーモデル'},
@@ -516,6 +519,7 @@ export default function AdminPageEditor() {
         ))}
       </div>
 
+      {subTab === 'visual' && <VisualEditSection onNavigate={setSubTab} />}
       {subTab === 'ip_banners' && <IpBannersSection pushToast={push} confirm={confirm} />}
       {subTab === 'hero_banners' && <HeroBannersSection pushToast={push} confirm={confirm} />}
       {subTab === 'color_models' && <ColorModelsSection pushToast={push} confirm={confirm} />}
@@ -528,6 +532,212 @@ export default function AdminPageEditor() {
       <ToastContainer toasts={toasts} />
       <ConfirmDialog open={confirmState.open} message={confirmState.message} onOk={confirmOk} onCancel={confirmCancel} />
       <style dangerouslySetInnerHTML={{__html: `@keyframes aped-spin { to { transform: rotate(360deg); } }`}} />
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// VisualEditSection — patch 0027
+// CEO 要望「現在のサイトUIを表示し、クリックしたところの修正画面に行けるようにして」
+// → live storefront を iframe で表示し、各セクションに編集ショートカットを配置。
+// ══════════════════════════════════════════════════════════
+
+interface VisualEditSectionProps {
+  onNavigate: (tab: SubTab) => void;
+}
+
+function VisualEditSection({onNavigate}: VisualEditSectionProps) {
+  // iframe refresh key（保存後に再読み込みして最新反映を確認するため）
+  const [iframeKey, setIframeKey] = useState(0);
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  const sections: Array<{
+    key: SubTab;
+    label: string;
+    desc: string;
+    icon: string;
+    anchor?: string;
+  }> = [
+    {key: 'hero_banners', label: 'ヒーローバナー', desc: 'トップのスライダー', icon: '🎬', anchor: 'hero'},
+    {key: 'ip_banners', label: 'IPコラボ', desc: '26タイトル IP カード', icon: '🎌', anchor: 'collabs'},
+    {key: 'color_models', label: 'PC カラー', desc: '8色モデル', icon: '🎨', anchor: 'colors'},
+    {key: 'category_cards', label: 'カテゴリ', desc: 'PC / ガジェット / グッズ', icon: '📁', anchor: 'categories'},
+    {key: 'product_shelves', label: '商品棚', desc: '新着・人気棚', icon: '🛍', anchor: 'shelves'},
+    {key: 'about_sections', label: 'ABOUT', desc: 'ブランド紹介セクション', icon: '📖', anchor: 'about'},
+    {key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク', icon: '🦶', anchor: 'footer'},
+    {key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列', icon: '⚙️', anchor: 'customize'},
+  ];
+
+  const deviceWidth: Record<PreviewDevice, number | string> = {
+    mobile: 375,
+    tablet: 768,
+    desktop: '100%',
+  };
+
+  return (
+    <div style={cardStyle}>
+      <div style={{marginBottom: 14}}>
+        <div style={{fontSize: 13, fontWeight: 800, color: T.tx, marginBottom: 4}}>
+          ビジュアル編集 — 現在のサイトUIを見ながら修正する場所へ移動
+        </div>
+        <div style={{fontSize: 11, color: T.t4, lineHeight: 1.6}}>
+          右側の緑ボタンを押すと、該当セクションの編集タブに切り替わります。
+          画像・テキストを変更したら左の「🔄 再読込」でサイトに反映された姿を確認できます。
+        </div>
+      </div>
+
+      <div style={{display: 'flex', gap: 16, flexWrap: 'wrap'}}>
+        {/* LEFT: live storefront iframe */}
+        <div style={{flex: '1 1 640px', minWidth: 320}}>
+          <div
+            style={{
+              display: 'flex',
+              gap: 6,
+              marginBottom: 8,
+              alignItems: 'center',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setIframeKey((k) => k + 1)}
+              style={btn(true)}
+              title="最新の保存内容で再読み込み"
+            >
+              🔄 再読込
+            </button>
+            <div style={{flex: 1}} />
+            {(['mobile', 'tablet', 'desktop'] as PreviewDevice[]).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setDevice(d)}
+                style={{
+                  ...btn(device === d),
+                  padding: '6px 10px',
+                  fontSize: 11,
+                }}
+              >
+                {d === 'mobile' ? '📱' : d === 'tablet' ? '💻' : '🖥'} {d}
+              </button>
+            ))}
+          </div>
+
+          <div
+            style={{
+              border: `1px solid ${al(T.tx, 0.15)}`,
+              borderRadius: 8,
+              background: '#000',
+              padding: 8,
+              overflow: 'auto',
+              height: 820,
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <iframe
+              key={iframeKey}
+              src="/"
+              title="live storefront"
+              style={{
+                width: deviceWidth[device],
+                maxWidth: '100%',
+                height: 800,
+                border: 'none',
+                borderRadius: 4,
+                background: '#fff',
+              }}
+              sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            />
+          </div>
+          <div style={{fontSize: 10, color: T.t5, marginTop: 6}}>
+            ※ このプレビューは本番サイトそのものです。URL: /
+          </div>
+        </div>
+
+        {/* RIGHT: section shortcuts */}
+        <div style={{flex: '0 0 300px', minWidth: 280}}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              color: T.t5,
+              marginBottom: 8,
+              textTransform: 'uppercase',
+              letterSpacing: 1,
+            }}
+          >
+            このセクションを編集
+          </div>
+          <div style={{display: 'grid', gap: 8}}>
+            {sections.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                onClick={() => onNavigate(s.key)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '12px 14px',
+                  background: al(T.c, 0.06),
+                  border: `1px solid ${al(T.c, 0.2)}`,
+                  borderRadius: 6,
+                  color: T.tx,
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'inherit',
+                  fontSize: 12,
+                  transition: 'background 0.15s, border-color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = al(T.c, 0.14);
+                  e.currentTarget.style.borderColor = T.c;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = al(T.c, 0.06);
+                  e.currentTarget.style.borderColor = al(T.c, 0.2);
+                }}
+              >
+                <div style={{fontSize: 20, lineHeight: 1}}>{s.icon}</div>
+                <div style={{flex: 1, minWidth: 0}}>
+                  <div style={{fontWeight: 800, fontSize: 12, color: T.tx, marginBottom: 2}}>
+                    {s.label}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 10,
+                      color: T.t5,
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {s.desc}
+                  </div>
+                </div>
+                <div style={{color: T.c, fontWeight: 900, fontSize: 14}}>→</div>
+              </button>
+            ))}
+          </div>
+
+          <div
+            style={{
+              marginTop: 20,
+              padding: 12,
+              background: al(T.g, 0.08),
+              border: `1px solid ${al(T.g, 0.25)}`,
+              borderRadius: 6,
+              fontSize: 11,
+              color: T.t4,
+              lineHeight: 1.6,
+            }}
+          >
+            💡 <b style={{color: T.g}}>ヒント</b><br />
+            ・編集タブで保存した後は「🔄 再読込」でこの画面のサイトも最新状態になります<br />
+            ・Shopify で直接作業する必要はありません。全てこの管理画面で完結します。
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -547,6 +757,8 @@ function ColorModelsSection({pushToast, confirm}: SectionProps) {
   const [editing, setEditing] = useState<ColorModel | null>(null);
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  // patch 0027: 重複削除ボタンの処理中フラグ
+  const [deduping, setDeduping] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -557,6 +769,57 @@ function ColorModelsSection({pushToast, confirm}: SectionProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // patch 0027: CEO 指摘「16行×#000000 固定」 → 過去のシード重複を slug 単位で dedup。
+  // 各 slug につき 1件だけ残し、残りを削除する。
+  const handleDedupe = useCallback(async () => {
+    // slug ごとにグループ化
+    const bySlug = new Map<string, ColorModel[]>();
+    for (const it of items) {
+      const slug = (it.slug || '').trim() || '(no-slug)';
+      if (!bySlug.has(slug)) bySlug.set(slug, []);
+      bySlug.get(slug)!.push(it);
+    }
+    // 削除対象を抽出（各グループの 2件目以降）
+    const victims: ColorModel[] = [];
+    for (const group of bySlug.values()) {
+      if (group.length <= 1) continue;
+      // 表示順が小さい or image が埋まっているものを優先して残す
+      group.sort((a, b) => {
+        const aImg = a.image && /^https?:\/\//i.test(a.image) ? 0 : 1;
+        const bImg = b.image && /^https?:\/\//i.test(b.image) ? 0 : 1;
+        if (aImg !== bImg) return aImg - bImg;
+        return (a.sortOrder ?? 999) - (b.sortOrder ?? 999);
+      });
+      victims.push(...group.slice(1));
+    }
+    if (victims.length === 0) {
+      pushToast('重複はありません（全 slug が一意です）', 'success');
+      return;
+    }
+    const ok = await confirm(
+      `${victims.length} 件の重複を削除します。各カラーにつき 1 件を残します。実行しますか？`,
+    );
+    if (!ok) return;
+    setDeduping(true);
+    let deleted = 0;
+    let failed = 0;
+    for (const v of victims) {
+      const res = await apiPost('/api/admin/color-models', {
+        action: 'delete',
+        metaobjectId: v.id,
+      });
+      if (res.success) deleted += 1;
+      else failed += 1;
+    }
+    setDeduping(false);
+    if (failed === 0) {
+      pushToast(`${deleted} 件削除しました`, 'success');
+    } else {
+      pushToast(`削除 ${deleted} 件 / 失敗 ${failed} 件`, failed === victims.length ? 'error' : 'success');
+    }
+    await load();
+  }, [items, confirm, pushToast, load]);
 
   const handleSave = async (form: Partial<ColorModel> & {handle?: string}, isCreate: boolean) => {
     setSaving(true);
@@ -607,11 +870,48 @@ function ColorModelsSection({pushToast, confirm}: SectionProps) {
   const modalOpen = creating || editing !== null;
   const initial: Partial<ColorModel> = creating ? {colorCode: '#888888', sortOrder: 0, isActive: true} : editing || {};
 
+  // patch 0027: slug 重複を検出して「重複削除」ボタンの表示判定
+  const dupCount = (() => {
+    const seen = new Map<string, number>();
+    for (const it of items) {
+      const slug = (it.slug || '').trim() || '(no-slug)';
+      seen.set(slug, (seen.get(slug) || 0) + 1);
+    }
+    let extras = 0;
+    for (const v of seen.values()) if (v > 1) extras += v - 1;
+    return extras;
+  })();
+
   return (
     <div style={cardStyle}>
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
-        <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>PC カラーモデル ({items.length})</div>
-        <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap'}}>
+        <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>
+          PC カラーモデル ({items.length})
+          {dupCount > 0 && (
+            <span style={{marginLeft: 8, fontSize: 11, color: T.r, fontWeight: 700}}>
+              ⚠ 重複 {dupCount} 件
+            </span>
+          )}
+        </div>
+        <div style={{display: 'flex', gap: 6}}>
+          {dupCount > 0 && (
+            <button
+              type="button"
+              onClick={() => void handleDedupe()}
+              style={{
+                ...btn(false),
+                background: al(T.r, 0.1),
+                border: `1px solid ${al(T.r, 0.4)}`,
+                color: T.r,
+              }}
+              disabled={deduping}
+              title="slug が同じレコードを 1 件に集約します"
+            >
+              {deduping ? '処理中...' : `🧹 重複削除 (${dupCount})`}
+            </button>
+          )}
+          <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+        </div>
       </div>
       {loading ? (
         <div style={{textAlign: 'center', padding: 40}}><Spinner /></div>
@@ -2521,6 +2821,8 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
   const [saving, setSaving] = useState(false);
   // patch 0006: Shopify コレクション画像マップ (handle -> CDN URL)
   const [heroImages, setHeroImages] = useState<Record<string, string>>({});
+  // patch 0027: FEATURED 自動投入ボタンの処理中フラグ
+  const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -2531,6 +2833,29 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // patch 0027: CEO 指摘「なんで現在のバナーがないのか」 → FEATURED 初期値を Metaobject に自動投入。
+  // /api/admin/cms-seed は冪等なので既存 handle はスキップされる（再実行しても安全）。
+  const handleSeedFromFeatured = useCallback(async () => {
+    const ok = await confirm(
+      'FEATURED の初期ヒーローバナー 3件を自動投入します。既存のエントリはそのまま残ります。実行しますか？',
+    );
+    if (!ok) return;
+    setSeeding(true);
+    const res = await apiPost('/api/admin/cms-seed', {
+      types: ['astromeda_hero_banner'],
+    });
+    setSeeding(false);
+    if (res.success) {
+      const totals = (res as {totals?: {created?: number; skipped?: number}}).totals || {};
+      const created = totals.created ?? 0;
+      const skipped = totals.skipped ?? 0;
+      pushToast(`投入完了: 新規 ${created} 件 / スキップ ${skipped} 件`, 'success');
+      await load();
+    } else {
+      pushToast(`投入失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  }, [confirm, pushToast, load]);
 
   // patch 0006: items 変化時 + マウント時に Shopify collection 画像を一括取得
   // HeroSlider は MetaBanner.handle をコレクション handle として imageMap を引く
@@ -2606,14 +2931,38 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
 
   return (
     <div style={cardStyle}>
-      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, gap: 8, flexWrap: 'wrap'}}>
         <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>ヒーローバナー ({items.length})</div>
-        <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+        <div style={{display: 'flex', gap: 6}}>
+          {/* patch 0027: items が空 or 少ない時に初期データ投入ショートカット */}
+          {items.length < 3 && (
+            <button
+              type="button"
+              onClick={() => void handleSeedFromFeatured()}
+              style={{
+                ...btn(false),
+                background: al(T.g, 0.12),
+                border: `1px solid ${al(T.g, 0.4)}`,
+                color: T.g,
+              }}
+              disabled={seeding}
+              title="FEATURED 初期バナー 3件を一括投入（既存はスキップ）"
+            >
+              {seeding ? '投入中...' : '⬇ FEATURED から自動投入'}
+            </button>
+          )}
+          <button type="button" onClick={() => setCreating(true)} style={btn(true)}>＋ 新規追加</button>
+        </div>
       </div>
       {loading ? (
         <div style={{textAlign: 'center', padding: 40}}><Spinner /></div>
       ) : items.length === 0 ? (
-        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 30}}>エントリがありません（フロントは FEATURED フォールバック使用中）</div>
+        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 30}}>
+          エントリがありません。<br />
+          <span style={{color: T.t5, fontSize: 11}}>
+            上の <b style={{color: T.g}}>「⬇ FEATURED から自動投入」</b> ボタンでデフォルトの 3 バナー（新着/IPコラボ/ティア）を一括作成できます。
+          </span>
+        </div>
       ) : (
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>
