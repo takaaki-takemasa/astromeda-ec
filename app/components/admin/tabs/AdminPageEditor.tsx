@@ -614,9 +614,15 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
     desktop: '100%',
   };
 
-  // patch 0029: iframe ロード時に contentDocument へ色付き番号オーバーレイを
+  // patch 0029 + 0030: iframe ロード時に contentDocument へ色付き番号オーバーレイを
   // 注入する。各セクションに floating pill ラベルを被せ、`data-astro-section`
   // 属性を付ける。hover 時は JS で該当要素に outline をかけて auto-scroll。
+  //
+  // patch 0030 (2026-04-19): React hydration が完了する前に injectOverlays が走ると
+  // iframe.contentDocument.querySelector('main') の children が cart-main(h=0) しか無く
+  // 7 セクション中 footer 以外検出失敗していた。idempotent 化＋MutationObserver＋
+  // 多段リトライ (50ms / 250ms / 600ms / 1.2s / 2.5s / 4s / 6s) で hydration の
+  // どのタイミングでも全セクションが拾えるようにする。
   const injectOverlays = useCallback(() => {
     const frame = iframeRef.current;
     if (!frame) return;
@@ -627,9 +633,6 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
       return; // cross-origin — should never happen after patch 0028
     }
     if (!doc || doc.readyState !== 'complete') return;
-
-    // 既存オーバーレイ除去（iframe 再読込時に積み重なるのを防ぐ）
-    doc.querySelectorAll('[data-astro-overlay]').forEach((n) => n.remove());
 
     const styleId = 'astro-visual-edit-style';
     if (!doc.getElementById(styleId)) {
@@ -652,23 +655,35 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
       doc.head.appendChild(s);
     }
 
-    // candidates: main の孫（グループ構成ルート）＋ footer
-    const containers: Element[] = [];
+    // 候補コンテナ収集: main 直下 + その孫 + すべての section/footer/header。
+    // hydration 途中だと main が cart-main しか持たないので、深掘りも併用する。
+    const containerSet = new Set<Element>();
     const mainRoot = doc.querySelector('main');
     if (mainRoot) {
-      // main 直下が 3 分割になっている（cart-main / predictive-search / 本体）
-      const bodyWrap = Array.from(mainRoot.children).find((c) => (c as HTMLElement).offsetHeight > 200);
-      if (bodyWrap) containers.push(...Array.from(bodyWrap.children));
+      Array.from(mainRoot.children).forEach((c) => {
+        containerSet.add(c);
+        Array.from(c.children).forEach((gc) => containerSet.add(gc));
+      });
+      // セクション系タグも全部回収（hero-slider-wrap などの命名コンテナ含む）
+      mainRoot
+        .querySelectorAll('section, header, [class*="hero-slider"], [class*="collab-grid"], [class*="pc-showcase"]')
+        .forEach((el) => containerSet.add(el));
     }
     const footer = doc.querySelector('footer');
-    if (footer && !containers.includes(footer)) containers.push(footer);
+    if (footer) containerSet.add(footer);
 
-    const seen = new Set<string>();
-    containers.forEach((el) => {
-      const htmlEl = el as HTMLElement;
-      const text = (htmlEl.innerText || '').trim();
-      for (const sec of sections) {
-        if (seen.has(sec.key)) continue;
+    const containers = Array.from(containerSet);
+
+    for (const sec of sections) {
+      // 既にタグ付け済みならスキップ（idempotent: 多段リトライで重複しない）
+      if (doc.querySelector(`[data-astro-section="${sec.key}"]`)) continue;
+
+      for (const el of containers) {
+        const htmlEl = el as HTMLElement;
+        // ほぼ空っぽ／非表示の要素はスキップ（hydration 前の placeholder 対策）
+        if (htmlEl.offsetHeight < 40) continue;
+
+        const text = (htmlEl.innerText || '').trim();
         let matched = false;
         try {
           matched = sec.match(text, el);
@@ -676,34 +691,72 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
           matched = false;
         }
         if (!matched) continue;
-        seen.add(sec.key);
+
         htmlEl.setAttribute('data-astro-section', sec.key);
         htmlEl.style.setProperty('--astro-sec-color', sec.color);
         htmlEl.style.setProperty('--astro-sec-color-a', sec.color + '55');
-        // 注入する pill ラベル
+        // 既存 pill 除去（hydration 中の重複防止）
+        htmlEl.querySelectorAll(':scope > .astro-section-pill').forEach((n) => n.remove());
+
         const pill = doc!.createElement('span');
         pill.className = 'astro-section-pill';
         pill.setAttribute('data-astro-overlay', '1');
         pill.style.background = sec.color;
         pill.innerHTML = `<span class="num">${sec.num}</span><span>${sec.label}</span>`;
-        // コンテナに position:relative を保証（pill を absolute 配置するため）
+
         const cs = frame.contentWindow?.getComputedStyle(htmlEl);
         if (cs && cs.position === 'static') htmlEl.style.position = 'relative';
         htmlEl.appendChild(pill);
         break;
       }
-    });
+    }
   }, []); // sections は定義固定
 
-  // iframe が差し替わる度に overlay 再注入
+  // iframe が差し替わる度に overlay 再注入。
+  // patch 0030: 単一 setTimeout では React hydration を取り逃すので、
+  // 多段リトライ＋MutationObserver で hydration 中に発火する子要素追加を
+  // ハンドリングし、最終的に全セクション pill が揃うまで自動で再試行する。
   useEffect(() => {
     const frame = iframeRef.current;
     if (!frame) return;
-    const onLoad = () => setTimeout(injectOverlays, 50);
+    let cancelled = false;
+    let observer: MutationObserver | null = null;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    const tryInject = () => {
+      if (cancelled) return;
+      injectOverlays();
+    };
+
+    const onLoad = () => {
+      // 多段リトライ — hydration がいつ終わっても拾える
+      [50, 250, 600, 1200, 2500, 4000, 6000].forEach((d) =>
+        timers.push(setTimeout(tryInject, d)),
+      );
+      // MutationObserver: main / footer の subtree 変更で再注入
+      const doc = frame.contentDocument;
+      if (!doc) return;
+      const target = doc.querySelector('main') || doc.body;
+      if (target) {
+        observer = new MutationObserver(() => {
+          // throttle: setTimeout 0 で次マイクロタスクへ
+          if (cancelled) return;
+          tryInject();
+        });
+        observer.observe(target, {childList: true, subtree: true});
+      }
+    };
+
     frame.addEventListener('load', onLoad);
     // 既にロード済みなら即注入
     if (frame.contentDocument?.readyState === 'complete') onLoad();
-    return () => frame.removeEventListener('load', onLoad);
+
+    return () => {
+      cancelled = true;
+      observer?.disconnect();
+      timers.forEach((t) => clearTimeout(t));
+      frame.removeEventListener('load', onLoad);
+    };
   }, [iframeKey, injectOverlays]);
 
   // サイドバーボタン hover で iframe 内の該当セクションを scroll+highlight
