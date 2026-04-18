@@ -167,11 +167,13 @@ export async function loadAllCMSData(
   });
   const metaColorsAll = colorsRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
+    // patch 0026: Metaobject 定義は hex_color / image_url。旧コードは color_code / image を
+    // 期待して #888888 fallback に落ちていた。両方見て正規名を優先する。
     return {
       id: mo.id, handle: mo.handle,
       name: f['name'] || '', slug: f['slug'] || '',
-      image: f['image'] || null,
-      colorCode: f['color_code'] || '#888888',
+      image: f['image_url'] || f['image'] || null,
+      colorCode: f['hex_color'] || f['color_code'] || '#888888',
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
     };

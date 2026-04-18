@@ -83,13 +83,16 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
     const colorModels = metaobjects.map((mo) => {
       const f = fieldsToMap(mo.fields);
+      // patch 0026: Metaobject 定義のフィールド名は hex_color / image_url。
+      // 旧コードは color_code / image を書き込んでいたため空振りし #000000 固定になっていた。
+      // 読み取り側は両方見て、Metaobject 正規名を優先する。
       return {
         id: mo.id,
         handle: mo.handle,
         name: f['name'] || '',
         slug: f['slug'] || '',
-        image: f['image'] || null,
-        colorCode: f['color_code'] || '#000000',
+        image: f['image_url'] || f['image'] || null,
+        colorCode: f['hex_color'] || f['color_code'] || '#000000',
         sortOrder: parseInt(f['display_order'] || '0', 10),
         isActive: f['is_active'] === 'true',
       };
@@ -149,14 +152,16 @@ export async function action({ request, context }: Route.ActionArgs) {
     switch (v.action) {
       case 'create': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0026: Metaobject 定義と整合する hex_color / image_url キーで書き込む。
+        // 旧コードの color_code / image は定義に存在しないキーで、Shopify 側が黙って捨てていた。
         const fields: Array<{ key: string; value: string }> = [
           { key: 'name', value: v.name },
           { key: 'slug', value: v.slug },
-          { key: 'color_code', value: v.colorCode },
+          { key: 'hex_color', value: v.colorCode },
           { key: 'display_order', value: String(v.sortOrder) },
           { key: 'is_active', value: String(v.isActive) },
         ];
-        if (v.image) fields.push({ key: 'image', value: v.image });
+        if (v.image) fields.push({ key: 'image_url', value: v.image });
 
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
         auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: 'color_model_create', success: true });
@@ -168,8 +173,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         const fields: Array<{ key: string; value: string }> = [];
         if (v.name !== undefined) fields.push({ key: 'name', value: v.name });
         if (v.slug !== undefined) fields.push({ key: 'slug', value: v.slug });
-        if (v.image !== undefined) fields.push({ key: 'image', value: v.image });
-        if (v.colorCode !== undefined) fields.push({ key: 'color_code', value: v.colorCode });
+        if (v.image !== undefined) fields.push({ key: 'image_url', value: v.image });
+        if (v.colorCode !== undefined) fields.push({ key: 'hex_color', value: v.colorCode });
         if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
         if (v.isActive !== undefined) fields.push({ key: 'is_active', value: String(v.isActive) });
 

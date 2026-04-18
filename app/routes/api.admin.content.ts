@@ -17,6 +17,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { normalizeFileReferenceField } from '~/lib/image-resolver';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const METAOBJECT_TYPE = 'astromeda_article_content';
@@ -231,9 +232,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.featured_image) fields.push({ key: 'featured_image', value: v.featured_image });
         if (v.published_at) fields.push({ key: 'published_at', value: v.published_at });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'featured_image', v.title);
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
-        auditLog({ action: 'content_create', role, resource: `metaobject/${result.id}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'content_create', role, resource: `metaobject/${result.id}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update': {
@@ -247,9 +250,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.published_at !== undefined) fields.push({ key: 'published_at', value: v.published_at });
         if (v.is_published !== undefined) fields.push({ key: 'is_published', value: String(v.is_published) });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'featured_image', v.title || 'article_content');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'content_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'content_update', role, resource: `metaobject/${v.metaobjectId}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete': {

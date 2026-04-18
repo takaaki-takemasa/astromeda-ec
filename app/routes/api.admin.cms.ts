@@ -19,6 +19,7 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { validateAndSanitizeFields, validateHandle } from '~/lib/cms-field-validator';
+import { normalizeFileReferenceFieldsByType } from '~/lib/image-resolver';
 
 // 管理可能な Metaobject タイプ一覧
 const ALLOWED_TYPES = [
@@ -70,19 +71,8 @@ async function getAdminClientFromContext(contextEnv: Env) {
     '../../agents/core/shopify-admin.js'
   );
   setAdminEnv(contextEnv);
-  return getAdminClient() as unknown as {
-    query: <T>(q: string) => Promise<T>;
-    createMetaobject: (
-      type: string,
-      handle: string,
-      fields: Array<{ key: string; value: string }>,
-    ) => Promise<{ id: string }>;
-    updateMetaobject: (
-      id: string,
-      fields: Array<{ key: string; value: string }>,
-    ) => Promise<{ id: string }>;
-    deleteMetaobject: (id: string) => Promise<{ deletedId: string }>;
-  };
+  // 完全な AdminClient を返す（image-resolver の createFileFromStagedUpload も使う）
+  return getAdminClient();
 }
 
 async function authenticateAdmin(request: Request, contextEnv: Env, context: unknown) {
@@ -231,14 +221,23 @@ export async function action({ request, context }: Route.ActionArgs) {
           );
         }
 
+        // patch 0026: file_reference キーは URL→GID 変換を挟む（無効値は drop）
+        const imgNotes = await normalizeFileReferenceFieldsByType(
+          client,
+          type,
+          validation.sanitizedFields,
+          handle,
+        );
+
         const created = await client.createMetaobject(type, handle, validation.sanitizedFields);
         auditLog({
           action: 'content_create',
           role: authResult.role,
           resource: `cms/${type}/${handle}`,
+          detail: imgNotes.length ? imgNotes.join('; ') : undefined,
           success: true,
         });
-        return data({ success: true, id: created.id, handle });
+        return data({ success: true, id: created.id, handle, imageNotes: imgNotes });
       }
 
       case 'update': {
@@ -272,14 +271,23 @@ export async function action({ request, context }: Route.ActionArgs) {
           );
         }
 
+        // patch 0026: file_reference キーは URL→GID 変換を挟む（無効値は drop）
+        const imgNotes = await normalizeFileReferenceFieldsByType(
+          client,
+          type,
+          validation.sanitizedFields,
+          id,
+        );
+
         const updated = await client.updateMetaobject(id, validation.sanitizedFields);
         auditLog({
           action: 'content_update',
           role: authResult.role,
           resource: `cms/${type}/${id}`,
+          detail: imgNotes.length ? imgNotes.join('; ') : undefined,
           success: true,
         });
-        return data({ success: true, id: updated.id });
+        return data({ success: true, id: updated.id, imageNotes: imgNotes });
       }
 
       case 'delete': {

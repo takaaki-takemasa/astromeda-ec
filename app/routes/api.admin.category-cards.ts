@@ -17,6 +17,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { normalizeFileReferenceField } from '~/lib/image-resolver';
 
 const METAOBJECT_TYPE = 'astromeda_category_card';
 
@@ -155,9 +156,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         ];
         if (v.image) fields.push({ key: 'image', value: v.image });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title);
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: 'category_card_create', success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: `category_card_create${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update': {
@@ -171,9 +174,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.sortOrder !== undefined) fields.push({ key: 'display_order', value: String(v.sortOrder) });
         if (v.isActive !== undefined) fields.push({ key: 'is_active', value: String(v.isActive) });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title || 'category_card');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'category_card_update', success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: `category_card_update${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete': {

@@ -621,6 +621,10 @@ function ColorModelsSection({pushToast, confirm}: SectionProps) {
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>
             <tr>
+              {/* patch 0026: 現在の画像を先頭列に追加。PC カラー行では
+                  「ライフスタイル画像 → /images/pc-setup/{slug}.jpg（プロジェクト既定） → 色スウォッチ」
+                  の順で表示し、CEO がトップページ8色カードのどの行かを一目で判断できるようにする。*/}
+              <th style={thStyle}>現在の画像</th>
               <th style={thStyle}>色</th>
               <th style={thStyle}>名前</th>
               <th style={thStyle}>slug</th>
@@ -630,22 +634,51 @@ function ColorModelsSection({pushToast, confirm}: SectionProps) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <td style={tdStyle}>
-                  <span style={{display: 'inline-block', width: 16, height: 16, borderRadius: 3, background: c.colorCode, border: `1px solid ${al(T.tx, 0.2)}`, verticalAlign: 'middle'}} />
-                  <span style={{marginLeft: 8, color: T.t4, fontSize: 10}}>{c.colorCode}</span>
-                </td>
-                <td style={tdStyle}>{c.name}</td>
-                <td style={tdStyle}>{c.slug}</td>
-                <td style={tdStyle}>{c.sortOrder}</td>
-                <td style={tdStyle}>{c.isActive ? '✓ 有効' : '— 無効'}</td>
-                <td style={{...tdStyle, textAlign: 'right'}}>
-                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                </td>
-              </tr>
-            ))}
+            {items.map((c) => {
+              const storedImg = (c.image || '').trim();
+              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+              const defaultImg = c.slug ? `/images/pc-setup/${c.slug}.jpg` : null;
+              const thumb = usableStored || defaultImg;
+              return (
+                <tr key={c.id}>
+                  <td style={{...tdStyle, width: 84}}>
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={c.name || c.slug || 'preview'}
+                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
+                        onError={(e) => {
+                          const img = e.currentTarget;
+                          img.style.display = 'none';
+                          const sib = img.nextElementSibling as HTMLElement | null;
+                          if (sib) sib.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      style={{
+                        display: thumb ? 'none' : 'block',
+                        width: 72, height: 48, borderRadius: 4,
+                        background: c.colorCode,
+                        border: `1px solid ${al(T.tx, 0.2)}`,
+                      }}
+                    />
+                  </td>
+                  <td style={tdStyle}>
+                    <span style={{display: 'inline-block', width: 16, height: 16, borderRadius: 3, background: c.colorCode, border: `1px solid ${al(T.tx, 0.2)}`, verticalAlign: 'middle'}} />
+                    <span style={{marginLeft: 8, color: T.t4, fontSize: 10}}>{c.colorCode}</span>
+                  </td>
+                  <td style={tdStyle}>{c.name}</td>
+                  <td style={tdStyle}>{c.slug}</td>
+                  <td style={tdStyle}>{c.sortOrder}</td>
+                  <td style={tdStyle}>{c.isActive ? '✓ 有効' : '— 無効'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>
+                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -863,6 +896,9 @@ function CategoryCardsSection({pushToast, confirm}: SectionProps) {
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>
             <tr>
+              {/* patch 0026: 現在の画像を先頭列に。カテゴリカードは file_reference で GID の場合がある。
+                  URL のときだけ素直に表示し、それ以外はグラデーションでフォールバック。*/}
+              <th style={thStyle}>現在の画像</th>
               <th style={thStyle}>タイトル</th>
               <th style={thStyle}>説明</th>
               <th style={thStyle}>最低価格</th>
@@ -873,20 +909,45 @@ function CategoryCardsSection({pushToast, confirm}: SectionProps) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <td style={tdStyle}>{c.title}</td>
-                <td style={{...tdStyle, color: T.t5, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{c.description}</td>
-                <td style={tdStyle}>¥{c.priceFrom.toLocaleString('ja-JP')}</td>
-                <td style={{...tdStyle, color: T.t5, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{c.linkUrl}</td>
-                <td style={tdStyle}>{c.sortOrder}</td>
-                <td style={tdStyle}>{c.isActive ? '✓' : '—'}</td>
-                <td style={{...tdStyle, textAlign: 'right'}}>
-                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                </td>
-              </tr>
-            ))}
+            {items.map((c) => {
+              const storedImg = (c.image || '').trim();
+              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+              return (
+                <tr key={c.id}>
+                  <td style={{...tdStyle, width: 84}}>
+                    {usableStored ? (
+                      <img
+                        src={usableStored}
+                        alt={c.title || 'preview'}
+                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 72, height: 48, borderRadius: 4,
+                          background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
+                          color: T.bg, fontSize: 9, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          textAlign: 'center', lineHeight: 1.1, padding: 4,
+                        }}
+                      >
+                        画像{'\n'}未設定
+                      </div>
+                    )}
+                  </td>
+                  <td style={tdStyle}>{c.title}</td>
+                  <td style={{...tdStyle, color: T.t5, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{c.description}</td>
+                  <td style={tdStyle}>¥{c.priceFrom.toLocaleString('ja-JP')}</td>
+                  <td style={{...tdStyle, color: T.t5, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{c.linkUrl}</td>
+                  <td style={tdStyle}>{c.sortOrder}</td>
+                  <td style={tdStyle}>{c.isActive ? '✓' : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>
+                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -2263,6 +2324,11 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>
             <tr>
+              {/* patch 0026: CEO 要望「同線にもどこかわかるように現在の画像を入れてください」
+                  — 各行が storefront のどの IP コラボカードを制御するか一目で分かるように
+                  現在の表示画像のサムネを先頭列に置く。Metaobject に image 未設定なら
+                  shopHandle から解決した Shopify コレクション画像で代用する。*/}
+              <th style={thStyle}>現在の画像</th>
               <th style={thStyle}>IP名</th>
               <th style={thStyle}>コレクション</th>
               <th style={thStyle}>ラベル</th>
@@ -2272,19 +2338,46 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <td style={tdStyle}>{c.name}</td>
-                <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shopHandle}</td>
-                <td style={tdStyle}>{c.label || '—'}</td>
-                <td style={tdStyle}>{c.sortOrder}</td>
-                <td style={tdStyle}>{c.featured ? '✓' : '—'}</td>
-                <td style={{...tdStyle, textAlign: 'right'}}>
-                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                </td>
-              </tr>
-            ))}
+            {items.map((c) => {
+              const storedImg = (c.image || '').trim();
+              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+              const fallbackImg = c.shopHandle ? collabImages[c.shopHandle] : null;
+              const thumb = usableStored || fallbackImg || null;
+              return (
+                <tr key={c.id}>
+                  <td style={{...tdStyle, width: 84}}>
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={c.name || c.shopHandle || 'preview'}
+                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 72, height: 48, borderRadius: 4,
+                          background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
+                          color: T.bg, fontSize: 9, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          textAlign: 'center', lineHeight: 1.1, padding: 4,
+                        }}
+                      >
+                        画像{'\n'}未設定
+                      </div>
+                    )}
+                  </td>
+                  <td style={tdStyle}>{c.name}</td>
+                  <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shopHandle}</td>
+                  <td style={tdStyle}>{c.label || '—'}</td>
+                  <td style={tdStyle}>{c.sortOrder}</td>
+                  <td style={tdStyle}>{c.featured ? '✓' : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>
+                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}
@@ -2525,6 +2618,8 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>
             <tr>
+              {/* patch 0026: CEO 要望「現在の画像を入れてください」— ヒーロー配信先のコレクション画像を先頭列に。*/}
+              <th style={thStyle}>現在の画像</th>
               <th style={thStyle}>タイトル</th>
               <th style={thStyle}>CTA</th>
               <th style={thStyle}>期間</th>
@@ -2534,21 +2629,48 @@ function HeroBannersSection({pushToast, confirm}: SectionProps) {
             </tr>
           </thead>
           <tbody>
-            {items.map((c) => (
-              <tr key={c.id}>
-                <td style={tdStyle}>{c.title}</td>
-                <td style={{...tdStyle, color: T.t5}}>{c.ctaLabel || '—'}</td>
-                <td style={{...tdStyle, color: T.t5, fontSize: 10, fontFamily: 'monospace'}}>
-                  {c.startAt || '∞'} 〜 {c.endAt || '∞'}
-                </td>
-                <td style={tdStyle}>{c.sortOrder}</td>
-                <td style={tdStyle}>{c.active ? '✓' : '—'}</td>
-                <td style={{...tdStyle, textAlign: 'right'}}>
-                  <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                  <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                </td>
-              </tr>
-            ))}
+            {items.map((c) => {
+              const storedImg = (c.image || '').trim();
+              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+              const fallbackImg = c.handle ? heroImages[c.handle] : null;
+              const thumb = usableStored || fallbackImg || null;
+              return (
+                <tr key={c.id}>
+                  <td style={{...tdStyle, width: 84}}>
+                    {thumb ? (
+                      <img
+                        src={thumb}
+                        alt={c.title || c.handle || 'preview'}
+                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: 72, height: 48, borderRadius: 4,
+                          background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
+                          color: T.bg, fontSize: 9, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center',
+                          textAlign: 'center', lineHeight: 1.1, padding: 4,
+                        }}
+                      >
+                        画像{'\n'}未設定
+                      </div>
+                    )}
+                  </td>
+                  <td style={tdStyle}>{c.title}</td>
+                  <td style={{...tdStyle, color: T.t5}}>{c.ctaLabel || '—'}</td>
+                  <td style={{...tdStyle, color: T.t5, fontSize: 10, fontFamily: 'monospace'}}>
+                    {c.startAt || '∞'} 〜 {c.endAt || '∞'}
+                  </td>
+                  <td style={tdStyle}>{c.sortOrder}</td>
+                  <td style={tdStyle}>{c.active ? '✓' : '—'}</td>
+                  <td style={{...tdStyle, textAlign: 'right'}}>
+                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       )}

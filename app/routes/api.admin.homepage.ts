@@ -17,6 +17,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { normalizeFileReferenceField } from '~/lib/image-resolver';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const COLLABS_TYPE = 'astromeda_ip_banner';
@@ -235,9 +236,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.image) fields.push({ key: 'image', value: v.image });
         if (v.tagline) fields.push({ key: 'tagline', value: v.tagline });
         if (v.label) fields.push({ key: 'label', value: v.label });
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.name);
         const result = await client.createMetaobject(COLLABS_TYPE, v.handle, fields);
-        auditLog({ action: 'collab_create', role, resource: `metaobject/${result.id}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'collab_create', role, resource: `metaobject/${result.id}`, detail: imgNotes.join('; ') || undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update_collab': {
@@ -251,9 +254,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.tagline !== undefined) fields.push({ key: 'tagline', value: v.tagline });
         if (v.label !== undefined) fields.push({ key: 'label', value: v.label });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.name || 'ip_banner');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'collab_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'collab_update', role, resource: `metaobject/${v.metaobjectId}`, detail: imgNotes.join('; ') || undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete_collab': {
@@ -277,9 +282,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.startAt) fields.push({ key: 'start_at', value: v.startAt });
         if (v.endAt) fields.push({ key: 'end_at', value: v.endAt });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title);
         const result = await client.createMetaobject(BANNERS_TYPE, v.handle, fields);
-        auditLog({ action: 'banner_create', role, resource: `metaobject/${result.id}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'banner_create', role, resource: `metaobject/${result.id}`, detail: imgNotes.join('; ') || undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update_banner': {
@@ -295,9 +302,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.startAt !== undefined) fields.push({ key: 'start_at', value: v.startAt });
         if (v.endAt !== undefined) fields.push({ key: 'end_at', value: v.endAt });
 
+        // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
+        const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title || 'hero_banner');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'banner_update', role, resource: `metaobject/${v.metaobjectId}`, success: true });
-        return data({ success: true, metaobject: result });
+        auditLog({ action: 'banner_update', role, resource: `metaobject/${v.metaobjectId}`, detail: imgNotes.join('; ') || undefined, success: true });
+        return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete_banner': {

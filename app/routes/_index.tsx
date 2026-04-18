@@ -281,7 +281,8 @@ export async function loader({context}: Route.LoaderArgs) {
       name: f['name'] || '',
       slug: f['slug'] || '',
       image: f['image_url'] || f['image'] || null,
-      colorCode: f['color_code'] || '#888888',
+      // patch 0026: Metaobject 定義は hex_color。旧コードは color_code を読んで常に fallback 落ちしていた。
+      colorCode: f['hex_color'] || f['color_code'] || '#888888',
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
     };
