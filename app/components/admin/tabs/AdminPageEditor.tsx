@@ -682,7 +682,13 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
     const footer = doc.querySelector('footer');
     if (footer) containerSet.add(footer);
 
-    const containers = Array.from(containerSet);
+    // patch 0032: text match は「もっとも小さい合致コンテナ」を選ぶ。
+    // これをやらないと bodyWrap (h=5141) が `全8色カラー` を含むテキストで
+    // color_models に吸われてしまい、本物の `<section>`（h=531）が無視される。
+    // また、明らかに大きすぎる（3500px 超）コンテナは text 照合対象から外す。
+    const containers = Array.from(containerSet).sort(
+      (a, b) => (a as HTMLElement).offsetHeight - (b as HTMLElement).offsetHeight,
+    );
 
     for (const sec of sections) {
       // 既にタグ付け済みならスキップ（idempotent: 多段リトライで重複しない）
