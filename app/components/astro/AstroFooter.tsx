@@ -2,9 +2,62 @@ import {useState} from 'react';
 import {Link, useRouteLoaderData} from 'react-router';
 import {T, al, LEGAL, POLICY_BASE} from '~/lib/astromeda-data';
 import {NewsletterSignup} from '~/components/astro/NewsletterSignup';
-import type {RootLoader, MetaFooterConfig} from '~/root';
+import type {RootLoader, MetaFooterConfig, MetaLegalInfo} from '~/root';
 // patch 0012: CMS Footer リンクで旧サイト絶対URLが入っていても内部遷移に畳む
 import {toInternalPath, isExternalHref} from '~/lib/cms-url';
+
+/**
+ * patch 0018: CMS astromeda_legal_info を LEGAL 定数にオーバーレイ。
+ * CMS 側に値があればそれを使い、空文字 / undefined ならハードコード定数を維持する。
+ * これにより Go-Live 後も管理画面だけで特商法・保証・会社情報を編集可能にする。
+ */
+function pickLegalValue<T extends string>(cmsVal: unknown, fallback: T): T {
+  if (typeof cmsVal === 'string' && cmsVal.trim() !== '') return cmsVal as T;
+  return fallback;
+}
+function mergeLegal(meta: MetaLegalInfo | null) {
+  if (!meta) return LEGAL;
+  const c = meta.company || {};
+  const t = meta.tokusho || {};
+  const w = meta.warranty || {};
+  return {
+    company: {
+      name: pickLegalValue(c.name, LEGAL.company.name),
+      en: pickLegalValue(c.en, LEGAL.company.en),
+      ceo: pickLegalValue(c.ceo, LEGAL.company.ceo),
+      est: pickLegalValue(c.est, LEGAL.company.est),
+      addr: pickLegalValue(c.addr, LEGAL.company.addr),
+      biz: pickLegalValue(c.biz, LEGAL.company.biz),
+      partners: pickLegalValue(c.partners, LEGAL.company.partners),
+    },
+    tokusho: {
+      seller: pickLegalValue(t.seller, LEGAL.tokusho.seller),
+      resp: pickLegalValue(t.resp, LEGAL.tokusho.resp),
+      addr: pickLegalValue(t.addr, LEGAL.tokusho.addr),
+      tel: pickLegalValue(t.tel, LEGAL.tokusho.tel),
+      email: pickLegalValue(t.email, LEGAL.tokusho.email),
+      pay: pickLegalValue(t.pay, LEGAL.tokusho.pay),
+      ship: pickLegalValue(t.ship, LEGAL.tokusho.ship),
+      shipTime: pickLegalValue(t.shipTime, LEGAL.tokusho.shipTime),
+      cancel: pickLegalValue(t.cancel, LEGAL.tokusho.cancel),
+      returnP: pickLegalValue(t.returnP, LEGAL.tokusho.returnP),
+      price: pickLegalValue(t.price, LEGAL.tokusho.price),
+    },
+    warranty: {
+      base: pickLegalValue(w.base, LEGAL.warranty.base),
+      ext: pickLegalValue(w.ext, LEGAL.warranty.ext),
+      extPrice2: pickLegalValue(w.extPrice2, LEGAL.warranty.extPrice2),
+      extPrice3: pickLegalValue(w.extPrice3, LEGAL.warranty.extPrice3),
+      scope: pickLegalValue(w.scope, LEGAL.warranty.scope),
+      exclude: pickLegalValue(w.exclude, LEGAL.warranty.exclude),
+      repair: pickLegalValue(w.repair, LEGAL.warranty.repair),
+      repairCost: pickLegalValue(w.repairCost, LEGAL.warranty.repairCost),
+      support: pickLegalValue(w.support, LEGAL.warranty.support),
+      device: pickLegalValue(w.device ?? '', LEGAL.warranty.device),
+    },
+    privacy: pickLegalValue(meta.privacy, LEGAL.privacy),
+  };
+}
 
 /* ─── Footer SVG Icons ──────────────────────────────── */
 const iconProps = {width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true as const};
@@ -18,6 +71,8 @@ export function AstroFooter() {
   const [sec, setSec] = useState<string | null>(null);
   const rootData = useRouteLoaderData<RootLoader>('root');
   const rawFooterConfigs: MetaFooterConfig[] = rootData?.metaFooterConfigs || [];
+  // patch 0018: CMS 入力値を LEGAL 定数にオーバーレイ
+  const legal = mergeLegal(rootData?.metaLegalInfo || null);
   // Sprint 2 Part 3-5: 完全性チェック — 全 active エントリが section_title + links を満たす
   const activeFooterConfigs = rawFooterConfigs.filter((c) => c.isActive);
   const footerMetaMode =
@@ -154,12 +209,12 @@ export function AstroFooter() {
                     {s.k === 'company' && (
                       <div>
                         {[
-                          ['会社名', `${LEGAL.company.name} (${LEGAL.company.en})`],
-                          ['代表取締役社長', LEGAL.company.ceo],
-                          ['設立', LEGAL.company.est],
-                          ['本社所在地', LEGAL.company.addr],
-                          ['事業内容', LEGAL.company.biz],
-                          ['主要取引先', LEGAL.company.partners],
+                          ['会社名', `${legal.company.name} (${legal.company.en})`],
+                          ['代表取締役社長', legal.company.ceo],
+                          ['設立', legal.company.est],
+                          ['本社所在地', legal.company.addr],
+                          ['事業内容', legal.company.biz],
+                          ['主要取引先', legal.company.partners],
                         ].map(([k, v]) => (
                           <div key={k} style={rowStyle}>
                             <span className="astro-footer-label" style={labelStyle}>{k}</span>
@@ -171,16 +226,16 @@ export function AstroFooter() {
                     {s.k === 'tokusho' && (
                       <div>
                         {[
-                          ['販売業者', LEGAL.tokusho.seller],
-                          ['代表責任者', LEGAL.tokusho.resp],
-                          ['所在地', LEGAL.tokusho.addr],
-                          ['電話番号', LEGAL.tokusho.tel],
-                          ['メール', LEGAL.tokusho.email],
-                          ['支払方法', LEGAL.tokusho.pay],
-                          ['送料', LEGAL.tokusho.ship],
-                          ['出荷目安', LEGAL.tokusho.shipTime],
-                          ['商品代金', LEGAL.tokusho.price],
-                          ['キャンセル', LEGAL.tokusho.cancel],
+                          ['販売業者', legal.tokusho.seller],
+                          ['代表責任者', legal.tokusho.resp],
+                          ['所在地', legal.tokusho.addr],
+                          ['電話番号', legal.tokusho.tel],
+                          ['メール', legal.tokusho.email],
+                          ['支払方法', legal.tokusho.pay],
+                          ['送料', legal.tokusho.ship],
+                          ['出荷目安', legal.tokusho.shipTime],
+                          ['商品代金', legal.tokusho.price],
+                          ['キャンセル', legal.tokusho.cancel],
                         ].map(([k, v]) => (
                           <div key={k} style={rowStyle}>
                             <span className="astro-footer-label" style={labelStyle}>{k}</span>
@@ -202,12 +257,12 @@ export function AstroFooter() {
                           ■ PC保証プラン
                         </div>
                         {[
-                          ['標準保証', LEGAL.warranty.base],
-                          ['延長保証', LEGAL.warranty.ext],
-                          ['2年延長', LEGAL.warranty.extPrice2],
-                          ['3年延長', LEGAL.warranty.extPrice3],
-                          ['対象範囲', LEGAL.warranty.scope],
-                          ['対象外', LEGAL.warranty.exclude],
+                          ['標準保証', legal.warranty.base],
+                          ['延長保証', legal.warranty.ext],
+                          ['2年延長', legal.warranty.extPrice2],
+                          ['3年延長', legal.warranty.extPrice3],
+                          ['対象範囲', legal.warranty.scope],
+                          ['対象外', legal.warranty.exclude],
                         ].map(([k, v]) => (
                           <div key={k} style={{display: 'flex', gap: 8, marginBottom: 6}}>
                             <span style={{minWidth: 80, ...labelStyle}}>{k}</span>
@@ -226,9 +281,9 @@ export function AstroFooter() {
                           ■ 修理・サポート
                         </div>
                         {[
-                          ['修理納期', LEGAL.warranty.repair],
-                          ['修理費用', LEGAL.warranty.repairCost],
-                          ['窓口', LEGAL.warranty.support],
+                          ['修理納期', legal.warranty.repair],
+                          ['修理費用', legal.warranty.repairCost],
+                          ['窓口', legal.warranty.support],
                         ].map(([k, v]) => (
                           <div key={k} style={{display: 'flex', gap: 8, marginBottom: 6}}>
                             <span style={{minWidth: 80, ...labelStyle}}>{k}</span>
@@ -239,7 +294,7 @@ export function AstroFooter() {
                     )}
                     {s.k === 'privacy' && (
                       <div>
-                        {LEGAL.privacy}
+                        {legal.privacy}
                         <br />
                         <br />
                         <a
@@ -255,7 +310,7 @@ export function AstroFooter() {
                     {s.k === 'shipping' && (
                       <div>
                         {[
-                          ['返品条件', LEGAL.tokusho.returnP],
+                          ['返品条件', legal.tokusho.returnP],
                           ['PC出荷', '注文後10〜15営業日前後（土日祝除く）'],
                           ['ガジェット出荷', '3〜5営業日'],
                           ['即日出荷', '14時までの注文で対応（対象モデル限定・土日祝除く）'],

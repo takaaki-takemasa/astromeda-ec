@@ -132,6 +132,50 @@ export interface MetaFooterConfig {
   isActive: boolean;
 }
 
+// patch 0018: astromeda_legal_info Metaobject の分解型。
+// `company_json` / `tokusho_json` / `warranty_json` はそれぞれ JSON blob。
+// キー欠落時は astromeda-data.ts の LEGAL 定数から補完する（AstroFooter 側でマージ）。
+export interface LegalCompany {
+  name: string;
+  en: string;
+  ceo: string;
+  est: string;
+  addr: string;
+  biz: string;
+  partners: string;
+}
+export interface LegalTokusho {
+  seller: string;
+  resp: string;
+  addr: string;
+  tel: string;
+  email: string;
+  pay: string;
+  ship: string;
+  shipTime: string;
+  cancel: string;
+  returnP: string;
+  price: string;
+}
+export interface LegalWarranty {
+  base: string;
+  ext: string;
+  extPrice2: string;
+  extPrice3: string;
+  scope: string;
+  exclude: string;
+  repair: string;
+  repairCost: string;
+  support: string;
+  device?: string;
+}
+export interface MetaLegalInfo {
+  company: Partial<LegalCompany>;
+  tokusho: Partial<LegalTokusho>;
+  warranty: Partial<LegalWarranty>;
+  privacy: string;
+}
+
 async function loadCriticalData({context}: Route.LoaderArgs) {
   const {storefront, env} = context;
 
@@ -148,7 +192,7 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
   const emptyFooterMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
 
-  const [headerResult, footerConfigResult] = await Promise.allSettled([
+  const [headerResult, footerConfigResult, legalInfoResult] = await Promise.allSettled([
     storefront.query(HEADER_QUERY, {
       cache: storefront.CacheLong(),
       variables: {
@@ -156,6 +200,8 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
       },
     }),
     adminClient ? adminClient.getMetaobjects('astromeda_footer_config', 50) : emptyFooterMo(),
+    // patch 0018: astromeda_legal_info も root.tsx loader で取得して AstroFooter に渡す
+    adminClient ? adminClient.getMetaobjects('astromeda_legal_info', 5) : emptyFooterMo(),
   ]);
 
   // ヘッダーが失敗したら従来通り throw（全ページが 500 する挙動は既存仕様のまま）
@@ -195,7 +241,44 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     };
   });
 
-  return {header, metaFooterConfigs};
+  // patch 0018: astromeda_legal_info を company_json / tokusho_json / warranty_json / privacy_text
+  // から組み立てる。is_active=true のうち sortOrder 最小の 1 件を採用（複数登録時の決定論性）。
+  const legalInfoRaw = legalInfoResult.status === 'fulfilled' ? legalInfoResult.value : [];
+  let metaLegalInfo: MetaLegalInfo | null = null;
+  const activeLegal = legalInfoRaw
+    .map((mo) => {
+      const f: Record<string, string> = {};
+      for (const kv of mo.fields) f[kv.key] = kv.value;
+      return {
+        id: mo.id,
+        handle: mo.handle,
+        fields: f,
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        isActive: f['is_active'] === 'true',
+      };
+    })
+    .filter((x) => x.isActive)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (activeLegal[0]) {
+    const f = activeLegal[0].fields;
+    const tryParse = <T,>(raw: string | undefined, fallback: T): T => {
+      if (!raw) return fallback;
+      try {
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? (parsed as T) : fallback;
+      } catch {
+        return fallback;
+      }
+    };
+    metaLegalInfo = {
+      company: tryParse<Partial<LegalCompany>>(f['company_json'], {}),
+      tokusho: tryParse<Partial<LegalTokusho>>(f['tokusho_json'], {}),
+      warranty: tryParse<Partial<LegalWarranty>>(f['warranty_json'], {}),
+      privacy: typeof f['privacy_text'] === 'string' ? f['privacy_text'] : '',
+    };
+  }
+
+  return {header, metaFooterConfigs, metaLegalInfo};
 }
 
 /**
