@@ -5,16 +5,41 @@
  * - meta description 設定
  * - canonical URL
  * - お問い合わせ窓口・連絡手段を案内
+ *
+ * patch 0020 (P0-C): astromeda_static_page (page_slug='contact') から
+ * title / meta_description をオーバーライド可能に接続。
+ * Card/inquiry-type list は構造 (mailto: href 含む) のためハードコードを維持。
  */
 
+import {useLoaderData} from 'react-router';
 import type {Route} from './+types/contact';
 import {T, STORE_URL} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {loadStaticPageBySlug, type StaticPageCms} from '~/lib/static-page-loader';
 
-export const meta: Route.MetaFunction = () => {
-  const title = 'お問い合わせ | ASTROMEDA ゲーミングPC';
-  const description =
-    'ASTROMEDAへのお問い合わせ窓口。商品・注文・配送・保証・修理に関するご質問は、メール・電話・LINEからお気軽にお問い合わせください。';
+const HARDCODED_TITLE = 'お問い合わせ';
+const HARDCODED_META_DESC =
+  'ASTROMEDAへのお問い合わせ窓口。商品・注文・配送・保証・修理に関するご質問は、メール・電話・LINEからお気軽にお問い合わせください。';
+
+export async function loader(args: Route.LoaderArgs) {
+  const {env} = args.context;
+  let adminClient: {getMetaobjects: (type: string, first: number) => Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>>} | null = null;
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    adminClient = getAdminClient();
+  } catch {
+    adminClient = null;
+  }
+  const cms = await loadStaticPageBySlug(adminClient, 'contact');
+  return {cms};
+}
+
+export const meta: Route.MetaFunction = ({data}) => {
+  const cms = (data as {cms?: StaticPageCms | null} | undefined)?.cms;
+  const useCms = cms && cms.isPublished;
+  const title = `${useCms && cms.title ? cms.title : HARDCODED_TITLE} | ASTROMEDA ゲーミングPC`;
+  const description = useCms && cms.metaDescription ? cms.metaDescription : HARDCODED_META_DESC;
   const url = `${STORE_URL}/contact`;
   return [
     {title},
@@ -66,6 +91,10 @@ function Card({
 }
 
 export default function Contact() {
+  const {cms} = useLoaderData<typeof loader>();
+  const useCms = !!cms && cms.isPublished;
+  const pageTitle = useCms && cms!.title ? cms!.title : HARDCODED_TITLE;
+
   return (
     <div
       style={{
@@ -104,7 +133,7 @@ export default function Contact() {
               margin: '0 0 12px',
             }}
           >
-            お問い合わせ
+            {pageTitle}
           </h1>
           <p
             style={{
@@ -188,6 +217,12 @@ export default function Contact() {
             </p>
           </div>
         </section>
+
+        {useCms && cms!.updatedLabel && (
+          <div style={{textAlign: 'center', marginBottom: 16, fontSize: 12, color: 'rgba(255,255,255,.4)'}}>
+            {cms!.updatedLabel}
+          </div>
+        )}
 
         {/* Note */}
         <section

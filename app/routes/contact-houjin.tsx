@@ -5,16 +5,81 @@
  * - meta description 設定
  * - canonical URL
  * - 法人・教育機関・大量導入向けの専用窓口案内
+ *
+ * patch 0020 (P0-C): astromeda_static_page (page_slug='contact-houjin') から
+ * title / meta_description / sections_json をオーバーライド可能に接続。
  */
 
+import {useLoaderData} from 'react-router';
 import type {Route} from './+types/contact-houjin';
 import {T, STORE_URL} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+import {loadStaticPageBySlug, type StaticPageCms} from '~/lib/static-page-loader';
 
-export const meta: Route.MetaFunction = () => {
-  const title = '法人のお客様 | ASTROMEDA ゲーミングPC';
-  const description =
-    'ASTROMEDAは法人・教育機関・eスポーツチーム向けの大量導入・カスタマイズ・請求書払いに対応しています。お見積もり・導入相談はこちらから。';
+const HARDCODED_TITLE = '法人のお客様';
+const HARDCODED_META_DESC =
+  'ASTROMEDAは法人・教育機関・eスポーツチーム向けの大量導入・カスタマイズ・請求書払いに対応しています。お見積もり・導入相談はこちらから。';
+const HARDCODED_LEAD =
+  'ASTROMEDAは法人・教育機関・eスポーツチーム様向けの大量導入・カスタマイズに対応しています。';
+
+const HARDCODED_SECTIONS = [
+  {
+    heading: '1. 法人向けサービスのご案内',
+    body:
+      'ASTROMEDAでは、企業・教育機関・eスポーツチーム・配信スタジオ・ゲーミングカフェなど、' +
+      '法人のお客様向けに以下のサービスをご提供しています。\n' +
+      '・大量導入時の特別価格ご提案\n' +
+      '・複数台一括カスタマイズ・統一仕様での製造\n' +
+      '・請求書払い（与信審査後）\n' +
+      '・納品先一括配送・分散配送\n' +
+      '・3年延長保証の標準付帯\n' +
+      '・専任担当者による導入後サポート',
+  },
+  {
+    heading: '2. 主な導入実績',
+    body:
+      'ASTROMEDAのゲーミングPCは、プロeスポーツチーム、配信スタジオ、教育機関、' +
+      'ゲーム実況者の制作環境など幅広いシーンでご利用いただいています。' +
+      '守秘義務契約の範囲内で実績資料をご提示することも可能です。',
+  },
+  {
+    heading: '3. お見積もり・ご相談の流れ',
+    body:
+      'STEP 1：下記メールアドレスにご用途・想定台数・希望スペック・納期をお知らせください。\n' +
+      'STEP 2：担当者より2営業日以内にヒアリングのご連絡を差し上げます。\n' +
+      'STEP 3：お見積もり書・仕様書をご提示します（必要に応じて貸出機の手配も可能）。\n' +
+      'STEP 4：ご発注後、製造開始。納期に合わせて配送・設置までサポートいたします。',
+  },
+  {
+    heading: '4. お問い合わせ窓口',
+    body:
+      '法人のお客様専用窓口にて承ります。お見積もり・導入相談・カスタマイズのご要望など、' +
+      'お気軽にご連絡ください。\n' +
+      'メール：business@mng-base.com\n' +
+      '電話：03-6903-5371（平日10:00〜18:00）\n' +
+      '運営会社：株式会社マイニングベース',
+  },
+];
+
+export async function loader(args: Route.LoaderArgs) {
+  const {env} = args.context;
+  let adminClient: {getMetaobjects: (type: string, first: number) => Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>>} | null = null;
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    adminClient = getAdminClient();
+  } catch {
+    adminClient = null;
+  }
+  const cms = await loadStaticPageBySlug(adminClient, 'contact-houjin');
+  return {cms};
+}
+
+export const meta: Route.MetaFunction = ({data}) => {
+  const cms = (data as {cms?: StaticPageCms | null} | undefined)?.cms;
+  const useCms = cms && cms.isPublished;
+  const title = `${useCms && cms.title ? cms.title : HARDCODED_TITLE} | ASTROMEDA ゲーミングPC`;
+  const description = useCms && cms.metaDescription ? cms.metaDescription : HARDCODED_META_DESC;
   const url = `${STORE_URL}/contact-houjin`;
   return [
     {title},
@@ -41,7 +106,9 @@ function Section({title, children}: {title: string; children: React.ReactNode}) 
       >
         {title}
       </h2>
-      <div style={{fontSize: 14, lineHeight: 1.9, color: 'rgba(255,255,255,.7)'}}>
+      <div
+        style={{fontSize: 14, lineHeight: 1.9, color: 'rgba(255,255,255,.7)', whiteSpace: 'pre-line'}}
+      >
         {children}
       </div>
     </section>
@@ -49,6 +116,12 @@ function Section({title, children}: {title: string; children: React.ReactNode}) 
 }
 
 export default function ContactHoujin() {
+  const {cms} = useLoaderData<typeof loader>();
+  const useCms = !!cms && cms.isPublished;
+  const pageTitle = useCms && cms!.title ? cms!.title : HARDCODED_TITLE;
+  const sections =
+    useCms && cms!.sections.length > 0 ? cms!.sections : HARDCODED_SECTIONS;
+
   return (
     <div
       style={{
@@ -87,7 +160,7 @@ export default function ContactHoujin() {
               margin: '0 0 12px',
             }}
           >
-            法人のお客様
+            {pageTitle}
           </h1>
           <p
             style={{
@@ -96,63 +169,21 @@ export default function ContactHoujin() {
               lineHeight: 1.6,
             }}
           >
-            ASTROMEDAは法人・教育機関・eスポーツチーム様向けの大量導入・カスタマイズに対応しています。
+            {HARDCODED_LEAD}
           </p>
         </div>
 
-        <Section title="法人向けサービスのご案内">
-          <p>
-            ASTROMEDAでは、企業・教育機関・eスポーツチーム・配信スタジオ・ゲーミングカフェなど、
-            法人のお客様向けに以下のサービスをご提供しています。
-          </p>
-          <p style={{marginTop: 8}}>
-            ・大量導入時の特別価格ご提案<br />
-            ・複数台一括カスタマイズ・統一仕様での製造<br />
-            ・請求書払い（与信審査後）<br />
-            ・納品先一括配送・分散配送<br />
-            ・3年延長保証の標準付帯<br />
-            ・専任担当者による導入後サポート
-          </p>
-        </Section>
+        {sections.map((s, i) => (
+          <Section key={i} title={s.heading}>
+            {s.body}
+          </Section>
+        ))}
 
-        <Section title="主な導入実績">
-          <p>
-            ASTROMEDAのゲーミングPCは、プロeスポーツチーム、配信スタジオ、教育機関、
-            ゲーム実況者の制作環境など幅広いシーンでご利用いただいています。
-            守秘義務契約の範囲内で実績資料をご提示することも可能です。
-          </p>
-        </Section>
-
-        <Section title="お見積もり・ご相談の流れ">
-          <p>
-            <strong style={{color: '#fff'}}>STEP 1：</strong>
-            下記メールアドレスにご用途・想定台数・希望スペック・納期をお知らせください。
-          </p>
-          <p style={{marginTop: 6}}>
-            <strong style={{color: '#fff'}}>STEP 2：</strong>
-            担当者より2営業日以内にヒアリングのご連絡を差し上げます。
-          </p>
-          <p style={{marginTop: 6}}>
-            <strong style={{color: '#fff'}}>STEP 3：</strong>
-            お見積もり書・仕様書をご提示します（必要に応じて貸出機の手配も可能）。
-          </p>
-          <p style={{marginTop: 6}}>
-            <strong style={{color: '#fff'}}>STEP 4：</strong>
-            ご発注後、製造開始。納期に合わせて配送・設置までサポートいたします。
-          </p>
-        </Section>
-
-        <Section title="お問い合わせ窓口">
-          <p>
-            法人のお客様専用窓口にて承ります。
-            お見積もり・導入相談・カスタマイズのご要望など、お気軽にご連絡ください。
-          </p>
-          <p style={{marginTop: 8}}>
-            <strong style={{color: '#fff'}}>メール：</strong>business@mng-base.com<br />
-            <strong style={{color: '#fff'}}>電話：</strong>03-6903-5371（平日10:00〜18:00）<br />
-            <strong style={{color: '#fff'}}>運営会社：</strong>株式会社マイニングベース
-          </p>
-        </Section>
+        {useCms && cms!.updatedLabel && (
+          <div style={{textAlign: 'center', marginBottom: 16, fontSize: 12, color: 'rgba(255,255,255,.4)'}}>
+            {cms!.updatedLabel}
+          </div>
+        )}
 
         {/* Contact CTA */}
         <div

@@ -19,9 +19,9 @@
  *  - astromeda_product_shelf    × 2  （新着 / 人気）
  *  - astromeda_legal_info       × 1  （LEGAL 4 JSON）
  *  - astromeda_site_config      × 1  （ブランド名/会社名/連絡先）
- *  - astromeda_static_page      × 4  （warranty / contact / contact-houjin / faq）
+ *  - astromeda_static_page      × 7  （warranty / contact / contact-houjin / faq / commitment / recycle / yojimaru）
  *
- *  合計約 62 Metaobject（既存スキップ後は差分のみ）
+ *  合計約 65 Metaobject（既存スキップ後は差分のみ）
  *
  * セキュリティ: RateLimit → CSRF → AdminAuth → RBAC (settings.edit) → AuditLog
  */
@@ -419,7 +419,7 @@ function buildSeeds(): SeedSpec[] {
     ],
   });
 
-  // 12. astromeda_static_page × 4
+  // 12. astromeda_static_page × 7
   seeds.push({
     type: 'astromeda_static_page',
     records: [
@@ -515,6 +515,76 @@ function buildSeeds(): SeedSpec[] {
             ]),
           },
           { key: 'updated_label', value: '最終更新: 2026-04-17' },
+          { key: 'is_published', value: 'true' },
+        ],
+      },
+      {
+        handle: 'page-commitment',
+        fields: [
+          { key: 'title', value: 'ASTROMEDAのこだわり' },
+          { key: 'page_slug', value: 'commitment' },
+          { key: 'meta_description', value: 'ASTROMEDAのこだわり。国内自社工場での受注生産、ベンチマーク済みパーツ選定、24時間エージング、永年サポート。' },
+          {
+            key: 'body_html',
+            value: '<p>長く愛されるゲーミングPCを。その想いから品質・デザイン・サポートのすべてに妥協しません。</p>',
+          },
+          {
+            key: 'sections_json',
+            value: JSON.stringify([
+              { heading: '国内自社工場での受注生産', body: '日本国内の自社工場で1台ずつ組み立てます。熟練ビルダーが目視で仕上げ。' },
+              { heading: 'ベンチマーク済みパーツ選定', body: '社内テストで性能・安定性・長期信頼性を確認したパーツのみを採用。' },
+              { heading: '24時間エージングテスト', body: '出荷前に24時間の負荷テストを実施し、初期不良の芽を除去。' },
+              { heading: 'IPコラボレーションの世界観', body: 'UV高精細印刷・着せ替えパネル・カラー8色展開で世界観を再現。' },
+              { heading: '永年サポート', body: '保証期間後もメール・電話・LINEで永年無料サポート。' },
+            ]),
+          },
+          { key: 'updated_label', value: '最終更新: 2026-04-18' },
+          { key: 'is_published', value: 'true' },
+        ],
+      },
+      {
+        handle: 'page-recycle',
+        fields: [
+          { key: 'title', value: 'PCリサイクル・引取サービス' },
+          { key: 'page_slug', value: 'recycle' },
+          { key: 'meta_description', value: 'ASTROMEDAでは資源有効利用促進法に基づき、不要になったパソコンの回収・リサイクルを承っています。' },
+          {
+            key: 'body_html',
+            value: '<p>ASTROMEDAでは資源有効利用促進法に基づき、不要になったパソコンの回収を承っています。</p>',
+          },
+          {
+            key: 'sections_json',
+            value: JSON.stringify([
+              { heading: '対象機種', body: 'デスクトップ/ノート/ディスプレイ/一体型。メーカー・購入時期は問いません。' },
+              { heading: '回収費用', body: 'PCリサイクルマーク付きは無料。マーク無しは所定のリサイクル料金。' },
+              { heading: 'データ消去について', body: 'DoD 5220.22-M 準拠の物理消去サービス（有償）もご用意。消去証明書発行可。' },
+              { heading: 'お申込みの流れ', body: 'STEP1: メールでご連絡 → STEP2: 見積もりと回収方法ご案内 → STEP3: 回収・データ消去実施。' },
+              { heading: 'お問い合わせ窓口', body: 'メール: customersupport@mng-base.com / 電話: 03-6903-5371（平日10:00〜18:00）' },
+            ]),
+          },
+          { key: 'updated_label', value: '最終更新: 2026-04-18' },
+          { key: 'is_published', value: 'true' },
+        ],
+      },
+      {
+        handle: 'page-yojimaru',
+        fields: [
+          { key: 'title', value: 'よじまるPC' },
+          { key: 'page_slug', value: 'yojimaru' },
+          { key: 'meta_description', value: 'よじまるさんコラボレーションPC。ストリーマー監修のゲーミング環境をASTROMEDAのカラーバリエーションと共に。' },
+          {
+            key: 'body_html',
+            value: '<p>ストリーマー「よじまる」さん監修のコラボレーションゲーミングPC。</p>',
+          },
+          {
+            key: 'sections_json',
+            value: JSON.stringify([
+              { heading: 'コラボレーションについて', body: 'よじまるさん監修のスペック構成で配信・ゲームプレイ両面で快適にご利用いただけます。' },
+              { heading: 'ラインナップ', body: '最新ラインナップはゲーミングPCコレクション内でご確認いただけます。' },
+              { heading: 'お問い合わせ', body: 'メール: customersupport@mng-base.com / 電話: 03-6903-5371（平日10:00〜18:00）' },
+            ]),
+          },
+          { key: 'updated_label', value: '最終更新: 2026-04-18' },
           { key: 'is_published', value: 'true' },
         ],
       },
