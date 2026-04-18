@@ -154,7 +154,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult, marqueeItemResult, ugcReviewResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -177,6 +177,10 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_product_shelf', 50) : emptyMo(),
     // Metaobject: ABOUT セクション
     adminClient ? adminClient.getMetaobjects('astromeda_about_section', 10) : emptyMo(),
+    // patch 0017: Metaobject マーキーテキスト（トップ冒頭 Marquee 用）
+    adminClient ? adminClient.getMetaobjects('astromeda_marquee_item', 30) : emptyMo(),
+    // patch 0017: Metaobject UGC レビュー（REVIEWS セクション用）
+    adminClient ? adminClient.getMetaobjects('astromeda_ugc_review', 30) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -189,6 +193,9 @@ export async function loader({context}: Route.LoaderArgs) {
   const categoryCardRaw = categoryCardResult.status === 'fulfilled' ? categoryCardResult.value : [];
   const productShelfRaw = productShelfResult.status === 'fulfilled' ? productShelfResult.value : [];
   const aboutSectionRaw = aboutSectionResult.status === 'fulfilled' ? aboutSectionResult.value : [];
+  // patch 0017: marquee / ugc raw 取り出し
+  const marqueeItemRaw = marqueeItemResult.status === 'fulfilled' ? marqueeItemResult.value : [];
+  const ugcReviewRaw = ugcReviewResult.status === 'fulfilled' ? ugcReviewResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -540,6 +547,39 @@ export async function loader({context}: Route.LoaderArgs) {
   // I-06: LCP最適化 — ヒーロースライダー最初の画像URLを抽出
   const firstHeroImageUrl = ipCollections?.collections?.nodes?.[0]?.image?.url ?? null;
 
+  // patch 0017: marquee / ugc を整形
+  const metaMarqueeItems = marqueeItemRaw
+    .map((mo) => {
+      const f = fieldsToMap(mo.fields);
+      return {
+        id: mo.id,
+        text: f['text'] || '',
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        isActive: f['is_active'] === 'true',
+      };
+    })
+    .filter((m) => m.isActive && m.text)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
+  const metaUgcReviews = ugcReviewRaw
+    .map((mo) => {
+      const f = fieldsToMap(mo.fields);
+      return {
+        id: mo.id,
+        username: f['username'] || '',
+        reviewText: f['review_text'] || '',
+        accentColor: f['accent_color'] || '#F06292',
+        rating: Math.max(1, Math.min(5, parseInt(f['rating'] || '5', 10) || 5)),
+        dateLabel: f['date_label'] || '',
+        likes: parseInt(f['likes'] || '0', 10) || 0,
+        productName: f['product_name'] || '',
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+        isActive: f['is_active'] === 'true',
+      };
+    })
+    .filter((u) => u.isActive && u.username && u.reviewText)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
   return {
     recommendedProducts,
     ipCollections,
@@ -554,6 +594,8 @@ export async function loader({context}: Route.LoaderArgs) {
     metaProductShelves,
     metaShelfProducts,
     metaAboutSections,
+    metaMarqueeItems,
+    metaUgcReviews,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -699,20 +741,26 @@ export default function Homepage() {
             width: 'max-content',
           }}
         >
-          {[0, 1].flatMap((r) =>
-            MARQUEE_ITEMS.map((t, i) => (
-              <span
-                key={`${r}-${i}`}
-                style={{
-                  fontSize: 'clamp(9px, 1.2vw, 11px)',
-                  color: al(T.c, 0.55),
-                  fontWeight: 700,
-                }}
-              >
-                {t}
-              </span>
-            )),
-          )}
+          {/* patch 0017: Metaobject に有効エントリがあれば CMS 優先、無ければ定数フォールバック */}
+          {(() => {
+            const marqueeTexts = (data.metaMarqueeItems && data.metaMarqueeItems.length > 0)
+              ? data.metaMarqueeItems.map((m) => m.text)
+              : MARQUEE_ITEMS;
+            return [0, 1].flatMap((r) =>
+              marqueeTexts.map((t, i) => (
+                <span
+                  key={`${r}-${i}`}
+                  style={{
+                    fontSize: 'clamp(9px, 1.2vw, 11px)',
+                    color: al(T.c, 0.55),
+                    fontWeight: 700,
+                  }}
+                >
+                  {t}
+                </span>
+              )),
+            );
+          })()}
         </div>
       </div>
 
@@ -1150,73 +1198,87 @@ export default function Homepage() {
           }}
           className="fps-scroll"
         >
-          {UGC.map((u) => (
-            <div
-              key={u.id}
-              className="ugc-card"
-              style={{
-                flexShrink: 0,
-                background: T.bgC,
-                borderRadius: 16,
-                border: `1px solid ${al(u.c, 0.12)}`,
-                padding: 'clamp(14px, 1.5vw, 18px)',
-              }}
-            >
+          {(() => {
+            // patch 0017: CMS metaUgcReviews を優先、無い/空なら UGC 定数にフォールバック
+            const ugcReviews = (data.metaUgcReviews && data.metaUgcReviews.length > 0)
+              ? data.metaUgcReviews.map((m) => ({
+                  id: m.id,
+                  u: m.username,
+                  t: m.reviewText,
+                  c: m.accentColor || '#F06292',
+                  s: m.rating,
+                  d: m.dateLabel,
+                  likes: m.likes,
+                }))
+              : UGC;
+            return ugcReviews.map((u) => (
               <div
+                key={u.id}
+                className="ugc-card"
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  marginBottom: 10,
+                  flexShrink: 0,
+                  background: T.bgC,
+                  borderRadius: 16,
+                  border: `1px solid ${al(u.c, 0.12)}`,
+                  padding: 'clamp(14px, 1.5vw, 18px)',
                 }}
               >
                 <div
                   style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: '50%',
-                    background: `linear-gradient(135deg, ${u.c}, ${al(u.c, 0.4)})`,
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    fontWeight: 900,
-                    color: '#000',
-                    flexShrink: 0,
+                    gap: 8,
+                    marginBottom: 10,
                   }}
                 >
-                  {u.u.slice(1, 2).toUpperCase()}
-                </div>
-                <div>
                   <div
                     style={{
-                      fontSize: 'clamp(9px, 1.1vw, 11px)',
-                      fontWeight: 700,
-                      color: T.t5,
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: `linear-gradient(135deg, ${u.c}, ${al(u.c, 0.4)})`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      fontWeight: 900,
+                      color: '#000',
+                      flexShrink: 0,
                     }}
                   >
-                    {u.u}
+                    {(u.u || '?').slice(1, 2).toUpperCase() || (u.u || '?').slice(0, 1).toUpperCase()}
                   </div>
-                  <div style={{fontSize: 'clamp(8px, 1vw, 10px)', color: T.t3}}>
-                    {u.d}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 'clamp(9px, 1.1vw, 11px)',
+                        fontWeight: 700,
+                        color: T.t5,
+                      }}
+                    >
+                      {u.u}
+                    </div>
+                    <div style={{fontSize: 'clamp(8px, 1vw, 10px)', color: T.t3}}>
+                      {u.d}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div style={{fontSize: 'clamp(9px, 1.1vw, 11px)', color: T.t5, lineHeight: 1.5}}>
-                {u.t}
-              </div>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
-                <div style={{display: 'flex', gap: 2}}>
-                  {[...Array(u.s)].map((_, si) => (
-                    <span key={si} style={{color: T.g, fontSize: 12}}>★</span>
-                  ))}
+                <div style={{fontSize: 'clamp(9px, 1.1vw, 11px)', color: T.t5, lineHeight: 1.5}}>
+                  {u.t}
                 </div>
-                <span style={{fontSize: 'clamp(8px, 1vw, 10px)', color: T.t3}}>
-                  ♡ {u.likes}
-                </span>
+                <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10}}>
+                  <div style={{display: 'flex', gap: 2}}>
+                    {[...Array(u.s)].map((_, si) => (
+                      <span key={si} style={{color: T.g, fontSize: 12}}>★</span>
+                    ))}
+                  </div>
+                  <span style={{fontSize: 'clamp(8px, 1vw, 10px)', color: T.t3}}>
+                    ♡ {u.likes}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            ));
+          })()}
         </div>
       </section>
 
