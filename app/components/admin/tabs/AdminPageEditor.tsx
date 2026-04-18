@@ -624,7 +624,10 @@ const GAMING_PC_SECTIONS: SectionDef[] = [
   {
     key: 'hero_banners', label: 'ヒーローバナー', desc: 'ゲーミングPC LP 上部のスライダー',
     icon: '🎬', num: '①', color: '#FF4D8D', navTab: 'hero_banners',
-    match: (_, el) => el.classList?.contains('hero-slider-wrap') === true,
+    // patch 0034: GamingPCLanding は gpc-hero-wrap、トップは hero-slider-wrap を使う。両対応。
+    match: (_, el) =>
+      el.classList?.contains('gpc-hero-wrap') === true ||
+      el.classList?.contains('hero-slider-wrap') === true,
   },
   {
     key: 'feature', label: '特集 FEATURE', desc: '特集カード 4 枚（コード側管理）',
