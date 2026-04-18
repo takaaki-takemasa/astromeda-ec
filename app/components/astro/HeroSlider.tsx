@@ -60,10 +60,11 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
     return [...filtered].sort((a, b) => a.sortOrder - b.sortOrder);
   }, [metaBanners]);
 
+  // patch 0008: exclusive-or — Metaobject が存在すれば CMS を優先し、
+  // ハードコード FEATURED fallback は一切使わない（二重表示バグ防止）。
   const mergedFallbacks = useMemo(() => {
     if (activeMetaBanners.length === 0) return FEATURED;
-    const replacedIds = new Set(activeMetaBanners.map((m) => m.handle.trim().toLowerCase()));
-    return FEATURED.filter((f) => !replacedIds.has(f.id.toLowerCase()));
+    return [] as typeof FEATURED;
   }, [activeMetaBanners]);
 
   const slidesCount = activeMetaBanners.length + mergedFallbacks.length;
@@ -95,7 +96,17 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
       <div className="hero-slider-container">
         {activeMetaBanners.length > 0 &&
           activeMetaBanners.map((m, i) => {
-              const collectionImgUrl = imageMap.get(m.handle) ?? null;
+              // patch 0008: Metaobject handle (例: hero-new-arrivals) は Shopify コレクション
+              // ハンドルではないため、linkUrl の /collections/{handle} からフォールバック画像を
+              // 解決する。m.handle 直接参照では常に null になり、画像が表示されない問題を修正。
+              const collectionHandleFromLink = (() => {
+                if (!m.linkUrl) return null;
+                const match = m.linkUrl.match(/\/collections\/([^/?#]+)/);
+                return match ? match[1] : null;
+              })();
+              const collectionImgUrl =
+                imageMap.get(m.handle) ??
+                (collectionHandleFromLink ? imageMap.get(collectionHandleFromLink) ?? null : null);
               const imgUrl = m.image || collectionImgUrl;
               const isActive = i === hi;
               const accent = T.c;

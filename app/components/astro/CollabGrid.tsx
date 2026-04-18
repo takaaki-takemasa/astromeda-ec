@@ -58,8 +58,11 @@ function findShopifyCollection(
 function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
   const imageMap = useMemo(() => buildImageMap(collections), [collections]);
 
-  // Sprint 6 Gap 3: merge (not replace)
-  // Metaobject handle が fallback COLLABS.id と重複 → Metaobject 優先、未重複 → fallback 残す
+  // patch 0008: exclusive-or — Metaobject が存在する場合は CMS を優先し、
+  // ハードコード fallback は一切表示しない（二重表示バグ防止）。
+  // 理由: Metaobject handle='ip-onepiece' vs COLLABS.id='onepiece' の形式差で
+  // 以前の replacedIds フィルタが効かず 26 → 47 の二重表示を発生させていた。
+  // CMS が 1 件でもあれば CMS 全件を使い、fallback は空にする。
   const activeMetaCollabs = useMemo(() => {
     if (!metaCollabs || metaCollabs.length === 0) return [] as MetaCollab[];
     return [...metaCollabs].filter((m) => m.featured).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -67,8 +70,7 @@ function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
 
   const mergedFallbacks = useMemo(() => {
     if (activeMetaCollabs.length === 0) return COLLABS;
-    const replacedIds = new Set(activeMetaCollabs.map((m) => m.handle.trim().toLowerCase()));
-    return COLLABS.filter((cb) => !replacedIds.has(cb.id.toLowerCase()));
+    return [] as typeof COLLABS;
   }, [activeMetaCollabs]);
 
   const renderMetaCard = useMemo(

@@ -31,7 +31,10 @@ function isLightColor(hex: string): boolean {
 }
 
 function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
-  // Sprint 6 Gap 3: merge (not replace) — Metaobject 優先で fallback と重複しないものを追加表示
+  // patch 0008: exclusive-or — Metaobject が存在する場合は CMS を優先し、
+  // ハードコード fallback は一切表示しない（二重表示バグ防止）。
+  // 理由: 以前の merge/replacedSlugs ロジックはキー不一致時に fallback を残して
+  // 8色 → 16表示の二重バグを発生させていた。CMS があれば CMS 全てを信頼する。
   const activeMetaColors = useMemo(() => {
     if (!metaColors || metaColors.length === 0) return [] as MetaColorModel[];
     return [...metaColors].filter((m) => m.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -39,8 +42,7 @@ function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
 
   const mergedFallbacks = useMemo(() => {
     if (activeMetaColors.length === 0) return PC_COLORS;
-    const replacedSlugs = new Set(activeMetaColors.map((m) => m.slug.trim().toLowerCase()));
-    return PC_COLORS.filter((pc) => !replacedSlugs.has(pc.slug.toLowerCase()));
+    return [] as typeof PC_COLORS;
   }, [activeMetaColors]);
 
   const titleCount = activeMetaColors.length + mergedFallbacks.length;
