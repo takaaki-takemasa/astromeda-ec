@@ -13,7 +13,7 @@ import {
   detectIP,
   detectProductType,
   detectMousepadMaterial,
-  extractSpec,
+  extractHardwareSpec,
   loadCriticalData,
   loadDeferredData,
   PRODUCT_TYPE_KW,
@@ -109,8 +109,9 @@ export default function Collection() {
         _ip: detectIP(title, tags),
         _type: type,
         _material: detectMousepadMaterial(title, parseFloat(p.priceRange?.minVariantPrice?.amount ?? '0')),
-        _cpu: extractSpec(tags, 'CPU'),
-        _gpu: extractSpec(tags, 'GPU'),
+        // patch 0014: タグに CPU:/GPU: が無い場合はタイトルから抽出
+        _cpu: extractHardwareSpec(title, tags, 'CPU'),
+        _gpu: extractHardwareSpec(title, tags, 'GPU'),
       };
     });
   }, [allProducts]);

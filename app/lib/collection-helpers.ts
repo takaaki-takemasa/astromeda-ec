@@ -107,6 +107,43 @@ export function extractSpec(tags: string[], prefix: string): string | null {
   return tag ? tag.slice(prefix.length + 1) : null;
 }
 
+// patch 0014: Shopify タグに `CPU:...` / `GPU:...` が付いていない商品のため、
+// 商品タイトルからも CPU/GPU を抽出できるようにする。gaming-pc コレクション等で
+// CPU/GPU プルダウンを実機能させるための安全な後退手段。
+const CPU_TITLE_PATTERNS = [
+  /Core\s*Ultra\s*[3579]\s*\d{3,4}[A-Z]*/i,
+  /Core\s*i[3579]-\d{4,5}[A-Z]*/i,
+  /Core\s*i[3579]\s+\d{4,5}[A-Z]*/i,
+  /Ryzen\s*[3579]\s*\d{3,4}X3D/i,
+  /Ryzen\s*[3579]\s*\d{4}[A-Z]*/i,
+];
+const GPU_TITLE_PATTERNS = [
+  /RTX\s*\d{4}\s*(Ti|SUPER)?/i,
+  /GTX\s*\d{4}\s*(Ti|SUPER)?/i,
+  /RX\s*\d{4}\s*(XT|XTX)?/i,
+  /Arc\s*[AB]\d{3}/i,
+];
+
+/**
+ * CPU/GPU 抽出（タグ優先・タイトル後退）
+ * Shopify の product.tags に `CPU:Ryzen7 5700X` のように付与されていればそれを返し、
+ * タグが無ければ商品タイトル中のパターンマッチで抽出する。
+ */
+export function extractHardwareSpec(
+  title: string,
+  tags: string[],
+  kind: 'CPU' | 'GPU',
+): string | null {
+  const fromTag = extractSpec(tags, kind);
+  if (fromTag) return fromTag.trim();
+  const patterns = kind === 'CPU' ? CPU_TITLE_PATTERNS : GPU_TITLE_PATTERNS;
+  for (const p of patterns) {
+    const m = title.match(p);
+    if (m) return m[0].replace(/\s+/g, ' ').trim();
+  }
+  return null;
+}
+
 // ─── Loader functions ───────────────────────
 
 export async function loadCriticalData({context, params, request}: Route.LoaderArgs) {

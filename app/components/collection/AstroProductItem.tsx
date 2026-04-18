@@ -6,7 +6,7 @@
 import {Link} from 'react-router';
 import {Image} from '@shopify/hydrogen';
 import {al, T} from '~/lib/astromeda-data';
-import {extractSpec} from '~/lib/collection-helpers';
+import {extractSpec, extractHardwareSpec} from '~/lib/collection-helpers';
 import {trackSelectItem} from '~/lib/ga4-ecommerce';
 
 export type CollectionProduct = {
@@ -23,8 +23,9 @@ export function AstroProductItem({product, accent, loading}: {product: Collectio
   const tags: string[] = product.tags ?? [];
   const firstVariant = product.variants?.nodes?.[0];
   const available = firstVariant?.availableForSale !== false;
-  const gpu = extractSpec(tags, 'GPU');
-  const cpu = extractSpec(tags, 'CPU');
+  // patch 0014: タグに CPU:/GPU: が無い商品でもタイトルから抽出して chip 表示
+  const gpu = extractHardwareSpec(product.title, tags, 'GPU');
+  const cpu = extractHardwareSpec(product.title, tags, 'CPU');
   const ram = extractSpec(tags, 'RAM');
   const hasSpec = gpu || cpu || ram;
 
