@@ -37,6 +37,11 @@ export default async function handleRequest(
       'https://cdn.shopify.com',
       STORE_URL,
     ],
+    // patch 0028: 管理画面 (/admin) の「ビジュアル編集」タブが iframe で
+    // 同じ Origin の storefront を embed できるよう、Hydrogen 既定の
+    // `frame-ancestors 'none'` を `'self'` に緩める。外部 Origin からの
+    // clickjacking は引き続きブロックされる。
+    frameAncestors: ["'self'"],
   });
 
   try {
