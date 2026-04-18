@@ -73,6 +73,42 @@ function fieldsToMap(fields: Array<{key: string; value: string}>): Record<string
 }
 
 /**
+ * patch 0010: 一意キー単位で dedup する小さな helper。
+ *
+ * 背景: cms-seed が複数回走った痕跡で astromeda_pc_color が 8件×2=16件、
+ * astromeda_ip_banner が 23件×2=46件の重複状態になっており、
+ * storefront 側で 全16色 / 32タイトル の二重表示を起こしていた。
+ *
+ * 表示の素になる前段で「ユーザーから見て同一のもの」を 1 件に畳む。
+ * - sortOrder が小さい (=表示順位が高い) ものを優先
+ * - 同 sortOrder なら先に並んでいた ものを優先（安定）
+ * - キーが空文字のエントリは dedup 対象外（壊れた key で全件潰さない安全策）
+ */
+function dedupByKey<T>(items: T[], keyFn: (item: T) => string, orderFn?: (item: T) => number): T[] {
+  const map = new Map<string, T>();
+  const passthrough: T[] = [];
+  items.forEach((item) => {
+    const key = keyFn(item);
+    if (!key) {
+      passthrough.push(item);
+      return;
+    }
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, item);
+      return;
+    }
+    if (orderFn) {
+      if (orderFn(item) < orderFn(existing)) {
+        map.set(key, item);
+      }
+    }
+    // orderFn 無し or item が後勝ちなら無視（先勝ち）
+  });
+  return [...map.values(), ...passthrough];
+}
+
+/**
  * Admin API クライアントを使って全 CMS Metaobject を並列取得
  */
 export async function loadAllCMSData(
@@ -103,41 +139,64 @@ export async function loadAllCMSData(
     safe(adminClient.getMetaobjects('astromeda_footer_config', 50)),
   ]);
 
+  // patch 0010: 整形→dedup の順に処理。
+  // Shopify 側で重複エントリ（cms-seed 重複実行の痕跡）が残っていても、
+  // storefront 表示に使う配列は常にユーザ視点の一意キーで畳み込んでから返す。
+  const metaCollabsAll = collabsRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id, handle: mo.handle,
+      name: f['name'] || '', shopHandle: f['collection_handle'] || '',
+      image: f['image'] || null, tagline: f['tagline'] || null,
+      label: f['label'] || null,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      featured: f['is_active'] === 'true',
+    };
+  });
+  const metaBannersAll = bannersRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id, handle: mo.handle,
+      title: f['title'] || '', subtitle: f['subtitle'] || null,
+      image: f['image'] || null, linkUrl: f['link_url'] || null,
+      ctaLabel: f['cta_label'] || null,
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+      startAt: f['start_at'] || null, endAt: f['end_at'] || null,
+    };
+  });
+  const metaColorsAll = colorsRaw.map((mo) => {
+    const f = fieldsToMap(mo.fields);
+    return {
+      id: mo.id, handle: mo.handle,
+      name: f['name'] || '', slug: f['slug'] || '',
+      image: f['image'] || null,
+      colorCode: f['color_code'] || '#888888',
+      sortOrder: parseInt(f['display_order'] || '0', 10),
+      isActive: f['is_active'] === 'true',
+    };
+  });
+
   return {
-    metaCollabs: collabsRaw.map((mo) => {
-      const f = fieldsToMap(mo.fields);
-      return {
-        id: mo.id, handle: mo.handle,
-        name: f['name'] || '', shopHandle: f['collection_handle'] || '',
-        image: f['image'] || null, tagline: f['tagline'] || null,
-        label: f['label'] || null,
-        sortOrder: parseInt(f['display_order'] || '0', 10),
-        featured: f['is_active'] === 'true',
-      };
-    }),
-    metaBanners: bannersRaw.map((mo) => {
-      const f = fieldsToMap(mo.fields);
-      return {
-        id: mo.id, handle: mo.handle,
-        title: f['title'] || '', subtitle: f['subtitle'] || null,
-        image: f['image'] || null, linkUrl: f['link_url'] || null,
-        ctaLabel: f['cta_label'] || null,
-        sortOrder: parseInt(f['display_order'] || '0', 10),
-        isActive: f['is_active'] === 'true',
-        startAt: f['start_at'] || null, endAt: f['end_at'] || null,
-      };
-    }),
-    metaColors: colorsRaw.map((mo) => {
-      const f = fieldsToMap(mo.fields);
-      return {
-        id: mo.id, handle: mo.handle,
-        name: f['name'] || '', slug: f['slug'] || '',
-        image: f['image'] || null,
-        colorCode: f['color_code'] || '#888888',
-        sortOrder: parseInt(f['display_order'] || '0', 10),
-        isActive: f['is_active'] === 'true',
-      };
-    }),
+    // shopHandle (= collections ハンドル) 単位で畳む。同じ collection を指す複数 ip_banner は
+    // UI 上同じカードになるため、display_order の小さい方を採用する。
+    metaCollabs: dedupByKey(
+      metaCollabsAll,
+      (m) => m.shopHandle.trim().toLowerCase(),
+      (m) => m.sortOrder,
+    ),
+    // title + linkUrl でペアを取る。空タイトルや異なる linkUrl は別カードとして残す。
+    metaBanners: dedupByKey(
+      metaBannersAll,
+      (b) => `${b.title.trim()}|${(b.linkUrl || '').trim().toLowerCase()}`,
+      (b) => b.sortOrder,
+    ),
+    // slug 単位で畳む。白/黒/ピンク… の 8色は slug が一意 key。
+    metaColors: dedupByKey(
+      metaColorsAll,
+      (c) => c.slug.trim().toLowerCase(),
+      (c) => c.sortOrder,
+    ),
     metaCategoryCards: cardsRaw.map((mo) => {
       const f = fieldsToMap(mo.fields);
       const priceRaw = f['price_from'];
