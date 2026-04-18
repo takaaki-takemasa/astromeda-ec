@@ -986,6 +986,549 @@ export class ShopifyAdminClient {
     return { id: f.id, url };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // patch 0008 (2026-04-18): 2025-10 API 整合追加メソッド
+  //
+  // 2024-07 で productVariantCreate / productVariantUpdate が deprecated 化され、
+  // 2025-10 では productVariantsBulkCreate / productVariantsBulkUpdate が
+  // 正式 API となった。app/routes/api.admin.products.ts は既にこの新APIを
+  // 呼び出すコードが書かれていたが、client 側に実装が無くランタイム ReferenceError
+  // になっていた。ここで実装を追加する。
+  // ══════════════════════════════════════════════════════════
+
+  /**
+   * バリアントを一括更新（2025-10 API）
+   * 2024-07 以降の正式 API。productVariantUpdate は deprecated。
+   */
+  async productVariantsBulkUpdate(
+    productId: string,
+    variants: Array<{
+      id: string;
+      price?: string;
+      compareAtPrice?: string | null;
+      sku?: string;
+      barcode?: string | null;
+      inventoryPolicy?: 'CONTINUE' | 'DENY';
+      taxable?: boolean;
+    }>,
+  ): Promise<Array<{ id: string; title: string; price: string }>> {
+    const gql = `
+      mutation productVariantsBulkUpdate(
+        $productId: ID!
+        $variants: [ProductVariantsBulkInput!]!
+      ) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants { id title price sku }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productVariantsBulkUpdate: {
+          productVariants: Array<{ id: string; title: string; price: string; sku: string | null }>;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { productId, variants });
+
+      const { productVariants, userErrors } = res.productVariantsBulkUpdate;
+      if (userErrors.length > 0) {
+        throw new Error(`バリアント一括更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productVariantsBulkUpdate] Updated ${productVariants.length} variants for ${productId}`);
+      return productVariants.map((v) => ({ id: v.id, title: v.title, price: v.price }));
+    } catch (err) {
+      this.notifyError('productVariantsBulkUpdate', err);
+      throw err;
+    }
+  }
+
+  /**
+   * バリアントを一括作成（2025-10 API）
+   */
+  async productVariantsBulkCreate(
+    productId: string,
+    variants: Array<{
+      price?: string;
+      compareAtPrice?: string | null;
+      sku?: string;
+      barcode?: string | null;
+      optionValues?: Array<{ name: string; optionName: string }>;
+    }>,
+  ): Promise<Array<{ id: string; title: string; price: string }>> {
+    const gql = `
+      mutation productVariantsBulkCreate(
+        $productId: ID!
+        $variants: [ProductVariantsBulkInput!]!
+      ) {
+        productVariantsBulkCreate(productId: $productId, variants: $variants) {
+          productVariants { id title price }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productVariantsBulkCreate: {
+          productVariants: Array<{ id: string; title: string; price: string }>;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { productId, variants });
+
+      const { productVariants, userErrors } = res.productVariantsBulkCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`バリアント一括作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productVariantsBulkCreate] Created ${productVariants.length} variants for ${productId}`);
+      return productVariants;
+    } catch (err) {
+      this.notifyError('productVariantsBulkCreate', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 在庫数を差分で調整（2025-10 API）
+   * 2024-04 から inventoryAdjustQuantities (複数形) が正式 API。
+   * reason='correction' は SHOPIFY スキーマの正式な ReasonEnum 値。
+   */
+  async inventoryAdjustQuantity(
+    inventoryItemId: string,
+    locationId: string,
+    delta: number,
+  ): Promise<{ inventoryAdjustmentGroupId: string | null; changedQuantity: number }> {
+    const gql = `
+      mutation inventoryAdjustQuantities($input: InventoryAdjustQuantitiesInput!) {
+        inventoryAdjustQuantities(input: $input) {
+          inventoryAdjustmentGroup { id changes { delta name } }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        inventoryAdjustQuantities: {
+          inventoryAdjustmentGroup: {
+            id: string;
+            changes: Array<{ delta: number; name: string }>;
+          } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, {
+        input: {
+          reason: 'correction',
+          name: 'available',
+          changes: [
+            {
+              inventoryItemId,
+              locationId,
+              delta,
+            },
+          ],
+        },
+      });
+
+      const { inventoryAdjustmentGroup, userErrors } = res.inventoryAdjustQuantities;
+      if (userErrors.length > 0) {
+        throw new Error(`在庫調整失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      const changedQuantity = inventoryAdjustmentGroup?.changes?.reduce((s, c) => s + (c.delta || 0), 0) || 0;
+      log.info(`[inventoryAdjustQuantity] Adjusted ${inventoryItemId} @ ${locationId} by ${delta}`);
+      return {
+        inventoryAdjustmentGroupId: inventoryAdjustmentGroup?.id || null,
+        changedQuantity,
+      };
+    } catch (err) {
+      this.notifyError('inventoryAdjustQuantity', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像を resourceUrl から追加（addProductMedia のエイリアス）
+   * api.admin.products.ts が image_upload アクションで呼び出す。
+   */
+  async productImageCreate(
+    productId: string,
+    src: string,
+    altText?: string,
+  ): Promise<{ id: string; status: string }> {
+    return this.addProductMedia(productId, src, altText);
+  }
+
+  /**
+   * Shopify Files API でファイルを作成（createFileFromStagedUpload のエイリアス）
+   * api.admin.images.ts が create_file アクションで呼び出す。
+   */
+  async createFileFromUrl(
+    resourceUrl: string,
+    alt?: string,
+  ): Promise<{ id: string; url: string }> {
+    return this.createFileFromStagedUpload(resourceUrl, alt);
+  }
+
+  /**
+   * 商品詳細を取得（admin.products_.$id.tsx / api.admin.products.ts の ?id= モード）
+   * 2025-10 API。variants/images/inventoryItem を含む完全スキーマ。
+   */
+  async getProductDetail(productGid: string): Promise<{
+    id: string;
+    title: string;
+    handle: string;
+    status: string;
+    descriptionHtml: string;
+    productType: string;
+    vendor: string;
+    tags: string[];
+    publishedAt: string | null;
+    variants: Array<{
+      id: string;
+      title: string;
+      price: string;
+      compareAtPrice: string | null;
+      sku: string;
+      barcode: string | null;
+      inventoryQuantity: number;
+      inventoryItem: { id: string; tracked: boolean };
+      selectedOptions: Array<{ name: string; value: string }>;
+    }>;
+    images: Array<{ id: string; alt: string | null; url: string; width?: number; height?: number }>;
+  } | null> {
+    const gql = `
+      query getProductDetail($id: ID!) {
+        product(id: $id) {
+          id
+          title
+          handle
+          status
+          descriptionHtml
+          productType
+          vendor
+          tags
+          publishedAt
+          variants(first: 100) {
+            edges {
+              node {
+                id
+                title
+                price
+                compareAtPrice
+                sku
+                barcode
+                inventoryQuantity
+                inventoryItem { id tracked }
+                selectedOptions { name value }
+              }
+            }
+          }
+          media(first: 50) {
+            edges {
+              node {
+                ... on MediaImage {
+                  id
+                  alt
+                  image { url width height }
+                }
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        product: {
+          id: string;
+          title: string;
+          handle: string;
+          status: string;
+          descriptionHtml: string;
+          productType: string;
+          vendor: string;
+          tags: string[];
+          publishedAt: string | null;
+          variants: {
+            edges: Array<{
+              node: {
+                id: string;
+                title: string;
+                price: string;
+                compareAtPrice: string | null;
+                sku: string | null;
+                barcode: string | null;
+                inventoryQuantity: number | null;
+                inventoryItem: { id: string; tracked: boolean } | null;
+                selectedOptions: Array<{ name: string; value: string }>;
+              };
+            }>;
+          };
+          media: {
+            edges: Array<{
+              node: {
+                id?: string;
+                alt?: string | null;
+                image?: { url: string; width?: number; height?: number } | null;
+              };
+            }>;
+          };
+        } | null;
+      }>(gql, { id: productGid });
+
+      if (!res.product) return null;
+      const p = res.product;
+      return {
+        id: p.id,
+        title: p.title,
+        handle: p.handle,
+        status: p.status,
+        descriptionHtml: p.descriptionHtml || '',
+        productType: p.productType || '',
+        vendor: p.vendor || '',
+        tags: p.tags || [],
+        publishedAt: p.publishedAt,
+        variants: p.variants.edges.map((e) => ({
+          id: e.node.id,
+          title: e.node.title,
+          price: e.node.price,
+          compareAtPrice: e.node.compareAtPrice,
+          sku: e.node.sku || '',
+          barcode: e.node.barcode,
+          inventoryQuantity: e.node.inventoryQuantity ?? 0,
+          inventoryItem: {
+            id: e.node.inventoryItem?.id || '',
+            tracked: e.node.inventoryItem?.tracked ?? false,
+          },
+          selectedOptions: e.node.selectedOptions || [],
+        })),
+        images: p.media.edges
+          .filter((e) => e.node.image)
+          .map((e) => ({
+            id: e.node.id || '',
+            alt: e.node.alt ?? null,
+            url: e.node.image!.url,
+            width: e.node.image!.width,
+            height: e.node.image!.height,
+          })),
+      };
+    } catch (err) {
+      this.notifyError('getProductDetail', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メタオブジェクト定義を type で取得（getMetaobjectDefinition のエイリアス）
+   * api.admin.metaobject-migrate.ts が check_definition で呼び出す。
+   */
+  async getMetaobjectDefinitionByType(
+    type: string,
+  ): Promise<{ id: string; fieldDefinitions: Array<{ key: string; name: string }> } | null> {
+    return this.getMetaobjectDefinition(type);
+  }
+
+  /**
+   * 公開チャネル一覧取得（商品公開タブのピッカー用）
+   * api.admin.publications.ts から呼び出される。
+   */
+  async getPublications(
+    first = 50,
+  ): Promise<Array<{ id: string; name: string; supportsFuturePublishing: boolean }>> {
+    const gql = `
+      query getPublications($first: Int!) {
+        publications(first: $first) {
+          edges {
+            node {
+              id
+              name
+              supportsFuturePublishing
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        publications: {
+          edges: Array<{
+            node: { id: string; name: string; supportsFuturePublishing: boolean };
+          }>;
+        };
+      }>(gql, { first });
+
+      return res.publications.edges.map((e) => e.node);
+    } catch (err) {
+      this.notifyError('getPublications', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像を削除（2025-10 API: productDeleteMedia）
+   */
+  async productImageDelete(productId: string, imageId: string): Promise<boolean> {
+    const gql = `
+      mutation productDeleteMedia($productId: ID!, $mediaIds: [ID!]!) {
+        productDeleteMedia(productId: $productId, mediaIds: $mediaIds) {
+          deletedMediaIds
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        productDeleteMedia: {
+          deletedMediaIds: string[] | null;
+          mediaUserErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { productId, mediaIds: [imageId] });
+
+      const { deletedMediaIds, mediaUserErrors } = res.productDeleteMedia;
+      if (mediaUserErrors && mediaUserErrors.length > 0) {
+        throw new Error(`画像削除失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productImageDelete] Deleted ${deletedMediaIds?.length || 0} media from ${productId}`);
+      return (deletedMediaIds?.length || 0) > 0;
+    } catch (err) {
+      this.notifyError('productImageDelete', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品画像を並び替え（2025-10 API: productReorderMedia）
+   */
+  async productImageReorder(productId: string, imageIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation productReorderMedia($id: ID!, $moves: [MoveInput!]!) {
+        productReorderMedia(id: $id, moves: $moves) {
+          job { id done }
+          mediaUserErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const moves = imageIds.map((id, index) => ({ id, newPosition: String(index) }));
+      const res = await this.query<{
+        productReorderMedia: {
+          job: { id: string; done: boolean } | null;
+          mediaUserErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { id: productId, moves });
+
+      const { mediaUserErrors } = res.productReorderMedia;
+      if (mediaUserErrors && mediaUserErrors.length > 0) {
+        throw new Error(`画像並び替え失敗: ${mediaUserErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productImageReorder] Reordered ${imageIds.length} media for ${productId}`);
+      return true;
+    } catch (err) {
+      this.notifyError('productImageReorder', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品を公開チャネルに公開（2025-10 API: publishablePublish）
+   */
+  async productPublish(productId: string, publicationIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+        publishablePublish(id: $id, input: $input) {
+          publishable { availablePublicationsCount { count } }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const input = publicationIds.map((publicationId) => ({ publicationId }));
+      const res = await this.query<{
+        publishablePublish: {
+          publishable: { availablePublicationsCount: { count: number } } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { id: productId, input });
+
+      const { userErrors } = res.publishablePublish;
+      if (userErrors.length > 0) {
+        throw new Error(`商品公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productPublish] Published ${productId} to ${publicationIds.length} channels`);
+      return true;
+    } catch (err) {
+      this.notifyError('productPublish', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 商品を公開チャネルから非公開化（2025-10 API: publishableUnpublish）
+   */
+  async productUnpublish(productId: string, publicationIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation publishableUnpublish($id: ID!, $input: [PublicationInput!]!) {
+        publishableUnpublish(id: $id, input: $input) {
+          publishable { availablePublicationsCount { count } }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const input = publicationIds.map((publicationId) => ({ publicationId }));
+      const res = await this.query<{
+        publishableUnpublish: {
+          publishable: { availablePublicationsCount: { count: number } } | null;
+          userErrors: Array<{ field: string[]; message: string }>;
+        };
+      }>(gql, { id: productId, input });
+
+      const { userErrors } = res.publishableUnpublish;
+      if (userErrors.length > 0) {
+        throw new Error(`商品非公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      log.info(`[productUnpublish] Unpublished ${productId} from ${publicationIds.length} channels`);
+      return true;
+    } catch (err) {
+      this.notifyError('productUnpublish', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Metaobject 定義に追加フィールドを append する（冪等）
+   * api.admin.metaobject-migrate.ts が append_fields で呼び出す。
+   * 既存フィールドキーは無視して、不足キーのみ追加する。
+   */
+  async updateMetaobjectDefinitionAppendFields(
+    type: string,
+    fields: Array<{ key: string; name: string; type: string }>,
+  ): Promise<{ id: string; addedCount: number; skippedKeys: string[] }> {
+    const existing = await this.getMetaobjectDefinition(type);
+    if (!existing) {
+      throw new Error(`Metaobject definition not found: ${type}`);
+    }
+    const existingKeys = new Set(existing.fieldDefinitions.map((f) => f.key));
+    const toAdd = fields.filter((f) => !existingKeys.has(f.key));
+    const skippedKeys = fields.filter((f) => existingKeys.has(f.key)).map((f) => f.key);
+
+    if (toAdd.length === 0) {
+      log.info(`[updateMetaobjectDefinitionAppendFields] No new fields for ${type} (all ${fields.length} already exist)`);
+      return { id: existing.id, addedCount: 0, skippedKeys };
+    }
+
+    await this.updateMetaobjectDefinition(existing.id, toAdd);
+    log.info(`[updateMetaobjectDefinitionAppendFields] Appended ${toAdd.length} fields to ${type} (skipped ${skippedKeys.length})`);
+    return { id: existing.id, addedCount: toAdd.length, skippedKeys };
+  }
+
 }
 
 // ── 環境変数キャッシュ ──

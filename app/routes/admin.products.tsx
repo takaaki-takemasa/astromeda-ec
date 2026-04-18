@@ -30,65 +30,100 @@ import {
 } from '~/lib/product-manager';
 import { RouteErrorBoundary } from '~/components/astro/RouteErrorBoundary';
 
-// ─── GraphQL Query: Fetch products with variants ──────
-// TODO(Sprint 2+): Admin API ベースへ移行（totalInventory/status/全フィールド取得のため）
-//   現状は Storefront API 経由のため totalInventory は取得不可。
-//   client.getProductDetail() の一覧版メソッドを agents/core/shopify-admin.ts に追加予定。
-const ADMIN_PRODUCTS_QUERY = `#graphql
-  query AdminProducts($first: Int!) {
-    products(first: $first) {
-      nodes {
-        id
-        title
-        handle
-        productType
-        vendor
-        availableForSale
-        priceRange {
-          minVariantPrice { amount currencyCode }
-          maxVariantPrice { amount currencyCode }
-        }
-        images(first: 1) {
-          nodes { url altText width height }
-        }
-        variants(first: 50) {
-          nodes {
-            id
-            title
-            price { amount currencyCode }
-            availableForSale
-            sku
-          }
-        }
-      }
-    }
-  }
-` as const;
+// patch 0008 (2026-04-18): Storefront API → Admin API 移行
+// 理由:
+//   - Storefront API は ACTIVE 公開商品のみ（DRAFT が見えない）
+//   - totalInventory / status フィールドが欠落
+//   - 管理画面で「DRAFT 商品が一覧に出てこない」不具合が発生
+// 対策:
+//   - verifyAdminAuth + RBAC `products.view` 検証
+//   - agents/core/shopify-admin.ts getProducts() を使って DRAFT 含む全商品を取得
+//   - ShopifyProduct → Product 型へマップし、既存 UI は変更なし
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const contextEnv = (context as unknown as { env: Env }).env || ({} as Env);
+
+  // Step 1: 認証チェック（layout でも検査するが loader でも二重防御）
   try {
-    const { products } = await context.storefront.query(ADMIN_PRODUCTS_QUERY, {
-      variables: { first: 50 },
-      cache: context.storefront.CacheShort(),
+    const { verifyAdminAuth } = await import('~/lib/admin-auth');
+    const auth = await verifyAdminAuth(request, contextEnv);
+    if (!auth.authenticated) return auth.response;
+
+    const { AppSession } = await import('~/lib/session');
+    const { requirePermission } = await import('~/lib/rbac');
+    const session = await AppSession.init(request, [
+      String((contextEnv as unknown as { SESSION_SECRET?: string }).SESSION_SECRET || ''),
+    ]);
+    requirePermission(session, 'products.view');
+  } catch (error) {
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Admin products auth error:', error);
+    }
+    throw AppError.internal('認証に失敗しました');
+  }
+
+  // Step 2: Admin API から商品一覧取得（DRAFT 含む）
+  try {
+    const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(contextEnv as unknown as Record<string, string | undefined>);
+    const client = getAdminClient();
+    const shopifyProducts = await client.getProducts(50);
+
+    // ShopifyProduct (Admin API) → Product (UI 型) へ正規化
+    // featuredImage: {url, altText} → images: [{url, altText}]
+    // variants.nodes: [{price: string}] → variants: [{price: {amount, currencyCode}, availableForSale}]
+    // priceRangeV2 → priceRange
+    const productList: Product[] = shopifyProducts.map((p) => {
+      const variants = (p.variants?.nodes || []).map((v) => ({
+        id: v.id,
+        title: v.title,
+        price: { amount: String(v.price ?? '0'), currencyCode: 'JPY' },
+        availableForSale: (v.inventoryQuantity ?? 0) > 0,
+        sku: v.sku || undefined,
+      }));
+      const images = p.featuredImage
+        ? [{
+            url: p.featuredImage.url,
+            altText: p.featuredImage.altText || undefined,
+          }]
+        : [];
+      return {
+        id: p.id,
+        title: p.title,
+        handle: p.handle,
+        productType: p.productType || '',
+        vendor: p.vendor || '',
+        // Admin API `status` は 'ACTIVE' | 'DRAFT' | 'ARCHIVED'
+        availableForSale: String(p.status || '').toUpperCase() === 'ACTIVE',
+        totalInventory: p.totalInventory ?? 0,
+        priceRange: {
+          minVariantPrice: {
+            amount: p.priceRangeV2?.minVariantPrice?.amount || '0',
+            currencyCode: p.priceRangeV2?.minVariantPrice?.currencyCode || 'JPY',
+          },
+          maxVariantPrice: {
+            amount: p.priceRangeV2?.maxVariantPrice?.amount || '0',
+            currencyCode: p.priceRangeV2?.maxVariantPrice?.currencyCode || 'JPY',
+          },
+        },
+        images,
+        variants,
+      };
     });
 
-    // GraphQL connection ({nodes:[...]}) を Product 型の配列形状にフラット化
-    // 未フラット化だと getThumbnail(product.images) で images[0].url が TypeError → SSR crash
-    const productList = ((products?.nodes || []) as Array<Record<string, unknown>>).map((p) => ({
-      ...p,
-      images: (p.images as {nodes?: unknown[]} | undefined)?.nodes || [],
-      variants: (p.variants as {nodes?: unknown[]} | undefined)?.nodes || [],
-    })) as unknown as Product[];
     const totalProducts = productList.length;
-    const totalVariants = productList.reduce((sum, p) => sum + (p.variants?.length || 0), 0);
+    const totalVariants = productList.reduce(
+      (sum, p) => sum + (p.variants?.length || 0),
+      0,
+    );
 
     let minPrice = Infinity;
     let maxPrice = -Infinity;
     productList.forEach((p) => {
       const minVal = parseFloat(p.priceRange?.minVariantPrice?.amount || '0');
       const maxVal = parseFloat(p.priceRange?.maxVariantPrice?.amount || '0');
-      minPrice = Math.min(minPrice, minVal);
-      maxPrice = Math.max(maxPrice, maxVal);
+      if (!Number.isNaN(minVal)) minPrice = Math.min(minPrice, minVal);
+      if (!Number.isNaN(maxVal)) maxPrice = Math.max(maxPrice, maxVal);
     });
 
     const priceRange =
@@ -104,7 +139,17 @@ export async function loader({ context }: Route.LoaderArgs) {
     if (process.env.NODE_ENV === 'development') {
       console.error('Admin products loader error:', error);
     }
-    throw AppError.internal('商品データの読み込みに失敗しました');
+    // Admin API 失敗時は空リストで返して UI 側でメッセージ表示
+    // throw するとフルページエラーになるため、graceful fallback に変更
+    return {
+      products: [] as Product[],
+      stats: {
+        totalProducts: 0,
+        totalVariants: 0,
+        priceRange: 'N/A',
+      },
+      loadError: '商品データの読み込みに失敗しました。Admin API 設定を確認してください。',
+    };
   }
 }
 
@@ -692,7 +737,10 @@ function ProductRow({ product, isExpanded, onToggle, onEdit, onDelete }: Product
 // ─── Main Component ──────
 
 export default function AdminProductsDashboard() {
-  const { products, stats } = useLoaderData<typeof loader>();
+  const data = useLoaderData<typeof loader>();
+  const products = data.products;
+  const stats = data.stats;
+  const loadError = (data as { loadError?: string }).loadError;
   const navigation = useNavigation();
   const isLoading = navigation.state === 'loading';
 
@@ -766,6 +814,24 @@ export default function AdminProductsDashboard() {
           <p style={{ fontSize: 14, color: T.t4, margin: '0 0 24px 0' }}>
             全商品のバリアント・在庫・価格情報を管理
           </p>
+
+          {/* Load Error Banner (patch 0008: graceful fallback 時の案内) */}
+          {loadError && (
+            <div
+              role="alert"
+              style={{
+                padding: '12px 16px',
+                marginBottom: 24,
+                background: '#3a1515',
+                border: '1px solid #ff6b6b',
+                borderRadius: 8,
+                color: '#ff9b9b',
+                fontSize: 13,
+              }}
+            >
+              {loadError}
+            </div>
+          )}
 
           {/* Stats Cards */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
