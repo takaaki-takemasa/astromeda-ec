@@ -125,9 +125,29 @@ const GPU_TITLE_PATTERNS = [
 ];
 
 /**
+ * CPU/GPU ラベル正規化:
+ *  - "RTX5070Ti" → "RTX 5070 Ti", "Ryzen7 5700X" → "Ryzen 7 5700X" のように
+ *    数字や接尾辞前に空白を入れて重複を畳む
+ */
+function normalizeHardwareLabel(raw: string, kind: 'CPU' | 'GPU'): string {
+  let s = raw.replace(/\s+/g, ' ').trim();
+  if (kind === 'GPU') {
+    s = s.replace(/^(RTX|GTX|RX|Arc)(\d)/i, '$1 $2');
+    s = s.replace(/(\d)(Ti|SUPER|XT|XTX)\b/i, '$1 $2');
+  } else {
+    // CPU: "Ryzen7 X" → "Ryzen 7 X", "Core i7" 系はそのまま
+    s = s.replace(/^(Ryzen)(\d)/i, '$1 $2');
+  }
+  // Ti/SUPER/XT は表記を Ti/SUPER/XT に統一（ヒット時の大小混在を解消）
+  s = s.replace(/\bsuper\b/i, 'SUPER').replace(/\bti\b/i, 'Ti').replace(/\bxt\b/i, 'XT').replace(/\bxtx\b/i, 'XTX');
+  return s;
+}
+
+/**
  * CPU/GPU 抽出（タグ優先・タイトル後退）
  * Shopify の product.tags に `CPU:Ryzen7 5700X` のように付与されていればそれを返し、
  * タグが無ければ商品タイトル中のパターンマッチで抽出する。
+ * 抽出後は表記揺れを正規化して dedup 効率を上げる。
  */
 export function extractHardwareSpec(
   title: string,
@@ -135,11 +155,11 @@ export function extractHardwareSpec(
   kind: 'CPU' | 'GPU',
 ): string | null {
   const fromTag = extractSpec(tags, kind);
-  if (fromTag) return fromTag.trim();
+  if (fromTag) return normalizeHardwareLabel(fromTag, kind);
   const patterns = kind === 'CPU' ? CPU_TITLE_PATTERNS : GPU_TITLE_PATTERNS;
   for (const p of patterns) {
     const m = title.match(p);
-    if (m) return m[0].replace(/\s+/g, ' ').trim();
+    if (m) return normalizeHardwareLabel(m[0], kind);
   }
   return null;
 }
