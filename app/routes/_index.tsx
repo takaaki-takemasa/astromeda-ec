@@ -17,6 +17,8 @@ import type {MetaColorModel} from '~/components/astro/PCShowcase';
 // ScrollReveal removed: causes opacity:0 issues when CSS files return 503 from Shopify CDN
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import {preloadImage, optimizeImageUrl} from '~/lib/cache-headers';
+// patch 0012: CMS 絶対URLを内部パス正規化（新/旧サイト離脱防止）
+import {toInternalPath} from '~/lib/cms-url';
 import type {RecommendedProductsQuery, RecommendedProductFragment} from 'storefrontapi.generated';
 
 export const meta: Route.MetaFunction = ({data}) => {
@@ -742,7 +744,8 @@ export default function Homepage() {
         );
         const title = active ? active.title : 'ASTROMEDAとは？';
         const subtitle = active ? stripTags(active.bodyHtml) : '日本発・25タイトル以上のIPコラボゲーミングPC';
-        const linkUrl = active ? active.linkUrl : '/about';
+        // patch 0012: CMS linkUrl が旧サイト絶対URLで入っていても内部パスに畳む
+        const linkUrl = toInternalPath(active ? active.linkUrl : '/about');
         const linkLabel = active ? active.linkLabel : '詳しく見る →';
         return (
           <section style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', paddingBottom: 'clamp(16px, 2vw, 24px)'}}>
@@ -809,7 +812,8 @@ export default function Homepage() {
                 ? rawMetaCards.map((c) => ({
                     name: c.title,
                     sub: c.description || '',
-                    to: c.linkUrl || '#',
+                    // patch 0012: CMS linkUrl を内部パス正規化（旧サイト絶対URL離脱防止）
+                    to: toInternalPath(c.linkUrl || '#'),
                     pr: c.priceFrom != null ? `¥${c.priceFrom.toLocaleString('ja-JP')}〜` : '',
                     ac: T.c,
                     bg: '#0a0e1a',

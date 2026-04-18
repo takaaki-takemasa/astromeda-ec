@@ -99,6 +99,9 @@ function buildSeeds(): SeedSpec[] {
         fields: [
           { key: 'title', value: '新着IPコラボPC登場' },
           { key: 'subtitle', value: '国内自社工場で組み立て。最短10営業日でお届け。' },
+          // 注: Metaobject URL field は http/https scheme 必須 (commit 043b931 参照)。
+          // STORE_URL 絶対URLで保存し、フロント側は toInternalPath (patch 0012) で
+          // render 時に自ドメイン/旧ドメイン配下を内部パスに畳んで SPA 遷移させる。
           { key: 'link_url', value: `${STORE_URL}/collections/new-arrivals` },
           { key: 'cta_label', value: '新着を見る' },
           { key: 'display_order', value: '1' },
@@ -273,7 +276,9 @@ function buildSeeds(): SeedSpec[] {
               '全8色のカラーバリエーション、26タイトルのIPコラボ、最長3年保証。' +
               '「推しの世界観」と「確かな品質」を両立させる、日本発のクラフトPC。</p>',
           },
-          { key: 'link_url', value: 'https://shop.mining-base.co.jp/pages/about' },
+          // 注: Metaobject URL field は http/https scheme 必須。絶対URLで保存し
+          // frontend 側で toInternalPath 正規化 (patch 0012)。
+          { key: 'link_url', value: `${STORE_URL}/pages/about` },
           { key: 'link_label', value: 'ブランドについて' },
           { key: 'display_order', value: '1' },
           { key: 'is_active', value: 'true' },

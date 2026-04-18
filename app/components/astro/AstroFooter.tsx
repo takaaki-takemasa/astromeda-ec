@@ -3,6 +3,8 @@ import {Link, useRouteLoaderData} from 'react-router';
 import {T, al, LEGAL, POLICY_BASE} from '~/lib/astromeda-data';
 import {NewsletterSignup} from '~/components/astro/NewsletterSignup';
 import type {RootLoader, MetaFooterConfig} from '~/root';
+// patch 0012: CMS Footer リンクで旧サイト絶対URLが入っていても内部遷移に畳む
+import {toInternalPath, isExternalHref} from '~/lib/cms-url';
 
 /* ─── Footer SVG Icons ──────────────────────────────── */
 const iconProps = {width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true as const};
@@ -343,11 +345,14 @@ export function AstroFooter() {
                   </div>
                   <div style={{display: 'flex', flexDirection: 'column', gap: 6}}>
                     {s.links.map((lk, i) => {
-                      const isExternal = /^https?:\/\//.test(lk.url);
+                      // patch 0012: CMS URL を正規化。自サイト/旧サイトを指す絶対URLは内部パスへ畳む。
+                      // 本当に外部のみ新タブ扱い。
+                      const normalized = toInternalPath(lk.url);
+                      const isExternal = isExternalHref(normalized);
                       return isExternal ? (
                         <a
                           key={`${s.id}-${i}`}
-                          href={lk.url}
+                          href={normalized}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{color: T.t4, textDecoration: 'underline'}}
@@ -357,7 +362,7 @@ export function AstroFooter() {
                       ) : (
                         <Link
                           key={`${s.id}-${i}`}
-                          to={lk.url}
+                          to={normalized}
                           style={{color: T.t4, textDecoration: 'underline'}}
                         >
                           {lk.label}

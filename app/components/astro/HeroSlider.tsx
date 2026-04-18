@@ -2,6 +2,8 @@ import React, {useState, useEffect, useCallback, useMemo} from 'react';
 import {Link} from 'react-router';
 import {T, al, FEATURED} from '~/lib/astromeda-data';
 import {optimizeImageUrl, generateSrcSet} from '~/lib/cache-headers';
+// patch 0012: CMS の linkUrl が旧サイト絶対URLで入っていても内部パスに正規化する
+import {toInternalPath, isExternalHref} from '~/lib/cms-url';
 
 interface ShopifyCollection {
   id: string;
@@ -110,11 +112,17 @@ function HeroSliderComponent({collections, metaBanners}: HeroSliderProps) {
               const imgUrl = m.image || collectionImgUrl;
               const isActive = i === hi;
               const accent = T.c;
-              const href = m.linkUrl || `/collections/${m.handle}`;
+              // patch 0012: CMS の linkUrl は旧サイト絶対URL（shop.mining-base.co.jp/...）で
+              // 入っていることがある。`<Link to={href}>` に絶対URLを渡すと外部遷移扱いになり
+              // 新Hydrogen サイトから旧 liquid サイトへ離脱する。toInternalPath で正規化し、
+              // 自ドメイン / 旧ドメインのパスは内部遷移へ畳み込む。
+              const href = toInternalPath(m.linkUrl || `/collections/${m.handle}`);
+              const external = isExternalHref(href);
               return (
                 <Link
                   key={m.id}
                   to={href}
+                  {...(external ? {target: '_blank', rel: 'noopener noreferrer'} : {})}
                   aria-label={`${m.title} の詳細を見る`}
                   style={{
                     textDecoration: 'none',
