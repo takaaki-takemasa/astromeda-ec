@@ -545,7 +545,8 @@ export default function Collection() {
             </Link>
           ))}
           {/* フィルタ結果件数 */}
-          {(ipFilter || typeFilter) && (
+          {/* patch 0016: cpu/gpu/material/price 単独でも件数表示 */}
+          {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter) && (
             <span style={{fontSize: 11, color: T.t4, marginLeft: 4}}>
               {filteredProducts.length}件
             </span>
@@ -555,7 +556,10 @@ export default function Collection() {
 
       {/* Products grid */}
       <div style={{padding: 'clamp(20px, 3vw, 40px) clamp(16px, 4vw, 48px)'}}>
-        {(ipFilter || typeFilter) ? (
+        {/* patch 0016: cpu/gpu/material/price 単独でも filteredProducts grid を使う
+            （以前は ip/type 以外のフィルタが無視され PaginatedResourceSection の
+             生データが描画されていた） */}
+        {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter) ? (
           <div className="astro-products-grid">
             {filteredProducts.map((product, index: number) => (
               <AstroProductItem key={product.id} product={product} accent={accent} loading={index < 8 ? 'eager' : undefined} />
