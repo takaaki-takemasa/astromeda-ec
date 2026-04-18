@@ -47,6 +47,8 @@ export async function loader({request}: Route.LoaderArgs) {
     {path: '/reviews', priority: '0.8', changefreq: 'weekly'},
     // ブログ一覧
     {path: '/blogs', priority: '0.8', changefreq: 'daily'},
+    // patch 0025 (P2-I): astromeda_article_content 駆動ブログ一覧
+    {path: '/blog', priority: '0.8', changefreq: 'daily'},
     // ギフトカード
     {path: '/gift-cards', priority: '0.6', changefreq: 'monthly'},
     // 法的情報

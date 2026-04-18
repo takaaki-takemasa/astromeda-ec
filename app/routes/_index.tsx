@@ -154,7 +154,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult, marqueeItemResult, ugcReviewResult, pcTierResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult, marqueeItemResult, ugcReviewResult, pcTierResult, campaignResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -183,6 +183,8 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_ugc_review', 30) : emptyMo(),
     // patch 0023: Metaobject PC ティア（PCShowcase TierCards 用）
     adminClient ? adminClient.getMetaobjects('astromeda_pc_tier', 10) : emptyMo(),
+    // patch 0025 (P2-H): Metaobject キャンペーン（homepage top banner 用）
+    adminClient ? adminClient.getMetaobjects('astromeda_campaign', 20) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -200,6 +202,8 @@ export async function loader({context}: Route.LoaderArgs) {
   const ugcReviewRaw = ugcReviewResult.status === 'fulfilled' ? ugcReviewResult.value : [];
   // patch 0023: pc_tier raw 取り出し
   const pcTierRaw = pcTierResult.status === 'fulfilled' ? pcTierResult.value : [];
+  // patch 0025 (P2-H): campaign raw 取り出し
+  const campaignRaw = campaignResult.status === 'fulfilled' ? campaignResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -604,6 +608,36 @@ export async function loader({context}: Route.LoaderArgs) {
     .filter((t) => t.tier && t.gpu && t.cpu)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // patch 0025 (P2-H): astromeda_campaign → アクティブな1件採用（homepage 最上部 promo banner 用）
+  const now = Date.now();
+  const metaCampaigns = (campaignRaw || [])
+    .map((r) => {
+      const f = fieldsToMap(r.fields);
+      const startAt = f['start_at'] ? Date.parse(f['start_at']) : 0;
+      const endAt = f['end_at'] ? Date.parse(f['end_at']) : Number.POSITIVE_INFINITY;
+      return {
+        id: r.id,
+        handle: r.handle,
+        title: f['title'] || '',
+        description: f['description'] || '',
+        discountCode: f['discount_code'] || '',
+        discountPercent: parseInt(f['discount_percent'] || '0', 10) || 0,
+        targetTags: f['target_tags'] || '',
+        status: (f['status'] || '').toLowerCase(),
+        startAt: Number.isFinite(startAt) ? startAt : 0,
+        endAt: Number.isFinite(endAt) ? endAt : Number.POSITIVE_INFINITY,
+      };
+    })
+    .filter(
+      (c) =>
+        c.title &&
+        c.status === 'active' &&
+        c.startAt <= now &&
+        now <= c.endAt,
+    )
+    .sort((a, b) => b.startAt - a.startAt);
+  const activeCampaign = metaCampaigns[0] || null;
+
   return {
     recommendedProducts,
     ipCollections,
@@ -621,6 +655,7 @@ export async function loader({context}: Route.LoaderArgs) {
     metaMarqueeItems,
     metaUgcReviews,
     metaPcTiers,
+    activeCampaign,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -747,6 +782,44 @@ export default function Homepage() {
           }),
         }}
       />
+      {/* patch 0025 (P2-H): キャンペーンバナー — astromeda_campaign がアクティブなら homepage 最上部に表示 */}
+      {data.activeCampaign && (
+        <div
+          data-campaign-id={data.activeCampaign.id}
+          data-campaign-handle={data.activeCampaign.handle}
+          style={{
+            background: `linear-gradient(90deg, ${T.c}, ${T.s})`,
+            color: '#06060C',
+            padding: '10px clamp(16px, 3vw, 32px)',
+            textAlign: 'center',
+            fontSize: 'clamp(13px, 1.6vw, 15px)',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+            lineHeight: 1.4,
+          }}
+        >
+          <span style={{fontWeight: 800, marginRight: 8}}>🔥 {data.activeCampaign.title}</span>
+          {data.activeCampaign.discountPercent > 0 && (
+            <span style={{marginRight: 8}}>{data.activeCampaign.discountPercent}% OFF</span>
+          )}
+          {data.activeCampaign.discountCode && (
+            <span
+              style={{
+                display: 'inline-block',
+                background: '#06060C',
+                color: T.c,
+                padding: '2px 10px',
+                borderRadius: 4,
+                fontWeight: 800,
+                letterSpacing: '0.05em',
+                marginLeft: 4,
+              }}
+            >
+              CODE: {data.activeCampaign.discountCode}
+            </span>
+          )}
+        </div>
+      )}
       {/* Marquee strip */}
       <div
         style={{
