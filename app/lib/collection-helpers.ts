@@ -130,6 +130,19 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     throw redirect('/collections/gaming-pc', 301);
   }
 
+  // patch 0013: シンセティック handle の 302 リダイレクト
+  // hero banner / footer / category cards で参照されるが Shopify 上に対応する
+  // コレクションが存在しない handle (new-arrivals / ip-collaborations) を、
+  // 機能的に等価な既存コレクション (astromeda = 52商品 + IP collab grid landing)
+  // へ案内する。CMS 編集で別コレクションへ向ければこのリダイレクトは発火しない。
+  const SYNTHETIC_HANDLE_REDIRECTS: Record<string, string> = {
+    'new-arrivals': '/collections/astromeda?sort=newest',
+    'ip-collaborations': '/collections/astromeda',
+  };
+  if (handle in SYNTHETIC_HANDLE_REDIRECTS) {
+    throw redirect(SYNTHETIC_HANDLE_REDIRECTS[handle], 302);
+  }
+
   const url = new URL(request.url);
   const sortParam = url.searchParams.get('sort') ?? 'newest';
   let sortKey = 'CREATED';
