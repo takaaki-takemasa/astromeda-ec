@@ -195,7 +195,36 @@ export async function loader({context}: Route.LoaderArgs) {
     return m;
   };
 
-  const metaCollabs: MetaCollab[] = ipBannerRaw.map((mo) => {
+  // patch 0011: cms-seed が複数回走った痕跡で pc_color 16件 (8×2) / ip_banner 46件 (23×2)
+  // のような重複が Metaobject 側に残り、storefront に直接流れて二重表示を起こすため、
+  // ユーザ視点の一意キー (slug / shopHandle / title+linkUrl) で畳み込む。
+  // 同 key なら display_order の小さい方を優先、key 空はそのまま素通し。
+  const dedupByKey = <T,>(
+    items: T[],
+    keyFn: (item: T) => string,
+    orderFn?: (item: T) => number,
+  ): T[] => {
+    const map = new Map<string, T>();
+    const passthrough: T[] = [];
+    items.forEach((item) => {
+      const key = keyFn(item);
+      if (!key) {
+        passthrough.push(item);
+        return;
+      }
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, item);
+        return;
+      }
+      if (orderFn && orderFn(item) < orderFn(existing)) {
+        map.set(key, item);
+      }
+    });
+    return [...map.values(), ...passthrough];
+  };
+
+  const metaCollabsRaw: MetaCollab[] = ipBannerRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
     return {
       id: mo.id,
@@ -210,7 +239,7 @@ export async function loader({context}: Route.LoaderArgs) {
     };
   });
 
-  const metaBanners: MetaBanner[] = heroBannerRaw.map((mo) => {
+  const metaBannersRaw: MetaBanner[] = heroBannerRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
     return {
       id: mo.id,
@@ -227,7 +256,7 @@ export async function loader({context}: Route.LoaderArgs) {
     };
   });
 
-  const metaColors: MetaColorModel[] = pcColorModelRaw.map((mo) => {
+  const metaColorsRaw: MetaColorModel[] = pcColorModelRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
     return {
       id: mo.id,
@@ -240,6 +269,24 @@ export async function loader({context}: Route.LoaderArgs) {
       isActive: f['is_active'] === 'true',
     };
   });
+
+  // patch 0011: storefront に渡す直前に dedup — Metaobject 側の重複状態に関係なく
+  // storefront は常にユーザ視点の一意集合を受け取る。
+  const metaCollabs: MetaCollab[] = dedupByKey(
+    metaCollabsRaw,
+    (m) => m.shopHandle.trim().toLowerCase(),
+    (m) => m.sortOrder,
+  );
+  const metaBanners: MetaBanner[] = dedupByKey(
+    metaBannersRaw,
+    (b) => `${b.title.trim()}|${(b.linkUrl || '').trim().toLowerCase()}`,
+    (b) => b.sortOrder,
+  );
+  const metaColors: MetaColorModel[] = dedupByKey(
+    metaColorsRaw,
+    (c) => c.slug.trim().toLowerCase(),
+    (c) => c.sortOrder,
+  );
 
   const metaCategoryCards: MetaCategoryCard[] = categoryCardRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
