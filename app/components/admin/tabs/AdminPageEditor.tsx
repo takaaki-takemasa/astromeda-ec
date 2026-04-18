@@ -519,7 +519,7 @@ export default function AdminPageEditor() {
         ))}
       </div>
 
-      {subTab === 'visual' && <VisualEditSection onNavigate={setSubTab} />}
+      {subTab === 'visual' && <VisualEditSection onNavigate={setSubTab} pushToast={push} />}
       {subTab === 'ip_banners' && <IpBannersSection pushToast={push} confirm={confirm} />}
       {subTab === 'hero_banners' && <HeroBannersSection pushToast={push} confirm={confirm} />}
       {subTab === 'color_models' && <ColorModelsSection pushToast={push} confirm={confirm} />}
@@ -542,71 +542,153 @@ export default function AdminPageEditor() {
 // → live storefront を iframe で表示し、各セクションに編集ショートカットを配置。
 // ══════════════════════════════════════════════════════════
 
-interface VisualEditSectionProps {
-  onNavigate: (tab: SubTab) => void;
+// patch 0033: ページ別のビジュアル編集対応。CEO 要望:
+// 「ゲーミングPCタブの中が一切修正することができない。トップページと同じように
+//  視覚的に修正できるようにして」→ iframe URL とセクション定義をページ毎に切替える。
+type PageKey = 'home' | 'gaming-pc';
+
+// ゲーミングPC LP には SubTab に無いセクションもあるので、section の key は
+// SubTab を含むより広い文字列 literal union にする。highlight の data-astro-section
+// キーに使うだけなので型はラフに string で OK。
+type SectionKey =
+  | SubTab
+  | 'feature'
+  | 'ranking'
+  | 'search_parts'
+  | 'price_range'
+  | 'contact'
+  | 'news';
+
+interface SectionDef {
+  key: SectionKey;
+  label: string;
+  desc: string;
+  icon: string;
+  num: string;
+  color: string;
+  match: (text: string, el: Element) => boolean;
+  // navTab が定義されている場合はクリックで該当サブタブにジャンプする。
+  // 無い場合は info トーストで「どこで編集するか」を案内する。
+  navTab?: SubTab;
+  info?: string;
 }
 
-function VisualEditSection({onNavigate}: VisualEditSectionProps) {
+// patch 0029: 各セクションに固有色＋番号（WCAG AA コントラスト十分な飽和系で区別）。
+const HOME_SECTIONS: SectionDef[] = [
+  {
+    key: 'hero_banners', label: 'ヒーローバナー', desc: 'トップのスライダー',
+    icon: '🎬', num: '①', color: '#FF4D8D', navTab: 'hero_banners',
+    match: (_, el) => el.classList?.contains('hero-slider-wrap') === true,
+  },
+  {
+    key: 'color_models', label: 'PC カラー', desc: '8色モデル',
+    icon: '🎨', num: '②', color: '#FFD84D', navTab: 'color_models',
+    match: (t) => /全\s*8\s*色カラー|COLOR\s*EDITIONS/i.test(t),
+  },
+  {
+    key: 'about_sections', label: 'ABOUT', desc: 'ブランド紹介セクション',
+    icon: '📖', num: '③', color: '#B57CFF', navTab: 'about_sections',
+    match: (t, el) => el.tagName === 'SECTION' && /^ABOUT\b|ASTROMEDAとは/i.test(t.trim()),
+  },
+  {
+    key: 'category_cards', label: 'カテゴリ', desc: 'PC / ガジェット / グッズ',
+    icon: '📁', num: '④', color: '#4DDB8A', navTab: 'category_cards',
+    match: (t) => /^CATEGORY\b/.test(t.trim()),
+  },
+  {
+    key: 'ip_banners', label: 'IPコラボ', desc: '26タイトル IP カード',
+    icon: '🎌', num: '⑤', color: '#FF9A3C', navTab: 'ip_banners',
+    match: (t) => /IP\s*COLLABS|タイトル[\s\S]{0,4}NEW/.test(t.slice(0, 50)),
+  },
+  {
+    key: 'product_shelves', label: '商品棚', desc: '新着・人気棚',
+    icon: '🛍', num: '⑥', color: '#4DB8FF', navTab: 'product_shelves',
+    match: (t) => /NEW\s*ARRIVALS/i.test(t.slice(0, 40)),
+  },
+  {
+    key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク',
+    icon: '🦶', num: '⑦', color: '#FF6B6B', navTab: 'footer_configs',
+    match: (_, el) => el.tagName === 'FOOTER',
+  },
+  {
+    key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列',
+    icon: '⚙️', num: '⑧', color: '#C9C9C9', navTab: 'customization_matrix',
+    match: () => false, // トップページには露出しない（商品詳細側の機能）
+  },
+];
+
+// patch 0033: /collections/gaming-pc (GamingPCLanding コンポーネント) の
+// 全7セクションを視覚化する。SectionTitle は <div>{ja}</div><div>{en}</div>
+// パターンのため、text が「特集 FEATURE」「人気ランキング RANKING」等になる。
+const GAMING_PC_SECTIONS: SectionDef[] = [
+  {
+    key: 'hero_banners', label: 'ヒーローバナー', desc: 'ゲーミングPC LP 上部のスライダー',
+    icon: '🎬', num: '①', color: '#FF4D8D', navTab: 'hero_banners',
+    match: (_, el) => el.classList?.contains('hero-slider-wrap') === true,
+  },
+  {
+    key: 'feature', label: '特集 FEATURE', desc: '特集カード 4 枚（コード側管理）',
+    icon: '⭐', num: '②', color: '#FFD84D',
+    info: '特集カードは現在コード内でハードコードされています（FEATURE_CARDS 定数）。Metaobject 化が必要な場合は Claude に「特集カードを管理画面から編集したい」と指示してください。',
+    match: (t) => /FEATURE\b|^特集\s|特集\nFEATURE/.test(t.slice(0, 30)),
+  },
+  {
+    key: 'ranking', label: '人気ランキング', desc: 'Shopifyコレクション並び順で自動反映',
+    icon: '🏆', num: '③', color: '#B57CFF',
+    info: '人気ランキングは Shopify 管理画面「コレクション → gaming-pc → 並び順」で変更してください。画像や価格は各商品ページの編集に従います。',
+    match: (t) => /RANKING\b|人気ランキング/.test(t.slice(0, 40)),
+  },
+  {
+    key: 'search_parts', label: 'パーツで選ぶ', desc: 'CPU / GPU カードから絞込み',
+    icon: '🧩', num: '④', color: '#4DDB8A',
+    info: 'パーツ選択カード（CPU/GPU）は現在コード内でハードコードされています（CPU_CARDS / GPU_CARDS 定数）。Metaobject 化が必要な場合は Claude に依頼してください。',
+    match: (t) => /SEARCH\b|パーツで選ぶ|CPUから選択|GPUから選択/.test(t.slice(0, 60)),
+  },
+  {
+    key: 'price_range', label: '値段で選ぶ', desc: '価格帯リンク（コード側管理）',
+    icon: '💴', num: '⑤', color: '#FF9A3C',
+    info: '価格帯リンクは現在コード内でハードコードされています（PRICE_RANGES 定数）。変更したい場合は Claude に指示してください。',
+    match: (t) => /PRICE\s*RANGE|値段で選ぶ/.test(t.slice(0, 40)),
+  },
+  {
+    key: 'contact', label: 'お問い合わせ', desc: '電話 / LINE 連絡先',
+    icon: '📞', num: '⑥', color: '#4DB8FF',
+    info: 'お問い合わせ先は「コンテンツ」タブの固定ページ(handle=contact / contact-houjin)から編集、または法務情報タブで電話番号を変更してください。現在は GamingPCLanding コンポーネントにハードコード表示されていますので Metaobject 化が必要な場合は Claude に指示してください。',
+    match: (t) => /CONTACT\b|お問い合わせ/.test(t.slice(0, 30)),
+  },
+  {
+    key: 'news', label: 'お知らせ', desc: 'ニュース / お知らせ一覧',
+    icon: '📰', num: '⑦', color: '#C9C9C9',
+    info: 'お知らせは現在 Shopify ブログ記事から自動取得されています。Shopify 管理画面「オンラインストア → ブログ記事」で新規作成・編集してください。',
+    match: (t) => /INFORMATION\b|お知らせ/.test(t.slice(0, 30)),
+  },
+  {
+    key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク',
+    icon: '🦶', num: '⑧', color: '#FF6B6B', navTab: 'footer_configs',
+    match: (_, el) => el.tagName === 'FOOTER',
+  },
+];
+
+const PAGE_DEFS: Record<PageKey, {label: string; icon: string; path: string; sections: SectionDef[]}> = {
+  home: {label: 'トップページ', icon: '🏠', path: '/', sections: HOME_SECTIONS},
+  'gaming-pc': {label: 'ゲーミングPC', icon: '🎮', path: '/collections/gaming-pc', sections: GAMING_PC_SECTIONS},
+};
+
+interface VisualEditSectionProps {
+  onNavigate: (tab: SubTab) => void;
+  pushToast: (msg: string, type: 'success' | 'error') => void;
+}
+
+function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProps) {
   // iframe refresh key（保存後に再読み込みして最新反映を確認するため）
   const [iframeKey, setIframeKey] = useState(0);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
+  // patch 0033: 表示するストアフロントページ（トップ / ゲーミングPC / ...）
+  const [pageKey, setPageKey] = useState<PageKey>('home');
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
-  // patch 0029: 各セクションに固有色＋番号。CEO が admin サイドバーと
-  // iframe 内のセクションを**色と番号で視覚的に一致**させられるようにする。
-  // 色は WCAG AA コントラスト十分な飽和系で 8 区別。
-  const sections: Array<{
-    key: SubTab;
-    label: string;
-    desc: string;
-    icon: string;
-    num: string;
-    color: string;
-    // iframe 内セクション検出用テキストヒューリスティック。
-    // class 名は Vite の minify で変わるため、**表示テキスト**で突き合わせる。
-    match: (text: string, el: Element) => boolean;
-  }> = [
-    {
-      key: 'hero_banners', label: 'ヒーローバナー', desc: 'トップのスライダー',
-      icon: '🎬', num: '①', color: '#FF4D8D',
-      match: (_, el) => el.classList?.contains('hero-slider-wrap') === true,
-    },
-    {
-      key: 'color_models', label: 'PC カラー', desc: '8色モデル',
-      icon: '🎨', num: '②', color: '#FFD84D',
-      match: (t) => /全\s*8\s*色カラー|COLOR\s*EDITIONS/i.test(t),
-    },
-    {
-      key: 'about_sections', label: 'ABOUT', desc: 'ブランド紹介セクション',
-      icon: '📖', num: '③', color: '#B57CFF',
-      match: (t, el) => el.tagName === 'SECTION' && /^ABOUT\b|ASTROMEDAとは/i.test(t.trim()),
-    },
-    {
-      key: 'category_cards', label: 'カテゴリ', desc: 'PC / ガジェット / グッズ',
-      icon: '📁', num: '④', color: '#4DDB8A',
-      match: (t) => /^CATEGORY\b/.test(t.trim()),
-    },
-    {
-      key: 'ip_banners', label: 'IPコラボ', desc: '26タイトル IP カード',
-      icon: '🎌', num: '⑤', color: '#FF9A3C',
-      match: (t) => /IP\s*COLLABS|タイトル[\s\S]{0,4}NEW/.test(t.slice(0, 50)),
-    },
-    {
-      key: 'product_shelves', label: '商品棚', desc: '新着・人気棚',
-      icon: '🛍', num: '⑥', color: '#4DB8FF',
-      match: (t) => /NEW\s*ARRIVALS/i.test(t.slice(0, 40)),
-    },
-    {
-      key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク',
-      icon: '🦶', num: '⑦', color: '#FF6B6B',
-      match: (_, el) => el.tagName === 'FOOTER',
-    },
-    {
-      key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列',
-      icon: '⚙️', num: '⑧', color: '#C9C9C9',
-      match: () => false, // トップページには露出しない（商品詳細側の機能）
-    },
-  ];
+  const pageDef = PAGE_DEFS[pageKey];
+  const sections = pageDef.sections;
 
   const deviceWidth: Record<PreviewDevice, number | string> = {
     mobile: 375,
@@ -690,6 +772,17 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
       (a, b) => (a as HTMLElement).offsetHeight - (b as HTMLElement).offsetHeight,
     );
 
+    // patch 0033: ページ切替時に前ページの pill/highlight が残らないよう、
+    // 現在 sections に含まれない [data-astro-section] は剥がす。
+    const currentKeys = new Set(sections.map((s) => s.key));
+    doc.querySelectorAll('[data-astro-section]').forEach((el) => {
+      const k = el.getAttribute('data-astro-section') || '';
+      if (!currentKeys.has(k as SectionKey)) {
+        el.removeAttribute('data-astro-section');
+        el.querySelectorAll(':scope > .astro-section-pill').forEach((n) => n.remove());
+      }
+    });
+
     for (const sec of sections) {
       // 既にタグ付け済みならスキップ（idempotent: 多段リトライで重複しない）
       if (doc.querySelector(`[data-astro-section="${sec.key}"]`)) continue;
@@ -726,7 +819,7 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
         break;
       }
     }
-  }, []); // sections は定義固定
+  }, [sections]); // patch 0033: pageKey 変更で sections 参照が切り替わる
 
   // iframe が差し替わる度に overlay 再注入。
   // patch 0030: 単一 setTimeout では React hydration を取り逃すので、
@@ -775,8 +868,14 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
     };
   }, [iframeKey, injectOverlays]);
 
+  // patch 0033: pageKey が変わったら iframe を強制再ロード（src を切替えるため）。
+  // iframeKey 増分で iframe の `key` prop が変わって React が再マウントする。
+  useEffect(() => {
+    setIframeKey((k) => k + 1);
+  }, [pageKey]);
+
   // サイドバーボタン hover で iframe 内の該当セクションを scroll+highlight
-  const highlightSection = useCallback((key: SubTab) => {
+  const highlightSection = useCallback((key: SectionKey) => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
     doc.querySelectorAll('[data-astro-section].astro-highlight').forEach((n) =>
@@ -806,6 +905,56 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
           <b style={{color: T.c}}>各セクションに色と番号が付いています。</b>
           右のボタンにマウスを合わせると左プレビューの同じ色の場所が光ります。クリックすると編集タブに切り替わります。
         </div>
+      </div>
+
+      {/* patch 0033: ページ切替セグメント — トップ / ゲーミングPC を切替えて iframe を再ロード */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          marginBottom: 14,
+          padding: 8,
+          background: al(T.tx, 0.04),
+          border: `1px solid ${al(T.tx, 0.1)}`,
+          borderRadius: 8,
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <span style={{fontSize: 11, fontWeight: 800, color: T.t5, letterSpacing: 1, marginRight: 4}}>
+          編集するページ
+        </span>
+        {(Object.keys(PAGE_DEFS) as PageKey[]).map((pk) => {
+          const p = PAGE_DEFS[pk];
+          const active = pageKey === pk;
+          return (
+            <button
+              key={pk}
+              type="button"
+              onClick={() => setPageKey(pk)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 14px',
+                background: active ? T.c : 'transparent',
+                color: active ? '#0a0a0a' : T.tx,
+                border: `1px solid ${active ? T.c : al(T.tx, 0.2)}`,
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 800,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              title={p.path}
+            >
+              <span style={{fontSize: 14}}>{p.icon}</span>
+              <span>{p.label}</span>
+              <span style={{fontSize: 10, opacity: 0.7, fontWeight: 500, marginLeft: 4}}>{p.path}</span>
+            </button>
+          );
+        })}
       </div>
 
       <div style={{display: 'flex', gap: 16, flexWrap: 'wrap'}}>
@@ -859,8 +1008,8 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
             <iframe
               ref={iframeRef}
               key={iframeKey}
-              src="/"
-              title="live storefront"
+              src={pageDef.path}
+              title={`live storefront — ${pageDef.label}`}
               style={{
                 width: deviceWidth[device],
                 maxWidth: '100%',
@@ -873,7 +1022,7 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
             />
           </div>
           <div style={{fontSize: 10, color: T.t5, marginTop: 6}}>
-            ※ このプレビューは本番サイトそのものです。URL: /
+            ※ このプレビューは本番サイトそのものです。URL: <code style={{color: T.c}}>{pageDef.path}</code>
           </div>
         </div>
 
@@ -896,7 +1045,17 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
               <button
                 key={s.key}
                 type="button"
-                onClick={() => onNavigate(s.key)}
+                onClick={() => {
+                  if (s.navTab) {
+                    onNavigate(s.navTab);
+                  } else if (s.info) {
+                    // patch 0033: 対応する管理画面タブが無いセクションは、編集方法を
+                    // トーストで案内する（ハードコード/Shopifyブログ等）。
+                    pushToast(s.info, 'error');
+                  } else {
+                    pushToast('このセクションはまだ管理画面から編集できません。', 'error');
+                  }
+                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = al(s.color, 0.22);
                   e.currentTarget.style.borderColor = s.color;
@@ -961,7 +1120,10 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
                     {s.desc}
                   </div>
                 </div>
-                <div style={{color: s.color, fontWeight: 900, fontSize: 14}}>→</div>
+                {/* patch 0033: navTab があれば → 矢印、info 専用なら ⓘ で「案内のみ」を示す */}
+                <div style={{color: s.color, fontWeight: 900, fontSize: 14}} title={s.navTab ? `${s.navTab} タブへ` : '編集方法を表示'}>
+                  {s.navTab ? '→' : 'ⓘ'}
+                </div>
               </button>
             ))}
           </div>
