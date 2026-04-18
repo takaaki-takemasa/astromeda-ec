@@ -550,22 +550,62 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
   // iframe refresh key（保存後に再読み込みして最新反映を確認するため）
   const [iframeKey, setIframeKey] = useState(0);
   const [device, setDevice] = useState<PreviewDevice>('desktop');
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
+  // patch 0029: 各セクションに固有色＋番号。CEO が admin サイドバーと
+  // iframe 内のセクションを**色と番号で視覚的に一致**させられるようにする。
+  // 色は WCAG AA コントラスト十分な飽和系で 8 区別。
   const sections: Array<{
     key: SubTab;
     label: string;
     desc: string;
     icon: string;
-    anchor?: string;
+    num: string;
+    color: string;
+    // iframe 内セクション検出用テキストヒューリスティック。
+    // class 名は Vite の minify で変わるため、**表示テキスト**で突き合わせる。
+    match: (text: string, el: Element) => boolean;
   }> = [
-    {key: 'hero_banners', label: 'ヒーローバナー', desc: 'トップのスライダー', icon: '🎬', anchor: 'hero'},
-    {key: 'ip_banners', label: 'IPコラボ', desc: '26タイトル IP カード', icon: '🎌', anchor: 'collabs'},
-    {key: 'color_models', label: 'PC カラー', desc: '8色モデル', icon: '🎨', anchor: 'colors'},
-    {key: 'category_cards', label: 'カテゴリ', desc: 'PC / ガジェット / グッズ', icon: '📁', anchor: 'categories'},
-    {key: 'product_shelves', label: '商品棚', desc: '新着・人気棚', icon: '🛍', anchor: 'shelves'},
-    {key: 'about_sections', label: 'ABOUT', desc: 'ブランド紹介セクション', icon: '📖', anchor: 'about'},
-    {key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク', icon: '🦶', anchor: 'footer'},
-    {key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列', icon: '⚙️', anchor: 'customize'},
+    {
+      key: 'hero_banners', label: 'ヒーローバナー', desc: 'トップのスライダー',
+      icon: '🎬', num: '①', color: '#FF4D8D',
+      match: (_, el) => el.classList?.contains('hero-slider-wrap') === true,
+    },
+    {
+      key: 'color_models', label: 'PC カラー', desc: '8色モデル',
+      icon: '🎨', num: '②', color: '#FFD84D',
+      match: (t) => /全\s*8\s*色カラー|COLOR\s*EDITIONS/i.test(t),
+    },
+    {
+      key: 'about_sections', label: 'ABOUT', desc: 'ブランド紹介セクション',
+      icon: '📖', num: '③', color: '#B57CFF',
+      match: (t, el) => el.tagName === 'SECTION' && /^ABOUT\b|ASTROMEDAとは/i.test(t.trim()),
+    },
+    {
+      key: 'category_cards', label: 'カテゴリ', desc: 'PC / ガジェット / グッズ',
+      icon: '📁', num: '④', color: '#4DDB8A',
+      match: (t) => /^CATEGORY\b/.test(t.trim()),
+    },
+    {
+      key: 'ip_banners', label: 'IPコラボ', desc: '26タイトル IP カード',
+      icon: '🎌', num: '⑤', color: '#FF9A3C',
+      match: (t) => /IP\s*COLLABS|タイトル[\s\S]{0,4}NEW/.test(t.slice(0, 50)),
+    },
+    {
+      key: 'product_shelves', label: '商品棚', desc: '新着・人気棚',
+      icon: '🛍', num: '⑥', color: '#4DB8FF',
+      match: (t) => /NEW\s*ARRIVALS/i.test(t.slice(0, 40)),
+    },
+    {
+      key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク',
+      icon: '🦶', num: '⑦', color: '#FF6B6B',
+      match: (_, el) => el.tagName === 'FOOTER',
+    },
+    {
+      key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列',
+      icon: '⚙️', num: '⑧', color: '#C9C9C9',
+      match: () => false, // トップページには露出しない（商品詳細側の機能）
+    },
   ];
 
   const deviceWidth: Record<PreviewDevice, number | string> = {
@@ -574,6 +614,119 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
     desktop: '100%',
   };
 
+  // patch 0029: iframe ロード時に contentDocument へ色付き番号オーバーレイを
+  // 注入する。各セクションに floating pill ラベルを被せ、`data-astro-section`
+  // 属性を付ける。hover 時は JS で該当要素に outline をかけて auto-scroll。
+  const injectOverlays = useCallback(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    let doc: Document | null = null;
+    try {
+      doc = frame.contentDocument;
+    } catch {
+      return; // cross-origin — should never happen after patch 0028
+    }
+    if (!doc || doc.readyState !== 'complete') return;
+
+    // 既存オーバーレイ除去（iframe 再読込時に積み重なるのを防ぐ）
+    doc.querySelectorAll('[data-astro-overlay]').forEach((n) => n.remove());
+
+    const styleId = 'astro-visual-edit-style';
+    if (!doc.getElementById(styleId)) {
+      const s = doc.createElement('style');
+      s.id = styleId;
+      s.textContent = `
+        [data-astro-section] { position: relative !important; transition: outline 0.2s ease, box-shadow 0.2s ease; }
+        [data-astro-section].astro-highlight { outline: 4px solid var(--astro-sec-color, #fff) !important; outline-offset: -2px; box-shadow: 0 0 0 8px rgba(255,255,255,0.06), 0 0 0 12px var(--astro-sec-color-a, rgba(255,77,141,0.3)) !important; }
+        .astro-section-pill {
+          position: absolute; top: 8px; left: 8px; z-index: 9999;
+          padding: 5px 10px 5px 8px; border-radius: 20px;
+          font: 700 12px/1 system-ui, sans-serif;
+          color: #0a0a0a; pointer-events: none;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+          display: inline-flex; align-items: center; gap: 6px;
+          letter-spacing: 0.3px;
+        }
+        .astro-section-pill .num { font-size: 15px; }
+      `;
+      doc.head.appendChild(s);
+    }
+
+    // candidates: main の孫（グループ構成ルート）＋ footer
+    const containers: Element[] = [];
+    const mainRoot = doc.querySelector('main');
+    if (mainRoot) {
+      // main 直下が 3 分割になっている（cart-main / predictive-search / 本体）
+      const bodyWrap = Array.from(mainRoot.children).find((c) => (c as HTMLElement).offsetHeight > 200);
+      if (bodyWrap) containers.push(...Array.from(bodyWrap.children));
+    }
+    const footer = doc.querySelector('footer');
+    if (footer && !containers.includes(footer)) containers.push(footer);
+
+    const seen = new Set<string>();
+    containers.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      const text = (htmlEl.innerText || '').trim();
+      for (const sec of sections) {
+        if (seen.has(sec.key)) continue;
+        let matched = false;
+        try {
+          matched = sec.match(text, el);
+        } catch {
+          matched = false;
+        }
+        if (!matched) continue;
+        seen.add(sec.key);
+        htmlEl.setAttribute('data-astro-section', sec.key);
+        htmlEl.style.setProperty('--astro-sec-color', sec.color);
+        htmlEl.style.setProperty('--astro-sec-color-a', sec.color + '55');
+        // 注入する pill ラベル
+        const pill = doc!.createElement('span');
+        pill.className = 'astro-section-pill';
+        pill.setAttribute('data-astro-overlay', '1');
+        pill.style.background = sec.color;
+        pill.innerHTML = `<span class="num">${sec.num}</span><span>${sec.label}</span>`;
+        // コンテナに position:relative を保証（pill を absolute 配置するため）
+        const cs = frame.contentWindow?.getComputedStyle(htmlEl);
+        if (cs && cs.position === 'static') htmlEl.style.position = 'relative';
+        htmlEl.appendChild(pill);
+        break;
+      }
+    });
+  }, []); // sections は定義固定
+
+  // iframe が差し替わる度に overlay 再注入
+  useEffect(() => {
+    const frame = iframeRef.current;
+    if (!frame) return;
+    const onLoad = () => setTimeout(injectOverlays, 50);
+    frame.addEventListener('load', onLoad);
+    // 既にロード済みなら即注入
+    if (frame.contentDocument?.readyState === 'complete') onLoad();
+    return () => frame.removeEventListener('load', onLoad);
+  }, [iframeKey, injectOverlays]);
+
+  // サイドバーボタン hover で iframe 内の該当セクションを scroll+highlight
+  const highlightSection = useCallback((key: SubTab) => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    doc.querySelectorAll('[data-astro-section].astro-highlight').forEach((n) =>
+      n.classList.remove('astro-highlight'),
+    );
+    const target = doc.querySelector<HTMLElement>(`[data-astro-section="${key}"]`);
+    if (!target) return;
+    target.classList.add('astro-highlight');
+    target.scrollIntoView({behavior: 'smooth', block: 'start'});
+  }, []);
+
+  const clearHighlight = useCallback(() => {
+    const doc = iframeRef.current?.contentDocument;
+    if (!doc) return;
+    doc.querySelectorAll('[data-astro-section].astro-highlight').forEach((n) =>
+      n.classList.remove('astro-highlight'),
+    );
+  }, []);
+
   return (
     <div style={cardStyle}>
       <div style={{marginBottom: 14}}>
@@ -581,8 +734,8 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
           ビジュアル編集 — 現在のサイトUIを見ながら修正する場所へ移動
         </div>
         <div style={{fontSize: 11, color: T.t4, lineHeight: 1.6}}>
-          右側の緑ボタンを押すと、該当セクションの編集タブに切り替わります。
-          画像・テキストを変更したら左の「🔄 再読込」でサイトに反映された姿を確認できます。
+          <b style={{color: T.c}}>各セクションに色と番号が付いています。</b>
+          右のボタンにマウスを合わせると左プレビューの同じ色の場所が光ります。クリックすると編集タブに切り替わります。
         </div>
       </div>
 
@@ -635,6 +788,7 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
             }}
           >
             <iframe
+              ref={iframeRef}
               key={iframeKey}
               src="/"
               title="live storefront"
@@ -654,7 +808,7 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
           </div>
         </div>
 
-        {/* RIGHT: section shortcuts */}
+        {/* RIGHT: section shortcuts — 色分け＋番号バッジ (patch 0029) */}
         <div style={{flex: '0 0 300px', minWidth: 280}}>
           <div
             style={{
@@ -674,31 +828,54 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
                 key={s.key}
                 type="button"
                 onClick={() => onNavigate(s.key)}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = al(s.color, 0.22);
+                  e.currentTarget.style.borderColor = s.color;
+                  e.currentTarget.style.transform = 'translateX(2px)';
+                  highlightSection(s.key);
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = al(s.color, 0.08);
+                  e.currentTarget.style.borderColor = al(s.color, 0.3);
+                  e.currentTarget.style.transform = 'translateX(0)';
+                  clearHighlight();
+                }}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: 12,
-                  padding: '12px 14px',
-                  background: al(T.c, 0.06),
-                  border: `1px solid ${al(T.c, 0.2)}`,
+                  gap: 10,
+                  padding: '12px 14px 12px 8px',
+                  background: al(s.color, 0.08),
+                  border: `1px solid ${al(s.color, 0.3)}`,
+                  borderLeft: `6px solid ${s.color}`,
                   borderRadius: 6,
                   color: T.tx,
                   cursor: 'pointer',
                   textAlign: 'left',
                   fontFamily: 'inherit',
                   fontSize: 12,
-                  transition: 'background 0.15s, border-color 0.15s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = al(T.c, 0.14);
-                  e.currentTarget.style.borderColor = T.c;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = al(T.c, 0.06);
-                  e.currentTarget.style.borderColor = al(T.c, 0.2);
+                  transition: 'background 0.15s, border-color 0.15s, transform 0.15s',
                 }}
               >
-                <div style={{fontSize: 20, lineHeight: 1}}>{s.icon}</div>
+                <div
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 16,
+                    background: s.color,
+                    color: '#0a0a0a',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: 16,
+                    fontWeight: 900,
+                    flexShrink: 0,
+                  }}
+                  title={`${s.num} ${s.label}`}
+                >
+                  {s.num}
+                </div>
+                <div style={{fontSize: 18, lineHeight: 1}}>{s.icon}</div>
                 <div style={{flex: 1, minWidth: 0}}>
                   <div style={{fontWeight: 800, fontSize: 12, color: T.tx, marginBottom: 2}}>
                     {s.label}
@@ -715,7 +892,7 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
                     {s.desc}
                   </div>
                 </div>
-                <div style={{color: T.c, fontWeight: 900, fontSize: 14}}>→</div>
+                <div style={{color: s.color, fontWeight: 900, fontSize: 14}}>→</div>
               </button>
             ))}
           </div>
@@ -732,9 +909,11 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
               lineHeight: 1.6,
             }}
           >
-            💡 <b style={{color: T.g}}>ヒント</b><br />
-            ・編集タブで保存した後は「🔄 再読込」でこの画面のサイトも最新状態になります<br />
-            ・Shopify で直接作業する必要はありません。全てこの管理画面で完結します。
+            💡 <b style={{color: T.g}}>使い方</b><br />
+            1. 左プレビューを見て、直したい場所の色と番号を覚える<br />
+            2. 右の同じ色のボタンにマウスを置くと場所が光って分かる<br />
+            3. クリックすれば該当編集タブに切り替わる<br />
+            4. 保存後「🔄 再読込」で反映を確認
           </div>
         </div>
       </div>
