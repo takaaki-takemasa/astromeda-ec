@@ -176,6 +176,15 @@ export interface MetaLegalInfo {
   privacy: string;
 }
 
+// patch 0024: astromeda_site_config Metaobject 型（root.tsx メタタグ/JSON-LD 用）
+export interface MetaSiteConfig {
+  brandName: string;
+  companyName: string;
+  storeUrl: string;
+  contactPhone: string;
+  contactEmail: string;
+}
+
 async function loadCriticalData({context}: Route.LoaderArgs) {
   const {storefront, env} = context;
 
@@ -192,7 +201,7 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
   const emptyFooterMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
 
-  const [headerResult, footerConfigResult, legalInfoResult] = await Promise.allSettled([
+  const [headerResult, footerConfigResult, legalInfoResult, siteConfigResult] = await Promise.allSettled([
     storefront.query(HEADER_QUERY, {
       cache: storefront.CacheLong(),
       variables: {
@@ -202,6 +211,8 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_footer_config', 50) : emptyFooterMo(),
     // patch 0018: astromeda_legal_info も root.tsx loader で取得して AstroFooter に渡す
     adminClient ? adminClient.getMetaobjects('astromeda_legal_info', 5) : emptyFooterMo(),
+    // patch 0024: astromeda_site_config → ブランド名/会社名/連絡先を JSON-LD に反映
+    adminClient ? adminClient.getMetaobjects('astromeda_site_config', 5) : emptyFooterMo(),
   ]);
 
   // ヘッダーが失敗したら従来通り throw（全ページが 500 する挙動は既存仕様のまま）
@@ -266,7 +277,22 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     };
   }
 
-  return {header, metaFooterConfigs, metaLegalInfo};
+  // patch 0024: astromeda_site_config → MetaSiteConfig（先頭1件採用）
+  const siteConfigRaw = siteConfigResult.status === 'fulfilled' ? siteConfigResult.value : [];
+  let metaSiteConfig: MetaSiteConfig | null = null;
+  if (siteConfigRaw[0]) {
+    const f: Record<string, string> = {};
+    for (const kv of siteConfigRaw[0].fields) f[kv.key] = kv.value;
+    metaSiteConfig = {
+      brandName: f['brand_name'] || '',
+      companyName: f['company_name'] || '',
+      storeUrl: f['store_url'] || '',
+      contactPhone: f['contact_phone'] || '',
+      contactEmail: f['contact_email'] || '',
+    };
+  }
+
+  return {header, metaFooterConfigs, metaLegalInfo, metaSiteConfig};
 }
 
 /**
@@ -304,6 +330,15 @@ export function Layout({children}: {children?: React.ReactNode}) {
   const clarityProjectId = rootData?.clarityProjectId || '';
   const gtmContainerId = rootData?.gtmContainerId || '';
   const metaPixelId = rootData?.metaPixelId || '';
+
+  // patch 0024: astromeda_site_config Metaobject があればハードコード定数を上書き、
+  // 無ければ astromeda-data.ts の STORE_NAME / COMPANY_NAME / STORE_URL にフォールバック
+  const siteCfg = rootData?.metaSiteConfig;
+  const cfgBrandName = siteCfg?.brandName || STORE_NAME;
+  const cfgCompanyName = siteCfg?.companyName || COMPANY_NAME;
+  const cfgStoreUrl = siteCfg?.storeUrl || STORE_URL;
+  const cfgContactPhone = siteCfg?.contactPhone || '';
+  const cfgContactEmail = siteCfg?.contactEmail || '';
 
   return (
     <html lang="ja">
@@ -424,35 +459,37 @@ fbq('track','PageView');`,
           </noscript>
         )}
 
-        {/* Organization + LocalBusiness JSON-LD (D4: 構造化データ完全版) */}
+        {/* Organization + LocalBusiness JSON-LD (D4: 構造化データ完全版)
+            patch 0024: astromeda_site_config があれば brand_name / company_name / store_url /
+            contact_phone / contact_email を優先採用 */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': ['Organization', 'Brand'],
-              'name': 'ASTROMEDA',
+              'name': cfgBrandName,
               'alternateName': 'アストロメダ',
-              'url': STORE_URL,
+              'url': cfgStoreUrl,
               'logo': {
                 '@type': 'ImageObject',
-                'url': `${STORE_URL}/astromeda-logo.png`,
+                'url': `${cfgStoreUrl}/astromeda-logo.png`,
                 'width': 512,
                 'height': 512,
               },
-              'image': `${STORE_URL}/astromeda-logo.png`,
+              'image': `${cfgStoreUrl}/astromeda-logo.png`,
               'description': 'ASTROMEDAは日本発のゲーミングPCブランド。国内自社工場で全台組立、25タイトル以上のアニメ・ゲームIPコラボPC、8色カラーバリエーション。全モデルRTX 5000シリーズ+DDR5搭載。',
               'slogan': '好きなIPと、最高のスペックを。',
               'foundingDate': '2019',
               'knowsAbout': ['ゲーミングPC', 'カスタムPC', 'アニメコラボPC', 'ゲーミングガジェット'],
               'brand': {
                 '@type': 'Brand',
-                'name': 'ASTROMEDA',
-                'logo': `${STORE_URL}/astromeda-logo.png`,
+                'name': cfgBrandName,
+                'logo': `${cfgStoreUrl}/astromeda-logo.png`,
               },
               'parentOrganization': {
                 '@type': 'Organization',
-                'name': '株式会社マイニングベース',
+                'name': cfgCompanyName,
                 'alternateName': 'Mining Base Co., Ltd.',
                 'url': 'https://mining-base.co.jp',
               },
@@ -460,35 +497,38 @@ fbq('track','PageView');`,
                 '@type': 'ContactPoint',
                 'contactType': 'customer service',
                 'availableLanguage': 'Japanese',
-                'url': `${STORE_URL}/pages/contact`,
+                'url': `${cfgStoreUrl}/contact`,
+                ...(cfgContactPhone ? {telephone: cfgContactPhone} : {}),
+                ...(cfgContactEmail ? {email: cfgContactEmail} : {}),
               },
               'sameAs': [],
               'potentialAction': {
                 '@type': 'SearchAction',
                 'target': {
                   '@type': 'EntryPoint',
-                  'urlTemplate': `${STORE_URL}/search?q={search_term_string}`,
+                  'urlTemplate': `${cfgStoreUrl}/search?q={search_term_string}`,
                 },
                 'query-input': 'required name=search_term_string',
               },
             }),
           }}
         />
-        {/* WebSite JSON-LD (F8: サイト内検索スキーマ) */}
+        {/* WebSite JSON-LD (F8: サイト内検索スキーマ)
+            patch 0024: brand_name / store_url を site_config から上書き */}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'WebSite',
-              'name': 'ASTROMEDA公式オンラインストア',
+              'name': `${cfgBrandName}公式オンラインストア`,
               'alternateName': 'アストロメダ公式ショップ',
-              'url': STORE_URL,
+              'url': cfgStoreUrl,
               'potentialAction': {
                 '@type': 'SearchAction',
                 'target': {
                   '@type': 'EntryPoint',
-                  'urlTemplate': `${STORE_URL}/search?q={search_term_string}`,
+                  'urlTemplate': `${cfgStoreUrl}/search?q={search_term_string}`,
                 },
                 'query-input': 'required name=search_term_string',
               },
