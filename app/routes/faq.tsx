@@ -6,12 +6,52 @@
  * - 20問のFAQ（注文・配送・保証・返品・カスタマイズ・コラボ）
  * - アコーディオン形式のUI
  * - meta description 最適化
+ *
+ * patch 0020 (P0-D): astromeda_faq_item Metaobject から CMS 駆動。
+ * is_active=true のレコードがあれば CMS のリストを使い、無ければ
+ * ハードコードされた FAQ_ITEMS にフォールバック。
  */
 
 import {useState} from 'react';
+import {useLoaderData} from 'react-router';
 import type {Route} from './+types/faq';
 import {T, STORE_URL} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+
+interface FaqItem {
+  q: string;
+  a: string;
+  category: string;
+}
+
+export async function loader(args: Route.LoaderArgs) {
+  const {env} = args.context;
+  let items: FaqItem[] = [];
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    const client = getAdminClient();
+    const records = await client.getMetaobjects('astromeda_faq_item', 100);
+    const parsed = (records || [])
+      .map((r) => {
+        const map: Record<string, string> = {};
+        for (const f of r.fields) map[f.key] = f.value;
+        return {
+          question: map['question'] || '',
+          answer: map['answer'] || '',
+          category: map['category'] || 'その他',
+          isActive: map['is_active'] === 'true',
+          displayOrder: Number(map['display_order'] || 0),
+        };
+      })
+      .filter((x) => x.isActive && x.question && x.answer);
+    parsed.sort((a, b) => a.displayOrder - b.displayOrder);
+    items = parsed.map((x) => ({q: x.question, a: x.answer, category: x.category}));
+  } catch {
+    items = [];
+  }
+  return {cmsItems: items};
+}
 
 export const meta: Route.MetaFunction = () => {
   const title = 'よくある質問（FAQ） | ASTROMEDA ゲーミングPC';
@@ -27,8 +67,8 @@ export const meta: Route.MetaFunction = () => {
   ];
 };
 
-// FAQ データ（20問）
-const FAQ_ITEMS: {q: string; a: string; category: string}[] = [
+// FAQ データ（20問・CMSにレコードがないときのフォールバック）
+const HARDCODED_FAQ_ITEMS: FaqItem[] = [
   // 注文・購入
   {
     category: '注文・購入',
@@ -150,6 +190,8 @@ const CATEGORIES = [
 ];
 
 export default function FAQ() {
+  const {cmsItems} = useLoaderData<typeof loader>();
+  const FAQ_ITEMS: FaqItem[] = cmsItems && cmsItems.length > 0 ? cmsItems : HARDCODED_FAQ_ITEMS;
   const [openItems, setOpenItems] = useState<Set<number>>(new Set());
 
   const toggle = (index: number) => {

@@ -591,6 +591,73 @@ function buildSeeds(): SeedSpec[] {
     ],
   });
 
+  // 13. astromeda_faq_item × 6 (初期代表6問 / 残りは管理画面から追加)
+  seeds.push({
+    type: 'astromeda_faq_item',
+    records: [
+      {
+        handle: 'faq-001-order-method',
+        fields: [
+          { key: 'question', value: '注文方法を教えてください' },
+          { key: 'answer', value: '商品ページからお好きなモデルとスペックを選択し、「カートに追加」ボタンを押してください。カートページで数量を確認後、チェックアウトに進んでお支払い情報を入力します。クレジットカード（一括/分割）および銀行振込がご利用いただけます。' },
+          { key: 'category', value: '注文・購入' },
+          { key: 'display_order', value: '10' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+      {
+        handle: 'faq-002-delivery-time',
+        fields: [
+          { key: 'question', value: 'PCの納期はどのくらいですか？' },
+          { key: 'answer', value: 'ゲーミングPCは受注生産のため、ご注文後10〜15営業日（土日祝を除く）前後でのお届けとなります。パーツの在庫状況や繁忙期により若干前後する場合がございます。' },
+          { key: 'category', value: '配送' },
+          { key: 'display_order', value: '20' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+      {
+        handle: 'faq-003-shipping-fee',
+        fields: [
+          { key: 'question', value: '送料はいくらですか？' },
+          { key: 'answer', value: 'ゲーミングPCは全国一律¥3,300（税込）です。ガジェット・グッズの送料は商品ページに記載の金額をご確認ください。' },
+          { key: 'category', value: '配送' },
+          { key: 'display_order', value: '30' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+      {
+        handle: 'faq-004-warranty',
+        fields: [
+          { key: 'question', value: '保証期間はどのくらいですか？' },
+          { key: 'answer', value: '全てのゲーミングPCにメーカー1年保証が標準付帯されています。さらに延長保証（2年延長で合計3年：¥14,800）もご用意しています。CPU・GPU含む全パーツの自然故障が対象です。' },
+          { key: 'category', value: '保証・修理' },
+          { key: 'display_order', value: '40' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+      {
+        handle: 'faq-005-return',
+        fields: [
+          { key: 'question', value: '返品は可能ですか？' },
+          { key: 'answer', value: '初期不良の場合のみ、商品到着後7日以内にカスタマーサポートへご連絡いただければ対応いたします。お客様都合による返品は受注生産品の性質上、原則お受けできません。' },
+          { key: 'category', value: '返品・交換' },
+          { key: 'display_order', value: '50' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+      {
+        handle: 'faq-006-color',
+        fields: [
+          { key: 'question', value: 'PCのカラーは何色ありますか？' },
+          { key: 'answer', value: '全8色（ホワイト、ブラック、ピンク、パープル、ライトブルー、レッド、グリーン、オレンジ）からお選びいただけます。UV高精細印刷によるIPコラボデザインとの組み合わせが可能です。' },
+          { key: 'category', value: 'カスタマイズ' },
+          { key: 'display_order', value: '60' },
+          { key: 'is_active', value: 'true' },
+        ],
+      },
+    ],
+  });
+
   return seeds;
 }
 
@@ -729,6 +796,7 @@ export async function loader() {
       'astromeda_legal_info',
       'astromeda_site_config',
       'astromeda_static_page',
+      'astromeda_faq_item',
     ],
     usage:
       'POST {} でデフォルト全12タイプ投入。POST { "types": ["astromeda_ip_banner"] } で特定タイプのみ。既存 handle はスキップされる（冪等）。',

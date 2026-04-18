@@ -7,7 +7,7 @@
  * 一括作成する。CEOが1回呼び出すだけで6種の定義が作成され、以降は
  * 管理画面のCMS系タブが Metaobject CRUD 経由で実際に動作するようになる。
  *
- * 作成される定義（13種）:
+ * 作成される定義（17種）:
  * 1.  astromeda_article_content     記事コンテンツ
  * 2.  astromeda_ip_banner           IPバナー
  * 3.  astromeda_hero_banner         ヒーローバナー
@@ -21,6 +21,10 @@
  * 11. astromeda_marquee_item        マーキーテキスト
  * 12. astromeda_category_card       カテゴリカード（トップページ）
  * 13. astromeda_legal_info          法務情報（特商法/保証/プライバシー）
+ * 14. astromeda_about_section       ABOUTセクション
+ * 15. astromeda_product_shelf       商品シェルフ
+ * 16. astromeda_static_page         固定ページ
+ * 17. astromeda_faq_item            FAQ質問項目
  *
  * 冪等性: 既に存在する定義は「ALREADY EXISTS」としてskipし、成功扱いとする。
  *
@@ -286,6 +290,19 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'sections_json', name: 'セクションJSON（見出し+本文リスト）', type: 'multi_line_text_field' },
       { key: 'updated_label', name: '最終更新日ラベル', type: 'single_line_text_field' },
       { key: 'is_published', name: '公開中', type: 'boolean' },
+    ],
+  },
+  // ── 17. FAQ 質問項目 ──
+  {
+    type: 'astromeda_faq_item',
+    name: 'Astromeda FAQ質問項目',
+    description: 'FAQ ページ1問単位の Q&A。管理画面「コンテンツ > FAQ」で管理。',
+    fieldDefinitions: [
+      { key: 'question', name: '質問', type: 'single_line_text_field' },
+      { key: 'answer', name: '回答', type: 'multi_line_text_field' },
+      { key: 'category', name: 'カテゴリ（注文・購入/配送/保証・修理/返品・交換/カスタマイズ/IPコラボ/その他）', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
     ],
   },
 ];

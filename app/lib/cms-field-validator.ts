@@ -183,6 +183,13 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     updated_label: { type: 'single_line_text_field', maxLength: 100 },
     is_published: { type: 'boolean' },
   },
+  astromeda_faq_item: {
+    question: { type: 'single_line_text_field', maxLength: 300, required: true },
+    answer: { type: 'multi_line_text_field', maxLength: 5000, required: true },
+    category: { type: 'single_line_text_field', maxLength: 50 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
 };
 
 // ── バリデーションエラー ──
