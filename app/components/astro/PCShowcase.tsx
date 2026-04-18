@@ -14,9 +14,24 @@ export interface MetaColorModel {
   isActive: boolean;
 }
 
+// patch 0023: 管理画面 astromeda_pc_tier Metaobject で PC ティアを差し替えるための型
+export interface MetaPcTier {
+  id: string;
+  handle: string;
+  tier: string; // GAMER / STREAMER / CREATOR（大文字正規化済み）
+  tierName: string;
+  gpu: string;
+  cpu: string;
+  ram: string;
+  price: number;
+  pop: boolean;
+  sortOrder: number;
+}
+
 interface PCShowcaseProps {
   colorImages: Record<string, string>; // カラー名 → 画像URL
   metaColors?: MetaColorModel[] | null;
+  metaPcTiers?: MetaPcTier[] | null;
 }
 
 // YIQ 輝度判定: R*299+G*587+B*114)/1000 > 128 なら明色
@@ -30,7 +45,10 @@ function isLightColor(hex: string): boolean {
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 }
 
-function PCShowcaseComponent({colorImages, metaColors}: PCShowcaseProps) {
+function PCShowcaseComponent({colorImages, metaColors, metaPcTiers}: PCShowcaseProps) {
+  // patch 0023: metaPcTiers は現状 PCShowcase 本体では使わないが、将来の
+  // TierCards 復活用に props として宣言だけして副作用なし。
+  void metaPcTiers;
   // patch 0008: exclusive-or — Metaobject が存在する場合は CMS を優先し、
   // ハードコード fallback は一切表示しない（二重表示バグ防止）。
   // 理由: 以前の merge/replacedSlugs ロジックはキー不一致時に fallback を残して

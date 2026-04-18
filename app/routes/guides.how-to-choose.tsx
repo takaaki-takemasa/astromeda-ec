@@ -8,7 +8,7 @@
  * - AIが引用可能な定量的ベンチマークデータ
  */
 
-import {Link} from 'react-router';
+import {Link, useLoaderData} from 'react-router';
 import {useState} from 'react';
 import type {Route} from './+types/guides.how-to-choose';
 import {T, STORE_URL, PC_TIERS, BENCHMARKS, PAGE_WIDTH} from '~/lib/astromeda-data';
@@ -33,8 +33,65 @@ export const meta: Route.MetaFunction = () => {
   ];
 };
 
-export const loader: Route.LoaderFunction = async () => {
-  return {};
+// patch 0023: astromeda_pc_tier Metaobject → PC_TIERS フォールバック接続
+export const loader: Route.LoaderFunction = async ({context}) => {
+  type PcTierRow = {
+    tier: string;
+    gpu: string;
+    cpu: string;
+    ram: string;
+    price: number;
+    pop: boolean;
+    displayOrder: number;
+  };
+  let metaPcTiers: PcTierRow[] = [];
+  try {
+    const env = (context as unknown as {env: Record<string, string | undefined>}).env;
+    if (env) {
+      const {setAdminEnv, getAdminClient} = (await import(
+        '../../agents/core/shopify-admin.js'
+      )) as {
+        setAdminEnv: (e: Record<string, string | undefined>) => void;
+        getAdminClient: () => {
+          getMetaobjects: (
+            type: string,
+            limit: number,
+          ) => Promise<
+            Array<{
+              id: string;
+              handle: string;
+              fields: Array<{key: string; value: string}>;
+            }>
+          >;
+        };
+      };
+      setAdminEnv(env);
+      const client = getAdminClient();
+      const records = await client.getMetaobjects('astromeda_pc_tier', 10);
+      metaPcTiers = (records || [])
+        .map((r) => {
+          const f: Record<string, string> = {};
+          for (const fd of r.fields || []) f[fd.key] = fd.value;
+          const price = parseInt(f['base_price'] || '0', 10);
+          const display = parseInt(f['display_order'] || '0', 10);
+          return {
+            tier: (f['tier_name'] || '').toUpperCase(),
+            gpu: f['gpu_range'] || '',
+            cpu: f['cpu_range'] || '',
+            ram: f['ram'] || '',
+            price: Number.isFinite(price) ? price : 0,
+            pop: (f['is_popular'] || 'false').toLowerCase() === 'true',
+            displayOrder: Number.isFinite(display) ? display : 999,
+          };
+        })
+        .filter((t) => t.tier && t.price > 0)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+    }
+  } catch {
+    // Admin client 失敗時は空で返し、UI 側で PC_TIERS にフォールバック
+    metaPcTiers = [];
+  }
+  return {metaPcTiers};
 };
 
 const SECTIONS = [
@@ -170,6 +227,23 @@ const FAQ_ITEMS = [
 ];
 
 export default function GuidesHowToChoose() {
+  // patch 0023: astromeda_pc_tier Metaobject があればそれを優先、無ければハードコード PC_TIERS
+  const loaderData = useLoaderData() as {
+    metaPcTiers?: Array<{
+      tier: string;
+      gpu: string;
+      cpu: string;
+      ram: string;
+      price: number;
+      pop: boolean;
+      displayOrder: number;
+    }>;
+  };
+  const tiersToRender =
+    loaderData?.metaPcTiers && loaderData.metaPcTiers.length > 0
+      ? loaderData.metaPcTiers
+      : PC_TIERS;
+
   // HowTo JSON-LD（7ステップ）
   const howToSteps = [
     {title: 'ゲームの推奨スペックを確認', description: 'プレイしたいゲームの推奨GPUとCPUをゲーム公式サイトで確認'},
@@ -499,7 +573,7 @@ export default function GuidesHowToChoose() {
                   marginBottom: 24,
                 }}
               >
-                {PC_TIERS.map((tier, i) => (
+                {tiersToRender.map((tier, i) => (
                   <div
                     key={tier.tier}
                     style={{

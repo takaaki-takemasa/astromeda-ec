@@ -154,7 +154,7 @@ export async function loader({context}: Route.LoaderArgs) {
   // 並列でATFデータを取得（Hero, CollabGrid, PCShowcase全てに必要）+ Metaobject（ip_banner, hero_banner, pc_color_model）
   const emptyMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
-  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult, marqueeItemResult, ugcReviewResult] = await Promise.allSettled([
+  const [ipResult, pcResult, tierResult, catResult, ipBannerResult, heroBannerResult, pcColorModelResult, categoryCardResult, productShelfResult, aboutSectionResult, marqueeItemResult, ugcReviewResult, pcTierResult] = await Promise.allSettled([
     context.storefront
       .query(IP_COLLECTIONS_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0]),
     context.storefront
@@ -181,6 +181,8 @@ export async function loader({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_marquee_item', 30) : emptyMo(),
     // patch 0017: Metaobject UGC レビュー（REVIEWS セクション用）
     adminClient ? adminClient.getMetaobjects('astromeda_ugc_review', 30) : emptyMo(),
+    // patch 0023: Metaobject PC ティア（PCShowcase TierCards 用）
+    adminClient ? adminClient.getMetaobjects('astromeda_pc_tier', 10) : emptyMo(),
   ]);
 
   const ipCollectionsRaw = ipResult.status === 'fulfilled' ? ipResult.value : null;
@@ -196,6 +198,8 @@ export async function loader({context}: Route.LoaderArgs) {
   // patch 0017: marquee / ugc raw 取り出し
   const marqueeItemRaw = marqueeItemResult.status === 'fulfilled' ? marqueeItemResult.value : [];
   const ugcReviewRaw = ugcReviewResult.status === 'fulfilled' ? ugcReviewResult.value : [];
+  // patch 0023: pc_tier raw 取り出し
+  const pcTierRaw = pcTierResult.status === 'fulfilled' ? pcTierResult.value : [];
 
   // Metaobject → MetaCollab / MetaBanner 整形
   const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
@@ -580,6 +584,26 @@ export async function loader({context}: Route.LoaderArgs) {
     .filter((u) => u.isActive && u.username && u.reviewText)
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
+  // patch 0023: astromeda_pc_tier → metaPcTiers 整形（PCShowcase TierCards 用）
+  const metaPcTiers = (pcTierRaw || [])
+    .map((r) => {
+      const f = fieldsToMap(r.fields);
+      return {
+        id: r.id,
+        handle: r.handle,
+        tier: (f['tier_name'] || '').toUpperCase(),
+        tierName: f['tier_name'] || '',
+        gpu: f['gpu_range'] || '',
+        cpu: f['cpu_range'] || '',
+        ram: f['ram'] || '',
+        price: parseInt(f['base_price'] || '0', 10) || 0,
+        pop: f['is_popular'] === 'true',
+        sortOrder: parseInt(f['display_order'] || '0', 10),
+      };
+    })
+    .filter((t) => t.tier && t.gpu && t.cpu)
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+
   return {
     recommendedProducts,
     ipCollections,
@@ -596,6 +620,7 @@ export async function loader({context}: Route.LoaderArgs) {
     metaAboutSections,
     metaMarqueeItems,
     metaUgcReviews,
+    metaPcTiers,
     isShopLinked: Boolean(context.env.PUBLIC_STORE_DOMAIN),
   };
 }
@@ -775,6 +800,7 @@ export default function Homepage() {
         <PCShowcase
           colorImages={(data.pcColorProducts as Record<string, string>) ?? {}}
           metaColors={data.metaColors}
+          metaPcTiers={data.metaPcTiers}
         />
         {/* PCTierCards（GAMER/STREAMER/CREATOR）は削除済み */}
       </div>
