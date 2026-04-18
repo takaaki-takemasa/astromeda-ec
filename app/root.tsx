@@ -242,25 +242,13 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
   });
 
   // patch 0018: astromeda_legal_info を company_json / tokusho_json / warranty_json / privacy_text
-  // から組み立てる。is_active=true のうち sortOrder 最小の 1 件を採用（複数登録時の決定論性）。
+  // から組み立てる。この Metaobject 定義には is_active / display_order が無いため、
+  // 先頭 1 件を採用し、AstroFooter 側で空値フィールドはハードコード LEGAL にフォールバック。
   const legalInfoRaw = legalInfoResult.status === 'fulfilled' ? legalInfoResult.value : [];
   let metaLegalInfo: MetaLegalInfo | null = null;
-  const activeLegal = legalInfoRaw
-    .map((mo) => {
-      const f: Record<string, string> = {};
-      for (const kv of mo.fields) f[kv.key] = kv.value;
-      return {
-        id: mo.id,
-        handle: mo.handle,
-        fields: f,
-        sortOrder: parseInt(f['display_order'] || '0', 10),
-        isActive: f['is_active'] === 'true',
-      };
-    })
-    .filter((x) => x.isActive)
-    .sort((a, b) => a.sortOrder - b.sortOrder);
-  if (activeLegal[0]) {
-    const f = activeLegal[0].fields;
+  if (legalInfoRaw[0]) {
+    const f: Record<string, string> = {};
+    for (const kv of legalInfoRaw[0].fields) f[kv.key] = kv.value;
     const tryParse = <T,>(raw: string | undefined, fallback: T): T => {
       if (!raw) return fallback;
       try {
