@@ -657,8 +657,18 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
 
     // 候補コンテナ収集: main 直下 + その孫 + すべての section/footer/header。
     // hydration 途中だと main が cart-main しか持たないので、深掘りも併用する。
+    //
+    // patch 0031: Hydrogen は cart/predictive 用の空の <main> を 2 つ + 本体の
+    // <main id="main-content"> を 3 個 DOM に出力する。`querySelector('main')` は
+    // 先頭のカート空 main を返してしまうため、id="main-content" を最優先で取り、
+    // なければ高さで判別する。
     const containerSet = new Set<Element>();
-    const mainRoot = doc.querySelector('main');
+    const mainsAll = Array.from(doc.querySelectorAll('main'));
+    const mainRoot =
+      doc.getElementById('main-content') ||
+      mainsAll.find((m) => (m as HTMLElement).offsetHeight > 200) ||
+      mainsAll[0] ||
+      null;
     if (mainRoot) {
       Array.from(mainRoot.children).forEach((c) => {
         containerSet.add(c);
@@ -733,13 +743,13 @@ function VisualEditSection({onNavigate}: VisualEditSectionProps) {
       [50, 250, 600, 1200, 2500, 4000, 6000].forEach((d) =>
         timers.push(setTimeout(tryInject, d)),
       );
-      // MutationObserver: main / footer の subtree 変更で再注入
+      // patch 0031: body 全体の subtree を観察する。複数 main 問題回避＋
+      // footer/header の変化にも追従する。
       const doc = frame.contentDocument;
       if (!doc) return;
-      const target = doc.querySelector('main') || doc.body;
+      const target = doc.body;
       if (target) {
         observer = new MutationObserver(() => {
-          // throttle: setTimeout 0 で次マイクロタスクへ
           if (cancelled) return;
           tryInject();
         });
