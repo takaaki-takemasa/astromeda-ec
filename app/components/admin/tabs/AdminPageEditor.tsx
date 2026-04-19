@@ -14,6 +14,7 @@ import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/Previ
 import {PCShowcase} from '~/components/astro/PCShowcase';
 import {CollabGrid} from '~/components/astro/CollabGrid';
 import {HeroSlider} from '~/components/astro/HeroSlider';
+import {UrlPicker} from '~/components/admin/ds/UrlPicker';
 
 // patch 0006: Shopify コレクション画像一括取得（プレビュー用フォールバック）
 // IPコラボ/ヒーローバナー editor の preview で、Metaobject image 未設定でも
@@ -1848,8 +1849,12 @@ function CategoryCardForm({
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>リンク URL</label>
-          <input type="text" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} style={inputStyle} placeholder="/collections/astromeda" />
+          <UrlPicker
+            label="リンク URL"
+            optional
+            value={linkUrl}
+            onChange={(next) => setLinkUrl(next)}
+          />
         </div>
         <div>
           <label style={labelStyle}>表示順</label>
@@ -2552,8 +2557,12 @@ function AboutSectionForm({
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>リンク URL</label>
-          <input type="text" value={linkUrl} onChange={(e) => setLinkUrl(e.target.value)} style={inputStyle} />
+          <UrlPicker
+            label="リンク URL"
+            optional
+            value={linkUrl}
+            onChange={(next) => setLinkUrl(next)}
+          />
         </div>
         <div>
           <label style={labelStyle}>リンクラベル</label>
@@ -4327,8 +4336,12 @@ function GamingCrudSection({
               </div>
             )}
             <div>
-              <label style={labelStyle}>リンク先パス</label>
-              <input type="text" value={fLinkUrl} onChange={(e) => setFLinkUrl(e.target.value)} style={inputStyle} placeholder="/collections/xxx" />
+              <UrlPicker
+                label="リンク先"
+                optional
+                value={fLinkUrl}
+                onChange={(next) => setFLinkUrl(next)}
+              />
             </div>
             <div>
               <label style={labelStyle}>表示順</label>

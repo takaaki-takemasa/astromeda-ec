@@ -14,6 +14,7 @@ import { PCShowcase, type MetaColorModel } from '~/components/astro/PCShowcase';
 import { HeroSlider, type MetaBanner } from '~/components/astro/HeroSlider';
 import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T, al } from '~/lib/astromeda-data';
+import { UrlPicker } from '~/components/admin/ds/UrlPicker';
 
 // ── Types ──
 interface MetaField {
@@ -606,9 +607,13 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         <label style={labelStyle}>コレクションハンドル</label>
         <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
       </div>
-      <div>
-        <label style={labelStyle}>リンクURL (任意)</label>
-        <input style={inputStyle} value={form.link_url} onChange={(e) => setForm({ ...form, link_url: e.target.value })} placeholder="/collections/..." />
+      <div style={{ gridColumn: '1 / -1' }}>
+        <UrlPicker
+          label="リンクURL"
+          optional
+          value={form.link_url}
+          onChange={(next) => setForm({ ...form, link_url: next })}
+        />
       </div>
       <div>
         <label style={labelStyle}>代替テキスト</label>
