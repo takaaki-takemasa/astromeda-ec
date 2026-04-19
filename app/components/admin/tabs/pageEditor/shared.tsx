@@ -22,6 +22,10 @@
 
 import React, {useCallback, useRef, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
+// patch 0057 Phase C 第3段: 自前軽量 useConfirmDialog + ConfirmDialog を廃止し
+// 正本 (~/hooks/useConfirmDialog + ~/components/admin/ds/ConfirmDialog) に一本化する
+import {useConfirmDialog as useCanonicalConfirmDialog} from '~/hooks/useConfirmDialog';
+import {ConfirmDialog as DsConfirmDialog} from '~/components/admin/ds/ConfirmDialog';
 
 // ══════════════════════════════════════════════════════════
 // 型定義
@@ -196,123 +200,44 @@ export function useToasts() {
   return {toasts, push};
 }
 
-// Sprint 6 Gap 4: window.confirm 置換用の Promise ベース confirm ダイアログ
+// patch 0057 Phase C 第3段: 正本 ~/hooks/useConfirmDialog へ一本化したアダプタ。
+// SectionProps は `confirm: (message: string) => Promise<boolean>` を契約しているため、
+// 既存 Section コードは一切書き換えず、この wrapper が Stripe 水準 ConfirmDialog に中継する。
+//
+// 新規コードは `~/hooks/useConfirmDialog` を直接使い、`confirm({title, message, destructive})`
+// の options オブジェクト API を優先すること（destructive=true で赤ボタン化するなど表現力が高い）。
 export function useConfirmDialog() {
-  const [state, setState] = useState<{open: boolean; message: string}>({
-    open: false,
-    message: '',
-  });
-  const resolverRef = useRef<((v: boolean) => void) | null>(null);
+  const {confirm: canonicalConfirm, dialogProps} = useCanonicalConfirmDialog();
 
-  const confirm = useCallback((message: string): Promise<boolean> => {
-    return new Promise((resolve) => {
-      resolverRef.current = resolve;
-      setState({open: true, message});
-    });
-  }, []);
+  const confirm = useCallback(
+    (message: string): Promise<boolean> => {
+      // 1行目→title, 残り→body という単純マップ。
+      const [firstLine, ...rest] = message.split('\n');
+      const body = rest.join('\n').trim();
+      const destructive = /削除|破棄|デリート|delete|remove|discard/i.test(message);
+      return canonicalConfirm({
+        title: firstLine || '確認',
+        message: body || undefined,
+        destructive,
+        confirmLabel: destructive ? '削除' : 'OK',
+      });
+    },
+    [canonicalConfirm],
+  );
 
-  const handleOk = useCallback(() => {
-    resolverRef.current?.(true);
-    resolverRef.current = null;
-    setState({open: false, message: ''});
-  }, []);
-
-  const handleCancel = useCallback(() => {
-    resolverRef.current?.(false);
-    resolverRef.current = null;
-    setState({open: false, message: ''});
-  }, []);
-
-  return {state, confirm, handleOk, handleCancel};
+  // 旧 API {state, handleOk, handleCancel} は <ConfirmDialog {...dialogProps} /> 方式に移行済。
+  // AdminPageEditor.tsx は dialogProps spread で描画する。
+  return {confirm, dialogProps};
 }
 
 // ══════════════════════════════════════════════════════════
 // 共通 UI コンポーネント
 // ══════════════════════════════════════════════════════════
 
-export function ConfirmDialog({
-  open,
-  message,
-  onOk,
-  onCancel,
-}: {
-  open: boolean;
-  message: string;
-  onOk: () => void;
-  onCancel: () => void;
-}) {
-  if (!open) return null;
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        background: 'rgba(0,0,0,0.75)',
-        backdropFilter: 'blur(4px)',
-        zIndex: 10000,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 20,
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel();
-      }}
-    >
-      <div
-        style={{
-          background: T.bg,
-          border: `1px solid ${al(T.tx, 0.2)}`,
-          borderRadius: 10,
-          padding: 24,
-          maxWidth: 400,
-          width: '100%',
-          boxShadow: '0 12px 32px rgba(0,0,0,.7)',
-        }}
-      >
-        <div style={{fontSize: 14, fontWeight: 800, color: T.tx, marginBottom: 16}}>
-          {message}
-        </div>
-        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              background: 'transparent',
-              border: `1px solid ${al(T.tx, 0.25)}`,
-              borderRadius: 6,
-              color: T.tx,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            キャンセル
-          </button>
-          <button
-            type="button"
-            onClick={onOk}
-            style={{
-              padding: '8px 16px',
-              background: T.r,
-              border: `1px solid ${T.r}`,
-              borderRadius: 6,
-              color: T.tx,
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            削除
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+// patch 0057 Phase C 第3段: 自前 ConfirmDialog を廃止し Stripe 水準の canonical 実装を再エクスポート。
+// 旧 API `<ConfirmDialog open message onOk onCancel />` は破棄。呼び出し側は
+// `<ConfirmDialog {...dialogProps} />` で `~/components/admin/ds/ConfirmDialog` に統一される。
+export const ConfirmDialog = DsConfirmDialog;
 
 export function Spinner() {
   return (

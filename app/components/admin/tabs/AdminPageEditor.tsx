@@ -107,7 +107,9 @@ export default function AdminPageEditor() {
   }, [subParam]);
 
   const {toasts, push} = useToasts();
-  const {state: confirmState, confirm, handleOk: confirmOk, handleCancel: confirmCancel} = useConfirmDialog();
+  // patch 0057 Phase C 第3段: useConfirmDialog は canonical (~/hooks/useConfirmDialog) へ統一。
+  // confirm(message: string) は SectionProps の契約維持のため wrapper で吸収済み。
+  const {confirm, dialogProps: confirmDialogProps} = useConfirmDialog();
 
   // patch 0027: CEO 要望「現在のサイトUIを表示し、クリックしたところの修正画面に行けるようにして」
   // → 先頭に「ビジュアル編集」タブを配置し、live site を iframe 表示＋各セクションへのショートカット。
@@ -178,7 +180,8 @@ export default function AdminPageEditor() {
       {subTab === 'ugc_reviews' && <UgcReviewsSection pushToast={push} confirm={confirm} />}
 
       <ToastContainer toasts={toasts} />
-      <ConfirmDialog open={confirmState.open} message={confirmState.message} onOk={confirmOk} onCancel={confirmCancel} />
+      {/* patch 0057 Phase C 第3段: ConfirmDialog は canonical ds/ConfirmDialog に一本化。dialogProps spread で渡す */}
+      <ConfirmDialog {...confirmDialogProps} />
       <style dangerouslySetInnerHTML={{__html: `@keyframes aped-spin { to { transform: rotate(360deg); } }`}} />
     </div>
   );
