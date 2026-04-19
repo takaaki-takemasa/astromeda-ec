@@ -34,6 +34,8 @@ const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepag
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
 const AdminSiteMap = lazy(() => import('~/components/admin/tabs/AdminSiteMap'));
 const AdminSiteConfig = lazy(() => import('~/components/admin/tabs/AdminSiteConfig'));
+// patch 0059: 非エンジニア向け 出品ガイド（新IPコラボ→新製品→販売 全工程ナビ）
+const AdminOnboarding = lazy(() => import('~/components/admin/tabs/AdminOnboarding'));
 
 // Type imports
 import type {
@@ -253,10 +255,12 @@ export const meta = () => [
 ];
 
 // ── Tab configuration ──
-type SubTab = 'siteMap' | 'summary' | 'content' | 'products' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+// patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
+type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
-  home: { tabs: ['siteMap', 'summary'], default: 'siteMap' },
+  // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
+  home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
   commerce: { tabs: ['content', 'products', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
@@ -264,6 +268,7 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
 };
 
 const SUB_TAB_LABELS: Record<SubTab, string> = {
+  onboarding: '🚀 出品ガイド',
   siteMap: 'サイトマップ',
   summary: '経営サマリー',
   content: 'コンテンツ',
@@ -295,7 +300,8 @@ export default function AdminDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [section, setSection] = useState<SectionId>('home');
-  const [subTab, setSubTab] = useState<SubTab>('siteMap');
+  // patch 0059: home の既定タブを onboarding に
+  const [subTab, setSubTab] = useState<SubTab>('onboarding');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -321,10 +327,19 @@ export default function AdminDashboard() {
   const currentEmail = loaderData.currentEmail;
 
   // Sync URL params with tab state (T083: URL routing)
+  // patch 0059: 出品ガイドからの deep link (tab=pageEditor&sub=ip_banners 等) で
+  // section（サイドバー）も合致させるため、tab から所属 section を逆引きして追従する。
   useEffect(() => {
     const tabParam = searchParams.get('tab') as SubTab | null;
     if (tabParam && Object.keys(SUB_TAB_LABELS).includes(tabParam)) {
       setSubTab(tabParam);
+      // 所属 section を逆引き
+      for (const [secId, cfg] of Object.entries(SECTION_TABS) as Array<[SectionId, {tabs: SubTab[]; default: SubTab}]>) {
+        if (cfg.tabs.includes(tabParam)) {
+          setSection(secId);
+          break;
+        }
+      }
     }
   }, [searchParams]);
 
@@ -532,6 +547,11 @@ export default function AdminDashboard() {
         )}
 
         <main style={{ flex: 1, padding: '24px 32px', overflow: 'auto' }}>
+          {subTab === 'onboarding' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminOnboarding />
+            </Suspense>
+          )}
           {subTab === 'summary' && (
             <AdminHome
               metrics={metrics}

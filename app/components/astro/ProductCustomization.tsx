@@ -26,17 +26,21 @@ function parsePriceFromLabel(label: string): number {
 
 /**
  * オプションvalueから追加価格を計算
- * STANDARD_OPTIONS内の対応するlabelを検索して価格を抽出
+ * 渡された options 配列（STANDARD_OPTIONS または Metaobject 由来）内の対応するlabelを検索
  */
-function calcSurchargeForSelection(fieldName: string, value: string): number {
-  const opt = STANDARD_OPTIONS.find((o) => o.name === fieldName);
+function calcSurchargeForSelection(
+  options: CustomizationOption[],
+  fieldName: string,
+  value: string,
+): number {
+  const opt = options.find((o) => o.name === fieldName);
   if (!opt) return 0;
   const chosen = opt.options.find((o) => o.value === value);
   if (!chosen) return 0;
   return parsePriceFromLabel(chosen.label);
 }
 
-interface CustomizationOption {
+export interface CustomizationOption {
   name: string;
   options: {value: string; label: string}[];
   /** 別のフィールドの値に依存する条件付き表示 */
@@ -201,6 +205,11 @@ interface ProductCustomizationProps {
   productTitle: string;
   productTags: string[];
   onSelectionsChange: (selections: CustomizationSelection[], surcharge: number) => void;
+  /**
+   * 管理画面(カスタマイズマトリックス)で設定された Metaobject 由来の動的オプション。
+   * 空配列または未指定の場合は STANDARD_OPTIONS（ハードコードのフォールバック）を使用。
+   */
+  customOptions?: CustomizationOption[];
 }
 
 function isPC(title: string, tags: string[]): boolean {
@@ -218,10 +227,17 @@ export function ProductCustomization({
   productTitle,
   productTags,
   onSelectionsChange,
+  customOptions,
 }: ProductCustomizationProps) {
   const [selections, setSelections] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState(false);
   const [surcharge, setSurcharge] = useState(0);
+
+  // 実効オプション: 管理画面 Metaobject 由来が非空ならそれを使用、それ以外は STANDARD_OPTIONS
+  const effectiveOptions = useMemo<CustomizationOption[]>(
+    () => (customOptions && customOptions.length > 0 ? customOptions : STANDARD_OPTIONS),
+    [customOptions],
+  );
 
   // PC製品のみ表示（Hooksの後に条件分岐）
   if (!isPC(productTitle, productTags)) {
@@ -236,25 +252,25 @@ export function ProductCustomization({
         const attrs: CustomizationSelection[] = Object.entries(next)
           .filter(([, v]) => v !== '')
           .map(([k, v]) => ({key: k, value: v}));
-        // カスタマイズ追加金額の合計を計算
+        // カスタマイズ追加金額の合計を計算（実効オプションから参照）
         const totalSurcharge = Object.entries(next)
           .filter(([, v]) => v !== '')
-          .reduce((sum, [k, v]) => sum + calcSurchargeForSelection(k, v), 0);
+          .reduce((sum, [k, v]) => sum + calcSurchargeForSelection(effectiveOptions, k, v), 0);
         setSurcharge(totalSurcharge);
         onSelectionsChange(attrs, totalSurcharge);
         return next;
       });
     },
-    [onSelectionsChange],
+    [onSelectionsChange, effectiveOptions],
   );
 
   // 表示するオプション（依存条件を考慮）
   const visibleOptions = useMemo(() => {
-    return STANDARD_OPTIONS.filter((opt) => {
+    return effectiveOptions.filter((opt) => {
       if (!opt.dependsOn) return true;
       return selections[opt.dependsOn.field] === opt.dependsOn.value;
     });
-  }, [selections]);
+  }, [selections, effectiveOptions]);
 
   // 基本オプション（最初の5つ）と詳細オプション
   const basicOptions = visibleOptions.slice(0, 5);

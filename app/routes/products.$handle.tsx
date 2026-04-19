@@ -174,7 +174,17 @@ export async function loader(args: Route.LoaderArgs) {
    ═══════════════════════════════════════════════════ */
 
 export default function Product() {
-  const {product, customizationVariants, relatedProducts} = useLoaderData<typeof loader>();
+  const {product, customizationVariants, relatedProducts, metaCustomOptions} = useLoaderData<typeof loader>();
+
+  // Metaobject 由来のカスタマイズオプション → ProductCustomization が期待する {name, options} 形へ
+  // 管理画面 (カスタマイズマトリックス) の CRUD を storefront に反映する配管
+  const customizationOptionsForUi = useMemo(() => {
+    if (!metaCustomOptions || metaCustomOptions.length === 0) return undefined;
+    return metaCustomOptions.map((mo) => ({
+      name: mo.name,
+      options: mo.choices,
+    }));
+  }, [metaCustomOptions]);
 
   // SKU → Shopify variant ID マッピング構築
   const skuToVariantId = useMemo(() => {
@@ -549,10 +559,13 @@ export default function Product() {
           />
 
           {/* PC Customization Dropdowns — パーツカスタマイズ */}
+          {/* customOptions: 管理画面 (カスタマイズマトリックス) 由来の Metaobject 設定。
+              空/未登録なら ProductCustomization 内部で STANDARD_OPTIONS にフォールバック */}
           <ProductCustomization
             productTitle={product.title}
             productTags={product.tags || []}
             onSelectionsChange={handleCustomizationChange}
+            customOptions={customizationOptionsForUi}
           />
 
           {/* Description */}
