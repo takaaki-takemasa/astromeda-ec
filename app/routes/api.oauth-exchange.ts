@@ -1,7 +1,7 @@
-// Temporary OAuth token exchange endpoint for write_files scope upgrade.
+// Temporary OAuth token exchange + scope probe for write_files upgrade.
 // POST JSON body: { shop, client_id, client_secret, code }
-// Server-side fetch to Shopify OAuth (Oxygen worker can reach *.myshopify.com).
-// DELETE THIS ROUTE AFTER TOKEN IS OBTAINED.
+// GET ?probe=1 -> uses env token to introspect current granted scopes via Admin API.
+// DELETE THIS ROUTE AFTER VERIFICATION IS DONE.
 import { data } from 'react-router';
 import type { Route } from './+types/api.oauth-exchange';
 
@@ -40,6 +40,32 @@ export async function action({ request }: Route.ActionArgs) {
   }
 }
 
-export async function loader() {
-  return data({ ok: true, hint: 'POST JSON {shop, client_id, client_secret, code}' });
+export async function loader({ request, context }: Route.LoaderArgs) {
+  const url = new URL(request.url);
+  if (url.searchParams.get('probe') !== '1') {
+    return data({ ok: true, hint: 'POST JSON {shop, client_id, client_secret, code} or GET ?probe=1' });
+  }
+  const env = (context as any).env || {};
+  const token = env.SHOPIFY_ADMIN_ACCESS_TOKEN;
+  const shop = env.PUBLIC_STORE_DOMAIN || 'staging-mining-base.myshopify.com';
+  if (!token) {
+    return data({ error: 'no SHOPIFY_ADMIN_ACCESS_TOKEN in env' }, { status: 500 });
+  }
+  // Probe via accessScopes endpoint (REST) which returns granted scopes for this token
+  try {
+    const r = await fetch(`https://${shop}/admin/oauth/access_scopes.json`, {
+      headers: { 'X-Shopify-Access-Token': token },
+    });
+    const body = await r.json();
+    return data({
+      probe: 'access_scopes',
+      tokenPrefix: String(token).slice(0, 12) + '...',
+      shop,
+      status: r.status,
+      body,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return data({ error: msg }, { status: 500 });
+  }
 }
