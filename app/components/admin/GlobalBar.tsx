@@ -1,8 +1,11 @@
 /**
  * GlobalBar — 上部ステータスバー
  * Andonステータス + 検索 + 通知 + 時刻
+ *
+ * patch 0049 (2026-04-19): trailing 任意 slot を追加 (Phase E RoleBadge を差し込むため)
  */
 import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { color, font, radius, transition, zIndex } from '~/lib/design-tokens';
 
 interface GlobalBarProps {
@@ -13,9 +16,11 @@ interface GlobalBarProps {
   /** モバイル時のハンバーガーメニュー */
   isMobile?: boolean;
   onMenuClick?: () => void;
+  /** patch 0049: 右端に追加の slot (RoleBadge 等) */
+  trailing?: ReactNode;
 }
 
-export function GlobalBar({ andonStatus, pendingApprovals, onAndonClick, onSearchClick, isMobile = false, onMenuClick }: GlobalBarProps) {
+export function GlobalBar({ andonStatus, pendingApprovals, onAndonClick, onSearchClick, isMobile = false, onMenuClick, trailing }: GlobalBarProps) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -134,6 +139,9 @@ export function GlobalBar({ andonStatus, pendingApprovals, onAndonClick, onSearc
         <span style={{ fontSize: font.xs, color: color.textDim, fontFamily: font.mono }}>
           {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
         </span>
+
+        {/* patch 0049: trailing slot (RoleBadge 等) */}
+        {trailing ?? null}
       </div>
     </header>
   );

@@ -11,6 +11,8 @@ import type { Route } from './+types/admin._index';
 import { RouteErrorBoundary } from '~/components/astro/RouteErrorBoundary';
 import { Sidebar, type SectionId } from '~/components/admin/Sidebar';
 import { GlobalBar } from '~/components/admin/GlobalBar';
+import { Breadcrumbs } from '~/components/admin/ds/Breadcrumbs';
+import { RoleBadge } from '~/components/admin/ds/RoleBadge';
 import { useIsMobile } from '~/hooks/useMediaQuery';
 import { color, font, formatJPY } from '~/lib/design-tokens';
 
@@ -88,10 +90,14 @@ interface LoaderData {
   revenue30d: RevenueData;
   revenue365d: RevenueData;
   pendingApprovals: number;
+  /** patch 0049: 現在ログインしているロール (Phase E: RBAC 可視化) */
+  currentRole: 'owner' | 'admin' | 'editor' | 'viewer';
+  /** patch 0049: ログインユーザーの email（未保存なら undefined） */
+  currentEmail?: string;
 }
 
 // ── Router Loader ──
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ context, request }: Route.LoaderArgs) {
   setBridgeEnv(context.env as unknown as Record<string, string | undefined>);
 
   const emptyRevenue: RevenueData = {
@@ -175,6 +181,22 @@ export async function loader({ context }: Route.LoaderArgs) {
       /* silent */
     }
 
+    // patch 0049: セッションから role / email を抽出して Phase E RoleBadge に供給
+    let currentRole: 'owner' | 'admin' | 'editor' | 'viewer' = 'owner';
+    let currentEmail: string | undefined;
+    try {
+      const env = context.env as Env;
+      const sharedSession = (context as unknown as {session?: import('~/lib/session').AppSession}).session;
+      const session = sharedSession ?? await (await import('~/lib/session')).AppSession.init(request, [env.SESSION_SECRET]);
+      const {getSessionRole} = await import('~/lib/rbac');
+      const r = getSessionRole(session);
+      if (r) currentRole = r;
+      const e = session.get('email') as string | undefined;
+      if (e && typeof e === 'string') currentEmail = e;
+    } catch {
+      /* role 抽出失敗は owner 既定値のまま */
+    }
+
     return data({
       metrics: bridgeToMetrics(adminStatus),
       agents: agentList,
@@ -188,6 +210,8 @@ export async function loader({ context }: Route.LoaderArgs) {
       revenue30d,
       revenue365d,
       pendingApprovals,
+      currentRole,
+      currentEmail,
     });
   } catch (error) {
     if (process.env.NODE_ENV === 'development')
@@ -216,6 +240,8 @@ export async function loader({ context }: Route.LoaderArgs) {
       revenue30d: emptyRevenue,
       revenue365d: emptyRevenue,
       pendingApprovals: 0,
+      currentRole: 'owner' as const,
+      currentEmail: undefined,
     });
   }
 }
@@ -254,6 +280,15 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   update: '設定',
 };
 
+// patch 0048 (Phase D): Breadcrumbs 用セクション名
+const SECTION_LABELS: Record<SectionId, string> = {
+  home: 'ホーム',
+  commerce: 'コマース',
+  ai: 'AI運用',
+  operations: 'オペレーション',
+  settings: '設定',
+};
+
 // ── Main Component ──
 export default function AdminDashboard() {
   const loaderData = useLoaderData<LoaderData>();
@@ -281,6 +316,9 @@ export default function AdminDashboard() {
   const [revenue30d] = useState<RevenueData>(loaderData.revenue30d);
   const [revenue365d] = useState<RevenueData>(loaderData.revenue365d);
   const [pendingApprovals] = useState(loaderData.pendingApprovals);
+  // patch 0048/0049: Phase D/E 表示要素
+  const currentRole = loaderData.currentRole;
+  const currentEmail = loaderData.currentEmail;
 
   // Sync URL params with tab state (T083: URL routing)
   useEffect(() => {
@@ -444,6 +482,18 @@ export default function AdminDashboard() {
           onAndonClick={handleAndonPull}
           isMobile={isMobile}
           onMenuClick={() => setMobileMenuOpen(true)}
+          trailing={<RoleBadge role={currentRole} email={currentEmail} />}
+        />
+
+        {/* patch 0048 (Phase D): Breadcrumbs — 深い階層でも現在位置が一目でわかる */}
+        <Breadcrumbs
+          items={[
+            {label: 'ホーム', onClick: () => handleNavigate('home')},
+            ...(section !== 'home'
+              ? [{label: SECTION_LABELS[section], onClick: () => handleNavigate(section)}]
+              : []),
+            {label: SUB_TAB_LABELS[subTab]},
+          ]}
         />
 
         {currentTabs.length > 1 && (
