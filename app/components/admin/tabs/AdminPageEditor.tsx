@@ -760,8 +760,11 @@ function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProps) {
         Array.from(c.children).forEach((gc) => containerSet.add(gc));
       });
       // セクション系タグも全部回収（hero-slider-wrap などの命名コンテナ含む）
+      // patch 0035: GamingPCLanding 系の gpc-* も同様に深い階層から拾う。
       mainRoot
-        .querySelectorAll('section, header, [class*="hero-slider"], [class*="collab-grid"], [class*="pc-showcase"]')
+        .querySelectorAll(
+          'section, header, [class*="hero-slider"], [class*="collab-grid"], [class*="pc-showcase"], [class*="gpc-hero"], [class*="gpc-feature"], [class*="gpc-ranking"], [class*="gpc-search"], [class*="gpc-price"], [class*="gpc-contact"], [class*="gpc-info"]',
+        )
         .forEach((el) => containerSet.add(el));
     }
     const footer = doc.querySelector('footer');
