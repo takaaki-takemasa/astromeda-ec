@@ -2948,6 +2948,8 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
   const [saving, setSaving] = useState(false);
   // patch 0006: Shopify コレクション画像マップ (handle -> CDN URL)
   const [collabImages, setCollabImages] = useState<Record<string, string>>({});
+  // patch 0037: 一括登録（COLLABS 26 件 → astromeda_ip_banner Metaobject）中フラグ
+  const [seeding, setSeeding] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -3026,6 +3028,32 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
   const modalOpen = creating || editing !== null;
   const initial: Partial<IpBanner> = creating ? {sortOrder: 0, featured: true} : editing || {};
 
+  // patch 0037: astromeda_ip_banner Metaobject が空の時、
+  // フロントが使っている COLLABS 26 件フォールバックをそのまま admin に表示し、
+  // 「一括登録」で Metaobject 化できるようにする。
+  const handleSeedCollabs = async () => {
+    if (!(await confirm('COLLABS 26件を Metaobject に一括登録しますか？（既存エントリには影響しません）'))) return;
+    setSeeding(true);
+    try {
+      const res = await fetch('/api/admin/cms-seed', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({types: ['astromeda_ip_banner']}),
+      });
+      const json = (await res.json().catch(() => ({}))) as {success?: boolean; error?: string};
+      if (res.ok && json.success) {
+        pushToast('COLLABS を Metaobject に登録しました', 'success');
+        await load();
+      } else {
+        pushToast(`一括登録失敗: ${json.error || res.status}`, 'error');
+      }
+    } catch (e) {
+      pushToast(`一括登録失敗: ${(e as Error).message}`, 'error');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   return (
     <div style={cardStyle}>
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14}}>
@@ -3035,7 +3063,84 @@ function IpBannersSection({pushToast, confirm}: SectionProps) {
       {loading ? (
         <div style={{textAlign: 'center', padding: 40}}><Spinner /></div>
       ) : items.length === 0 ? (
-        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 30}}>エントリがありません（フロントは COLLABS 26件フォールバック使用中）</div>
+        <div>
+          <div style={{
+            background: al(T.c, 0.08),
+            border: `1px solid ${al(T.c, 0.4)}`,
+            borderRadius: 10,
+            padding: '14px 16px',
+            marginBottom: 14,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 14,
+            flexWrap: 'wrap',
+          }}>
+            <div style={{flex: 1, minWidth: 240}}>
+              <div style={{fontSize: 12, fontWeight: 800, color: T.tx, marginBottom: 4}}>
+                Metaobject は空です — フロントは COLLABS 26件フォールバックで表示中
+              </div>
+              <div style={{fontSize: 11, color: T.t4, lineHeight: 1.5}}>
+                下に表示されているのが現在フロントで使われているフォールバック画像です。
+                「一括登録」ボタンを押すと、26件を編集可能な Metaobject として登録できます。
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSeedCollabs}
+              disabled={seeding}
+              style={{...btn(true), opacity: seeding ? 0.6 : 1}}
+            >
+              {seeding ? '登録中…' : '📦 COLLABS 26件を一括登録'}
+            </button>
+          </div>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead>
+              <tr>
+                <th style={thStyle}>現在の画像（フォールバック）</th>
+                <th style={thStyle}>IP名</th>
+                <th style={thStyle}>コレクション</th>
+                <th style={thStyle}>ラベル</th>
+                <th style={thStyle}>順</th>
+                <th style={thStyle}>状態</th>
+              </tr>
+            </thead>
+            <tbody>
+              {COLLABS.map((c, idx) => {
+                const img = c.shop ? collabImages[c.shop] : null;
+                return (
+                  <tr key={`fallback-${c.shop || idx}`}>
+                    <td style={{...tdStyle, width: 84}}>
+                      {img ? (
+                        <img
+                          src={img}
+                          alt={c.name}
+                          style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 72, height: 48, borderRadius: 4,
+                            background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
+                            color: T.bg, fontSize: 9, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            textAlign: 'center', lineHeight: 1.1, padding: 4,
+                          }}
+                        >
+                          画像{'\n'}未取得
+                        </div>
+                      )}
+                    </td>
+                    <td style={tdStyle}>{c.name}</td>
+                    <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shop || '—'}</td>
+                    <td style={tdStyle}>{c.tag || '—'}</td>
+                    <td style={tdStyle}>{idx + 1}</td>
+                    <td style={{...tdStyle, color: T.t5, fontSize: 11}}>フォールバック</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <table style={{width: '100%', borderCollapse: 'collapse'}}>
           <thead>

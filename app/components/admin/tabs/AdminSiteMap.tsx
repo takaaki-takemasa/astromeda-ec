@@ -293,6 +293,60 @@ export default function AdminSiteMap() {
         )}
       </div>
 
+      {/* patch 0036: ビジュアル編集タブをサイトマップ最上部に大きく露出。
+          CEO「ビジュアル編集がサイトマップ上、表示されていないのにわかりづらい」対応。 */}
+      <button
+        type="button"
+        onClick={() => navigate('pageEditor', 'visual')}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          width: '100%',
+          padding: '20px 24px',
+          marginBottom: 16,
+          background: `linear-gradient(135deg, ${al(T.c, 0.18)} 0%, ${al(T.c, 0.06)} 100%)`,
+          border: `2px solid ${T.c}`,
+          borderRadius: 14,
+          cursor: 'pointer',
+          color: T.tx,
+          fontFamily: 'inherit',
+          textAlign: 'left',
+          boxShadow: `0 0 24px ${al(T.c, 0.25)}`,
+        }}
+        onMouseEnter={(e) => {
+          (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)';
+          (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 32px ${al(T.c, 0.35)}`;
+        }}
+        onMouseLeave={(e) => {
+          (e.currentTarget as HTMLElement).style.transform = '';
+          (e.currentTarget as HTMLElement).style.boxShadow = `0 0 24px ${al(T.c, 0.25)}`;
+        }}
+      >
+        <div style={{fontSize: 36, lineHeight: 1}}>🖼</div>
+        <div style={{flex: 1, minWidth: 0}}>
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: 1.2,
+              color: T.c,
+              marginBottom: 4,
+            }}
+          >
+            おすすめ・最速の編集方法
+          </div>
+          <div style={{fontSize: 17, fontWeight: 900, color: T.tx, marginBottom: 4}}>
+            ビジュアル編集を開く
+          </div>
+          <div style={{fontSize: 12, color: T.t4, lineHeight: 1.5}}>
+            実際のサイトを見ながら、編集したい場所を直接クリックして変更できます（トップページ /
+            ゲーミングPCページ 対応）
+          </div>
+        </div>
+        <div style={{fontSize: 22, color: T.c, fontWeight: 900}}>→</div>
+      </button>
+
       {groups.map((group) => {
         const key = groupKey(group);
         const isOpen = expanded[key] ?? false;
