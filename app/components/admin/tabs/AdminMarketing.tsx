@@ -11,6 +11,8 @@ import { CompactKPI } from '~/components/admin/CompactKPI';
 import { Modal } from '~/components/admin/Modal';
 import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
 import { T, al } from '~/lib/astromeda-data';
+// patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
+import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -456,6 +458,8 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -533,7 +537,13 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このキャンペーンを削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このキャンペーンを削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_campaign', action: 'delete', id });
     if (r.success) { onToast('キャンペーン削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
@@ -726,6 +736,7 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
           })}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }
@@ -740,6 +751,8 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -801,7 +814,13 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このオプションを削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このオプションを削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_custom_option', action: 'delete', id });
     if (r.success) { onToast('オプション削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
@@ -928,6 +947,7 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }

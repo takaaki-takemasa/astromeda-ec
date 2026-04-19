@@ -34,6 +34,8 @@ import {
   getPublishStatus,
   type PublishStatus,
 } from '~/components/admin/DraftPublishBar';
+// patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
+import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── Types ──
 export interface MetaobjectNode {
@@ -213,6 +215,8 @@ export function GenericCrudSublist({
   const [saving, setSaving] = useState(false);
   const [publishFilter, setPublishFilter] = useState<'all' | 'active' | 'draft'>('all');
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
   const editingItem = useMemo(
     () => (editing ? items.find((i) => i.id === editing) : undefined),
     [editing, items],
@@ -280,7 +284,13 @@ export function GenericCrudSublist({
   };
 
   const remove = async (id: string) => {
-    if (!confirm(`この${unitLabel}を削除します。よろしいですか？`)) return;
+    const ok = await confirmDialog({
+      title: `この${unitLabel}を削除しますか？`,
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await cmsPost({ type, action: 'delete', id });
     if (res.success) { onMsg(`${unitLabel}を削除しました`); onRefresh(); }
     else onMsg(`エラー: ${res.error}`);
@@ -464,6 +474,7 @@ export function GenericCrudSublist({
           </div>
         </Modal>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }

@@ -12,6 +12,8 @@ import { Modal } from '~/components/admin/Modal';
 import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
 import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T } from '~/lib/astromeda-data';
+// patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
+import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── Article/SEO 用軽量プレビュー ──
 function ArticlePreview({title, body, excerpt, author, tags, metaDesc}: {
@@ -195,6 +197,8 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -264,7 +268,13 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('この記事を削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'この記事を削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_article_content', action: 'delete', id });
     if (r.success) { onToast('記事削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
@@ -410,6 +420,7 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }
@@ -424,6 +435,8 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -491,7 +504,13 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このIPバナーを削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このIPバナーを削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'delete', id });
     if (r.success) { onToast('IPバナー削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
@@ -656,6 +675,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }
@@ -670,6 +690,8 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -731,7 +753,13 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このSEO記事を削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このSEO記事を削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_seo_article', action: 'delete', id });
     if (r.success) { onToast('SEO記事削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
@@ -844,6 +872,7 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }

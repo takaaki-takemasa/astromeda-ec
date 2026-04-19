@@ -11,6 +11,8 @@ import { CompactKPI } from '~/components/admin/CompactKPI';
 import { Modal } from '~/components/admin/Modal';
 import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/PreviewFrame';
 import { T, al } from '~/lib/astromeda-data';
+// patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
+import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── Types ──
 interface ProductSummary {
@@ -542,6 +544,8 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('desktop');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -609,7 +613,13 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このティアを削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このティアを削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_pc_tier', action: 'delete', id });
     if (r.success) {
       onToast('ティア削除完了', 'ok');
@@ -760,6 +770,7 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }
@@ -774,6 +785,8 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<Record<string, string>>({});
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
+  // patch 0048: window.confirm 置換用
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -843,7 +856,13 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('このレビューを削除しますか？')) return;
+    const ok = await confirmDialog({
+      title: 'このレビューを削除しますか？',
+      message: 'この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_ugc_review', action: 'delete', id });
     if (r.success) {
       onToast('レビュー削除完了', 'ok');
@@ -1035,6 +1054,7 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
           ))}
         </div>
       )}
+      <Dialog {...dialogProps} />
     </div>
   );
 }
