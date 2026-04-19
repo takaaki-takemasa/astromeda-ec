@@ -12,7 +12,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 import {
-  SectionProps,
+  type SectionProps,
   Spinner,
   Modal,
   apiGet,

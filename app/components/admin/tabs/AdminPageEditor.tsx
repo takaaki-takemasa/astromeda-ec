@@ -794,10 +794,7 @@ function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProps) {
 // ColorModelsSection
 // ══════════════════════════════════════════════════════════
 
-interface SectionProps {
-  pushToast: (msg: string, type: 'success' | 'error') => void;
-  confirm: (message: string) => Promise<boolean>;
-}
+// patch 0047 Phase C 第1段: SectionProps は ./pageEditor/shared からインポート済み
 
 function ColorModelsSection({pushToast, confirm}: SectionProps) {
   const [items, setItems] = useState<ColorModel[]>([]);
@@ -3700,21 +3697,11 @@ type GamingCmsItem = {
   line_hours?: string;
 };
 
+// patch 0047 Phase C 第1段: cmsCreate/cmsUpdate/cmsDelete は ./pageEditor/shared から import 済み。
+// cmsList は GamingCmsItem 型に特化した helper なのでここに残す。
 async function cmsList(type: string): Promise<GamingCmsItem[]> {
   const res = await apiGet<{success: boolean; items?: GamingCmsItem[]}>(`/api/admin/cms?type=${type}`);
   return (res?.items || []) as GamingCmsItem[];
-}
-
-async function cmsCreate(type: string, handle: string, fields: Array<{key: string; value: string}>) {
-  return apiPost('/api/admin/cms', {type, action: 'create', handle, fields});
-}
-
-async function cmsUpdate(type: string, id: string, fields: Array<{key: string; value: string}>) {
-  return apiPost('/api/admin/cms', {type, action: 'update', id, fields});
-}
-
-async function cmsDelete(type: string, id: string) {
-  return apiPost('/api/admin/cms', {type, action: 'delete', id});
 }
 
 interface GamingSectionConfig {
