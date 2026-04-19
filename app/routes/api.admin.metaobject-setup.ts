@@ -25,6 +25,9 @@
  * 15. astromeda_product_shelf       商品シェルフ
  * 16. astromeda_static_page         固定ページ
  * 17. astromeda_faq_item            FAQ質問項目
+ * 18. astromeda_gaming_feature_card  ゲーミングPC LP 特集カード（FEATURE）
+ * 19. astromeda_gaming_parts_card    ゲーミングPC LP パーツカード（CPU/GPU）
+ * 20. astromeda_gaming_price_range   ゲーミングPC LP 価格帯リンク
  *
  * 冪等性: 既に存在する定義は「ALREADY EXISTS」としてskipし、成功扱いとする。
  *
@@ -301,6 +304,45 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'question', name: '質問', type: 'single_line_text_field' },
       { key: 'answer', name: '回答', type: 'multi_line_text_field' },
       { key: 'category', name: 'カテゴリ（注文・購入/配送/保証・修理/返品・交換/カスタマイズ/IPコラボ/その他）', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 18. ゲーミングPC LP 特集カード ──（/collections/gaming-pc の FEATURE セクション）
+  {
+    type: 'astromeda_gaming_feature_card',
+    name: 'Astromeda ゲーミングPC 特集カード',
+    description: 'ゲーミングPCランディング「FEATURE / 特集」セクションのカード4枚。',
+    fieldDefinitions: [
+      { key: 'label', name: 'ラベル（例: 売上ランキング）', type: 'single_line_text_field' },
+      { key: 'image_url', name: '画像URL', type: 'single_line_text_field' },
+      { key: 'link_url', name: 'リンク先パス', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 19. ゲーミングPC LP パーツカード ──（CPU/GPU）
+  {
+    type: 'astromeda_gaming_parts_card',
+    name: 'Astromeda ゲーミングPC パーツカード',
+    description: 'ゲーミングPCランディング「パーツで選ぶ」セクションの CPU/GPU カード。category で cpu / gpu を区別。',
+    fieldDefinitions: [
+      { key: 'label', name: 'ラベル（例: AMD Ryzen搭載）', type: 'single_line_text_field' },
+      { key: 'image_url', name: '画像URL（ロゴ）', type: 'single_line_text_field' },
+      { key: 'link_url', name: 'リンク先パス', type: 'single_line_text_field' },
+      { key: 'category', name: 'カテゴリ（cpu / gpu）', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 20. ゲーミングPC LP 価格帯リンク ──
+  {
+    type: 'astromeda_gaming_price_range',
+    name: 'Astromeda ゲーミングPC 価格帯',
+    description: 'ゲーミングPCランディング「値段で選ぶ」セクションの価格帯リンク。',
+    fieldDefinitions: [
+      { key: 'label', name: 'ラベル（例: 200,001〜250,000円）', type: 'single_line_text_field' },
+      { key: 'link_url', name: 'リンク先パス', type: 'single_line_text_field' },
       { key: 'display_order', name: '表示順', type: 'number_integer' },
       { key: 'is_active', name: '表示中', type: 'boolean' },
     ],

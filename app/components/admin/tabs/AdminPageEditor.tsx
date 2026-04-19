@@ -132,7 +132,7 @@ interface HeroBanner {
   endAt: string | null;
 }
 
-type SubTab = 'visual' | 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix';
+type SubTab = 'visual' | 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix' | 'gaming_feature_cards' | 'gaming_parts_cards' | 'gaming_price_ranges';
 
 type Toast = {id: number; message: string; type: 'success' | 'error'};
 
@@ -454,7 +454,7 @@ async function apiGet<T>(endpoint: string): Promise<T | null> {
 // メインコンポーネント
 // ══════════════════════════════════════════════════════════
 
-const VALID_SUB_TABS: SubTab[] = ['visual', 'color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix'];
+const VALID_SUB_TABS: SubTab[] = ['visual', 'color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix', 'gaming_feature_cards', 'gaming_parts_cards', 'gaming_price_ranges'];
 
 export default function AdminPageEditor() {
   const [searchParams] = useSearchParams();
@@ -485,6 +485,9 @@ export default function AdminPageEditor() {
     {key: 'about_sections', label: 'ABOUT'},
     {key: 'footer_configs', label: 'フッター'},
     {key: 'customization_matrix', label: 'カスタマイズマトリックス'},
+    {key: 'gaming_feature_cards', label: '🎮 特集カード (Gaming)'},
+    {key: 'gaming_parts_cards', label: '🎮 パーツカード (Gaming)'},
+    {key: 'gaming_price_ranges', label: '🎮 価格帯 (Gaming)'},
   ];
 
   return (
@@ -528,6 +531,9 @@ export default function AdminPageEditor() {
       {subTab === 'about_sections' && <AboutSectionsSection pushToast={push} confirm={confirm} />}
       {subTab === 'footer_configs' && <FooterConfigsSection pushToast={push} confirm={confirm} />}
       {subTab === 'customization_matrix' && <CustomizationMatrixSection pushToast={push} confirm={confirm} />}
+      {subTab === 'gaming_feature_cards' && <GamingFeatureCardsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'gaming_parts_cards' && <GamingPartsCardsSection pushToast={push} confirm={confirm} />}
+      {subTab === 'gaming_price_ranges' && <GamingPriceRangesSection pushToast={push} confirm={confirm} />}
 
       <ToastContainer toasts={toasts} />
       <ConfirmDialog open={confirmState.open} message={confirmState.message} onOk={confirmOk} onCancel={confirmCancel} />
@@ -630,9 +636,8 @@ const GAMING_PC_SECTIONS: SectionDef[] = [
       el.classList?.contains('hero-slider-wrap') === true,
   },
   {
-    key: 'feature', label: '特集 FEATURE', desc: '特集カード 4 枚（コード側管理）',
-    icon: '⭐', num: '②', color: '#FFD84D',
-    info: '特集カードは現在コード内でハードコードされています（FEATURE_CARDS 定数）。Metaobject 化が必要な場合は Claude に「特集カードを管理画面から編集したい」と指示してください。',
+    key: 'feature', label: '特集 FEATURE', desc: '特集カード 4 枚を Metaobject から編集',
+    icon: '⭐', num: '②', color: '#FFD84D', navTab: 'gaming_feature_cards',
     match: (t) => /FEATURE\b|^特集\s|特集\nFEATURE/.test(t.slice(0, 30)),
   },
   {
@@ -642,15 +647,13 @@ const GAMING_PC_SECTIONS: SectionDef[] = [
     match: (t) => /RANKING\b|人気ランキング/.test(t.slice(0, 40)),
   },
   {
-    key: 'search_parts', label: 'パーツで選ぶ', desc: 'CPU / GPU カードから絞込み',
-    icon: '🧩', num: '④', color: '#4DDB8A',
-    info: 'パーツ選択カード（CPU/GPU）は現在コード内でハードコードされています（CPU_CARDS / GPU_CARDS 定数）。Metaobject 化が必要な場合は Claude に依頼してください。',
+    key: 'search_parts', label: 'パーツで選ぶ', desc: 'CPU / GPU カードを Metaobject から編集',
+    icon: '🧩', num: '④', color: '#4DDB8A', navTab: 'gaming_parts_cards',
     match: (t) => /SEARCH\b|パーツで選ぶ|CPUから選択|GPUから選択/.test(t.slice(0, 60)),
   },
   {
-    key: 'price_range', label: '値段で選ぶ', desc: '価格帯リンク（コード側管理）',
-    icon: '💴', num: '⑤', color: '#FF9A3C',
-    info: '価格帯リンクは現在コード内でハードコードされています（PRICE_RANGES 定数）。変更したい場合は Claude に指示してください。',
+    key: 'price_range', label: '値段で選ぶ', desc: '価格帯リンクを Metaobject から編集',
+    icon: '💴', num: '⑤', color: '#FF9A3C', navTab: 'gaming_price_ranges',
     match: (t) => /PRICE\s*RANGE|値段で選ぶ/.test(t.slice(0, 40)),
   },
   {
@@ -4030,5 +4033,334 @@ function CustomizationMatrixSection({pushToast, confirm: _confirm}: SectionProps
         <span>列ヘッダクリック: 列一括トグル</span>
       </div>
     </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// patch 0038: GamingPCLanding 6セクションを Metaobject 化
+// - GamingFeatureCardsSection  (astromeda_gaming_feature_card)  特集カード
+// - GamingPartsCardsSection    (astromeda_gaming_parts_card)    CPU/GPU カード
+// - GamingPriceRangesSection   (astromeda_gaming_price_range)   価格帯リンク
+// すべて /api/admin/cms?type=... を介した汎用 CRUD UI。
+// フォールバック: Metaobject が空ならコード内ハードコードが表示される（GamingPCLanding 側）。
+// ══════════════════════════════════════════════════════════
+
+type GamingCmsItem = {
+  id: string;
+  handle: string;
+  label?: string;
+  image_url?: string;
+  link_url?: string;
+  category?: string;
+  display_order?: string;
+  is_active?: string;
+};
+
+async function cmsList(type: string): Promise<GamingCmsItem[]> {
+  const res = await apiGet<{success: boolean; items?: GamingCmsItem[]}>(`/api/admin/cms?type=${type}`);
+  return (res?.items || []) as GamingCmsItem[];
+}
+
+async function cmsCreate(type: string, handle: string, fields: Array<{key: string; value: string}>) {
+  return apiPost('/api/admin/cms', {type, action: 'create', handle, fields});
+}
+
+async function cmsUpdate(type: string, id: string, fields: Array<{key: string; value: string}>) {
+  return apiPost('/api/admin/cms', {type, action: 'update', id, fields});
+}
+
+async function cmsDelete(type: string, id: string) {
+  return apiPost('/api/admin/cms', {type, action: 'delete', id});
+}
+
+interface GamingSectionConfig {
+  type: string;
+  title: string;
+  description: string;
+  /** CPU / GPU 等のカテゴリプルダウンを出すか */
+  withCategory?: boolean;
+  /** 画像URLフィールドを出すか */
+  withImage?: boolean;
+  categoryOptions?: Array<{value: string; label: string}>;
+}
+
+function GamingCrudSection({
+  config,
+  pushToast,
+  confirm,
+}: {config: GamingSectionConfig} & SectionProps) {
+  const [items, setItems] = useState<GamingCmsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<GamingCmsItem | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // フォーム state
+  const [fHandle, setFHandle] = useState('');
+  const [fLabel, setFLabel] = useState('');
+  const [fImageUrl, setFImageUrl] = useState('');
+  const [fLinkUrl, setFLinkUrl] = useState('');
+  const [fCategory, setFCategory] = useState(config.categoryOptions?.[0]?.value || '');
+  const [fDisplayOrder, setFDisplayOrder] = useState(0);
+  const [fIsActive, setFIsActive] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const list = await cmsList(config.type);
+    // display_order 昇順でソート
+    list.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+    setItems(list);
+    setLoading(false);
+  }, [config.type]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const openCreate = () => {
+    setCreating(true);
+    setEditing(null);
+    setFHandle('');
+    setFLabel('');
+    setFImageUrl('');
+    setFLinkUrl('');
+    setFCategory(config.categoryOptions?.[0]?.value || '');
+    setFDisplayOrder(items.length + 1);
+    setFIsActive(true);
+  };
+
+  const openEdit = (item: GamingCmsItem) => {
+    setEditing(item);
+    setCreating(false);
+    setFHandle(item.handle || '');
+    setFLabel(item.label || '');
+    setFImageUrl(item.image_url || '');
+    setFLinkUrl(item.link_url || '');
+    setFCategory(item.category || config.categoryOptions?.[0]?.value || '');
+    setFDisplayOrder(Number(item.display_order || 0));
+    setFIsActive(item.is_active !== 'false');
+  };
+
+  const closeModal = () => {
+    setCreating(false);
+    setEditing(null);
+  };
+
+  const handleSave = async () => {
+    if (!fLabel.trim()) {
+      pushToast('ラベルは必須です', 'error');
+      return;
+    }
+    setSaving(true);
+    const fields: Array<{key: string; value: string}> = [
+      {key: 'label', value: fLabel},
+      {key: 'link_url', value: fLinkUrl},
+      {key: 'display_order', value: String(fDisplayOrder)},
+      {key: 'is_active', value: fIsActive ? 'true' : 'false'},
+    ];
+    if (config.withImage) {
+      fields.push({key: 'image_url', value: fImageUrl});
+    }
+    if (config.withCategory) {
+      fields.push({key: 'category', value: fCategory});
+    }
+    const res = creating
+      ? await cmsCreate(config.type, fHandle || `${config.type.replace('astromeda_', '')}-${Date.now()}`, fields)
+      : await cmsUpdate(config.type, editing!.id, fields);
+    setSaving(false);
+    if (res.success) {
+      pushToast(creating ? '作成しました' : '更新しました', 'success');
+      closeModal();
+      await load();
+    } else {
+      pushToast(`保存失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const handleDelete = async (item: GamingCmsItem) => {
+    if (!(await confirm(`「${item.label || item.handle}」を削除しますか？`))) return;
+    const res = await cmsDelete(config.type, item.id);
+    if (res.success) {
+      pushToast('削除しました', 'success');
+      await load();
+    } else {
+      pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const modalOpen = creating || editing !== null;
+
+  return (
+    <div style={cardStyle}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
+        <div>
+          <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>{config.title} ({items.length})</div>
+          <div style={{fontSize: 10, color: T.t4, marginTop: 3}}>{config.description}</div>
+        </div>
+        <button type="button" onClick={openCreate} style={btn(true)}>＋ 新規追加</button>
+      </div>
+      {items.length === 0 && !loading && (
+        <div style={{
+          background: al(T.c, 0.08),
+          border: `1px solid ${al(T.c, 0.3)}`,
+          borderRadius: 8,
+          padding: 14,
+          fontSize: 12,
+          color: T.tx,
+          marginBottom: 14,
+          lineHeight: 1.6,
+        }}>
+          <div style={{fontWeight: 800, marginBottom: 4}}>📦 Metaobject は空です — フロントはコード内ハードコード値を表示中</div>
+          <div style={{color: T.t4, fontSize: 11}}>
+            新規追加するとこのセクションが Metaobject から読み込まれるようになります。1件でも追加すると、フロントのハードコード値は完全に置き換わります。
+          </div>
+        </div>
+      )}
+      {loading ? (
+        <div style={{textAlign: 'center', padding: 30}}><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 20}}>エントリがありません</div>
+      ) : (
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr>
+              {config.withImage && <th style={thStyle}>画像</th>}
+              <th style={thStyle}>ラベル</th>
+              {config.withCategory && <th style={thStyle}>カテゴリ</th>}
+              <th style={thStyle}>リンク</th>
+              <th style={thStyle}>順</th>
+              <th style={thStyle}>状態</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                {config.withImage && (
+                  <td style={{...tdStyle, width: 72}}>
+                    {item.image_url && /^https?:\/\//.test(item.image_url) ? (
+                      <img src={item.image_url} alt={item.label || ''} style={{width: 64, height: 40, objectFit: 'contain', borderRadius: 4, background: '#000'}} />
+                    ) : (
+                      <div style={{width: 64, height: 40, borderRadius: 4, background: al(T.tx, 0.05), fontSize: 9, color: T.t4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>未設定</div>
+                    )}
+                  </td>
+                )}
+                <td style={tdStyle}>{item.label || <span style={{color: T.t4}}>(未入力)</span>}</td>
+                {config.withCategory && <td style={tdStyle}>{item.category || '—'}</td>}
+                <td style={{...tdStyle, color: T.t5, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.link_url || '—'}</td>
+                <td style={tdStyle}>{item.display_order || 0}</td>
+                <td style={tdStyle}>{item.is_active !== 'false' ? '✓' : '—'}</td>
+                <td style={{...tdStyle, textAlign: 'right'}}>
+                  <button type="button" onClick={() => openEdit(item)} style={{...btn(), marginRight: 6}}>編集</button>
+                  <button type="button" onClick={() => handleDelete(item)} style={btn(false, true)}>削除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {modalOpen && (
+        <Modal title={creating ? `${config.title} 新規追加` : `${config.title} 編集`} onClose={closeModal}>
+          <div style={{display: 'grid', gap: 12}}>
+            {creating && (
+              <div>
+                <label style={labelStyle}>Handle（省略時は自動生成）</label>
+                <input type="text" value={fHandle} onChange={(e) => setFHandle(e.target.value)} style={inputStyle} placeholder={`${config.type.replace('astromeda_', '')}-xxx`} />
+              </div>
+            )}
+            <div>
+              <label style={labelStyle}>ラベル *</label>
+              <input type="text" value={fLabel} onChange={(e) => setFLabel(e.target.value)} style={inputStyle} />
+            </div>
+            {config.withImage && (
+              <div>
+                <label style={labelStyle}>画像 URL（ロゴ・アイコン画像）</label>
+                <input type="text" value={fImageUrl} onChange={(e) => setFImageUrl(e.target.value)} style={inputStyle} placeholder="https://..." />
+                <div style={{fontSize: 10, color: T.t4, marginTop: 4}}>
+                  ※ Shopify にアップロード済みの画像 URL を貼ってください。/images/... などの相対パスも可。
+                </div>
+              </div>
+            )}
+            {config.withCategory && config.categoryOptions && (
+              <div>
+                <label style={labelStyle}>カテゴリ</label>
+                <select value={fCategory} onChange={(e) => setFCategory(e.target.value)} style={inputStyle}>
+                  {config.categoryOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label style={labelStyle}>リンク先パス</label>
+              <input type="text" value={fLinkUrl} onChange={(e) => setFLinkUrl(e.target.value)} style={inputStyle} placeholder="/collections/xxx" />
+            </div>
+            <div>
+              <label style={labelStyle}>表示順</label>
+              <input type="number" value={fDisplayOrder} onChange={(e) => setFDisplayOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
+                <input type="checkbox" checked={fIsActive} onChange={(e) => setFIsActive(e.target.checked)} />
+                有効
+              </label>
+            </div>
+            <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+              <button type="button" onClick={closeModal} style={btn()} disabled={saving}>キャンセル</button>
+              <button type="button" onClick={handleSave} style={btn(true)} disabled={saving}>
+                {saving ? '保存中…' : creating ? '作成' : '保存'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+function GamingFeatureCardsSection(props: SectionProps) {
+  return (
+    <GamingCrudSection
+      {...props}
+      config={{
+        type: 'astromeda_gaming_feature_card',
+        title: '🎮 ゲーミングPC 特集カード',
+        description: 'ゲーミングPC ランディング「FEATURE / 特集」セクションのカード（売上ランキング/NEW/RTX5090/AMD 等）。',
+        withImage: true,
+      }}
+    />
+  );
+}
+
+function GamingPartsCardsSection(props: SectionProps) {
+  return (
+    <GamingCrudSection
+      {...props}
+      config={{
+        type: 'astromeda_gaming_parts_card',
+        title: '🎮 ゲーミングPC パーツカード (CPU / GPU)',
+        description: '「パーツで選ぶ」セクションの CPU / GPU カード。category で cpu / gpu を指定してください。',
+        withImage: true,
+        withCategory: true,
+        categoryOptions: [
+          {value: 'cpu', label: 'CPU'},
+          {value: 'gpu', label: 'GPU'},
+        ],
+      }}
+    />
+  );
+}
+
+function GamingPriceRangesSection(props: SectionProps) {
+  return (
+    <GamingCrudSection
+      {...props}
+      config={{
+        type: 'astromeda_gaming_price_range',
+        title: '🎮 ゲーミングPC 価格帯リンク',
+        description: '「値段で選ぶ」セクションの価格帯リンク（例: 200,001〜250,000円 → /collections/gaming-pc?price=200001-250000）。',
+      }}
+    />
   );
 }

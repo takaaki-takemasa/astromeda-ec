@@ -16,9 +16,21 @@ interface NewsItem {
   url: string;
 }
 
+// patch 0038: Metaobject 化用カード型。img は任意（無ければ画像なしで表示）
+interface MetaCard {
+  label: string;
+  href: string;
+  img?: string;
+}
+
 interface GamingPCLandingProps {
   rankingProducts: RankingProduct[];
   newsItems: NewsItem[];
+  // patch 0038: Metaobject 化セクション。空配列ならコード内 FALLBACK_* を使う（exclusive-OR merge）
+  featureCards?: MetaCard[];
+  cpuCards?: MetaCard[];
+  gpuCards?: MetaCard[];
+  priceRanges?: Array<{label: string; href: string}>;
 }
 
 // ─── Constants: Shopify CDN images (production store) ───
@@ -30,24 +42,26 @@ const HERO_SLIDES = [
   {img: `${CDN}/3_68c626f6-61b4-475e-a347-7771055c20ca.png`, href: '/pages/color', alt: 'カラーバナー'},
 ];
 
-const FEATURE_CARDS = [
+// patch 0038: フォールバック値（Metaobject が空のときに表示される。Metaobject に1件でも入れば
+// Metaobject 側が完全に勝つ exclusive-OR merge）
+const FALLBACK_FEATURE_CARDS: MetaCard[] = [
   {img: `${CDN}/19_54898356-8df0-49d1-b081-bc3e2862038a.png`, href: '/collections/ranking', label: '売上ランキング'},
   {img: `${CDN}/2_8fc598a4-fc71-45af-bb40-e9a419a84b6d.png`, href: '/collections/pc-collaboration', label: 'キャラクターコラボPC'},
   {img: `${CDN}/20_bd7bd8ac-7dd3-4cdb-a9fa-cff11559abac.png`, href: '/pages/color', label: '色から選ぶ'},
   {img: `${CDN}/21_c1da0635-9bf1-4e5e-bdd1-f583f37ff201.png`, href: '/collections/price', label: '価格から選ぶ'},
 ];
 
-const CPU_CARDS = [
+const FALLBACK_CPU_CARDS: MetaCard[] = [
   {img: `${CDN}/amd-logo.png`, href: '/collections/amd-ryzen', label: 'AMD Ryzen搭載'},
   {img: `${CDN}/intel-logo.png`, href: '/collections/intel-core', label: 'Intel Core搭載'},
 ];
 
-const GPU_CARDS = [
+const FALLBACK_GPU_CARDS: MetaCard[] = [
   {img: `${CDN}/nvidia-logo.png`, href: '/collections/nvidia-geforce', label: 'NVIDIA GeForce搭載'},
   {img: `${CDN}/radeon-logo.png`, href: '/collections/amd-radeon', label: 'AMD Radeon搭載'},
 ];
 
-const PRICE_RANGES = [
+const FALLBACK_PRICE_RANGES = [
   {label: '～200,000円', href: '/collections/astromeda?price=0-200000'},
   {label: '200,001～250,000円', href: '/collections/astromeda?price=200001-250000'},
   {label: '250,001～300,000円', href: '/collections/astromeda?price=250001-300000'},
@@ -276,7 +290,15 @@ function SectionTitle({ja, en}: {ja: string; en: string}) {
 }
 
 // ─── Main Component ───
-export function GamingPCLanding({rankingProducts, newsItems}: GamingPCLandingProps) {
+export function GamingPCLanding({
+  rankingProducts,
+  newsItems,
+  // patch 0038: Metaobject 化された4セクション。空配列ならフォールバックを使う。
+  featureCards,
+  cpuCards,
+  gpuCards,
+  priceRanges,
+}: GamingPCLandingProps) {
   const [isSP, setIsSP] = useState(false);
   useEffect(() => {
     const check = () => setIsSP(window.innerWidth <= 768);
@@ -286,6 +308,12 @@ export function GamingPCLanding({rankingProducts, newsItems}: GamingPCLandingPro
   }, []);
 
   const displayRanking = isSP ? rankingProducts.slice(0, 6) : rankingProducts;
+
+  // patch 0038: exclusive-OR merge — Metaobject に 1 件でも入れば Metaobject が完全勝者
+  const FEATURE_CARDS = (featureCards && featureCards.length > 0) ? featureCards : FALLBACK_FEATURE_CARDS;
+  const CPU_CARDS = (cpuCards && cpuCards.length > 0) ? cpuCards : FALLBACK_CPU_CARDS;
+  const GPU_CARDS = (gpuCards && gpuCards.length > 0) ? gpuCards : FALLBACK_GPU_CARDS;
+  const PRICE_RANGES = (priceRanges && priceRanges.length > 0) ? priceRanges : FALLBACK_PRICE_RANGES;
 
   return (
     <div>
@@ -312,12 +340,21 @@ export function GamingPCLanding({rankingProducts, newsItems}: GamingPCLandingPro
                 transition: 'transform .2s, border-color .2s', textDecoration: 'none',
               }}
             >
-              <img
-                src={`${c.img}?width=600&format=webp`}
-                alt={c.label}
-                loading="lazy"
-                style={{width: '100%', height: 'auto', display: 'block'}}
-              />
+              {c.img ? (
+                <img
+                  src={c.img.startsWith('http') ? `${c.img}?width=600&format=webp` : c.img}
+                  alt={c.label}
+                  loading="lazy"
+                  style={{width: '100%', height: 'auto', display: 'block'}}
+                />
+              ) : (
+                <div style={{
+                  width: '100%', aspectRatio: '4/3',
+                  background: `linear-gradient(135deg, ${al(accent, 0.25)}, ${al(T.bg, 0.6)})`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: al(accent, 0.8), fontSize: 14, fontWeight: 700,
+                }}>画像未設定</div>
+              )}
               <div style={{
                 padding: '10px 14px', background: 'rgba(255,255,255,0.05)',
                 fontSize: 'clamp(11px, 1.3vw, 14px)', fontWeight: 700, color: T.tx, textAlign: 'center',
@@ -408,12 +445,21 @@ export function GamingPCLanding({rankingProducts, newsItems}: GamingPCLandingPro
                   textDecoration: 'none', transition: 'border-color .2s',
                 }}
               >
-                <img
-                  src={`${c.img}?width=120&format=webp`}
-                  alt={c.label}
-                  loading="lazy"
-                  style={{width: 'clamp(40px, 5vw, 60px)', height: 'auto'}}
-                />
+                {c.img ? (
+                  <img
+                    src={c.img.startsWith('http') ? `${c.img}?width=120&format=webp` : c.img}
+                    alt={c.label}
+                    loading="lazy"
+                    style={{width: 'clamp(40px, 5vw, 60px)', height: 'auto'}}
+                  />
+                ) : (
+                  <div style={{
+                    width: 'clamp(40px, 5vw, 60px)', aspectRatio: '1/1', borderRadius: 8,
+                    background: al(accent, 0.12), color: al(accent, 0.8),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>CPU</div>
+                )}
                 <span style={{fontSize: 'clamp(12px, 1.3vw, 15px)', fontWeight: 700, color: T.tx}}>{c.label}</span>
               </Link>
             ))}
@@ -434,12 +480,21 @@ export function GamingPCLanding({rankingProducts, newsItems}: GamingPCLandingPro
                   textDecoration: 'none', transition: 'border-color .2s',
                 }}
               >
-                <img
-                  src={`${c.img}?width=120&format=webp`}
-                  alt={c.label}
-                  loading="lazy"
-                  style={{width: 'clamp(40px, 5vw, 60px)', height: 'auto'}}
-                />
+                {c.img ? (
+                  <img
+                    src={c.img.startsWith('http') ? `${c.img}?width=120&format=webp` : c.img}
+                    alt={c.label}
+                    loading="lazy"
+                    style={{width: 'clamp(40px, 5vw, 60px)', height: 'auto'}}
+                  />
+                ) : (
+                  <div style={{
+                    width: 'clamp(40px, 5vw, 60px)', aspectRatio: '1/1', borderRadius: 8,
+                    background: al(accent, 0.12), color: al(accent, 0.8),
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 10, fontWeight: 700, flexShrink: 0,
+                  }}>GPU</div>
+                )}
                 <span style={{fontSize: 'clamp(12px, 1.3vw, 15px)', fontWeight: 700, color: T.tx}}>{c.label}</span>
               </Link>
             ))}

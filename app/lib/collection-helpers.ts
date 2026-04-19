@@ -333,12 +333,46 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
 
   // ── ゲーミングPC Landing 用データ（astromeda / gaming-pc コレクション時のみ） ──
   const isGamingLanding = handle === 'astromeda' || handle === 'gaming-pc';
-  const gamingLandingData: {rankingProducts: Array<{title: string; handle: string; price: string; image: string}>; newsItems: Array<{date: string; title: string; url: string}>} = {rankingProducts: [], newsItems: []};
+  // patch 0038: Metaobject 化した特集/パーツ/価格帯を追加。Metaobject が空ならコンポーネント側のフォールバックを使う。
+  type MetaCard = {label: string; href: string; img?: string};
+  const gamingLandingData: {
+    rankingProducts: Array<{title: string; handle: string; price: string; image: string}>;
+    newsItems: Array<{date: string; title: string; url: string}>;
+    featureCards: MetaCard[];
+    cpuCards: MetaCard[];
+    gpuCards: MetaCard[];
+    priceRanges: Array<{label: string; href: string}>;
+  } = {
+    rankingProducts: [],
+    newsItems: [],
+    featureCards: [],
+    cpuCards: [],
+    gpuCards: [],
+    priceRanges: [],
+  };
   if (isGamingLanding) {
+    // patch 0038: Admin client 経由で Metaobject 3 タイプを取得
+    const env = (context as unknown as {env?: Env}).env;
+    let adminClient: Awaited<ReturnType<typeof import('../../agents/core/shopify-admin.js').getAdminClient>> | null = null;
     try {
-      const [rankingResult, blogResult] = await Promise.allSettled([
+      if (env) {
+        const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+        setAdminEnv(env);
+        adminClient = getAdminClient();
+      }
+    } catch {
+      adminClient = null;
+    }
+
+    const emptyMo = async () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>;
+
+    try {
+      const [rankingResult, blogResult, featureRes, partsRes, priceRes] = await Promise.allSettled([
         storefront.query(GAMING_RANKING_QUERY, {variables: {}}),
         storefront.query(GAMING_NEWS_QUERY, {variables: {}}),
+        adminClient ? adminClient.getMetaobjects('astromeda_gaming_feature_card', 20) : emptyMo(),
+        adminClient ? adminClient.getMetaobjects('astromeda_gaming_parts_card', 20) : emptyMo(),
+        adminClient ? adminClient.getMetaobjects('astromeda_gaming_price_range', 20) : emptyMo(),
       ]);
 
       if (rankingResult.status === 'fulfilled' && rankingResult.value?.collection?.products?.nodes) {
@@ -361,6 +395,53 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
             url: `/blogs/news/${a.handle}`,
           });
         }
+      }
+
+      // patch 0038: Metaobject → フィールドマップ
+      const fieldsToMap = (fields: Array<{key: string; value: string}>): Record<string, string> => {
+        const m: Record<string, string> = {};
+        for (const f of fields) m[f.key] = f.value;
+        return m;
+      };
+      const toCard = (node: {fields: Array<{key: string; value: string}>}): {sortOrder: number; isActive: boolean; label: string; href: string; img?: string; category?: string} => {
+        const m = fieldsToMap(node.fields);
+        return {
+          sortOrder: Number(m.display_order || 0),
+          isActive: m.is_active !== 'false',
+          label: m.label || '',
+          href: m.link_url || '',
+          img: m.image_url || undefined,
+          category: m.category || undefined,
+        };
+      };
+
+      if (featureRes.status === 'fulfilled' && Array.isArray(featureRes.value)) {
+        gamingLandingData.featureCards = featureRes.value
+          .map(toCard)
+          .filter((c) => c.isActive && c.label)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(({label, href, img}) => ({label, href, img}));
+      }
+
+      if (partsRes.status === 'fulfilled' && Array.isArray(partsRes.value)) {
+        const allParts = partsRes.value
+          .map(toCard)
+          .filter((c) => c.isActive && c.label)
+          .sort((a, b) => a.sortOrder - b.sortOrder);
+        gamingLandingData.cpuCards = allParts
+          .filter((c) => (c.category || '').toLowerCase() === 'cpu')
+          .map(({label, href, img}) => ({label, href, img}));
+        gamingLandingData.gpuCards = allParts
+          .filter((c) => (c.category || '').toLowerCase() === 'gpu')
+          .map(({label, href, img}) => ({label, href, img}));
+      }
+
+      if (priceRes.status === 'fulfilled' && Array.isArray(priceRes.value)) {
+        gamingLandingData.priceRanges = priceRes.value
+          .map(toCard)
+          .filter((c) => c.isActive && c.label)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(({label, href}) => ({label, href}));
       }
     } catch {
       // ランディング追加データ取得失敗時はデフォルト空配列のまま

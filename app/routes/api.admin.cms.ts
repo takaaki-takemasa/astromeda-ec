@@ -40,6 +40,9 @@ const ALLOWED_TYPES = [
   'astromeda_product_shelf',
   'astromeda_static_page',
   'astromeda_faq_item',
+  'astromeda_gaming_feature_card',
+  'astromeda_gaming_parts_card',
+  'astromeda_gaming_price_range',
 ] as const;
 
 type AllowedType = (typeof ALLOWED_TYPES)[number];

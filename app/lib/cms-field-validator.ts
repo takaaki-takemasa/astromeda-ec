@@ -190,6 +190,27 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     display_order: { type: 'number_integer' },
     is_active: { type: 'boolean' },
   },
+  astromeda_gaming_feature_card: {
+    label: { type: 'single_line_text_field', maxLength: 200, required: true },
+    image_url: { type: 'single_line_text_field', maxLength: 2000 },
+    link_url: { type: 'single_line_text_field', maxLength: 500 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  astromeda_gaming_parts_card: {
+    label: { type: 'single_line_text_field', maxLength: 200, required: true },
+    image_url: { type: 'single_line_text_field', maxLength: 2000 },
+    link_url: { type: 'single_line_text_field', maxLength: 500 },
+    category: { type: 'single_line_text_field', maxLength: 20 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  astromeda_gaming_price_range: {
+    label: { type: 'single_line_text_field', maxLength: 200, required: true },
+    link_url: { type: 'single_line_text_field', maxLength: 500 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
 };
 
 // ── バリデーションエラー ──

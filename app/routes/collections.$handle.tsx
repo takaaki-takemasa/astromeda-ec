@@ -331,6 +331,10 @@ export default function Collection() {
         <GamingPCLanding
           rankingProducts={gamingLandingData?.rankingProducts ?? []}
           newsItems={gamingLandingData?.newsItems ?? []}
+          featureCards={gamingLandingData?.featureCards ?? []}
+          cpuCards={gamingLandingData?.cpuCards ?? []}
+          gpuCards={gamingLandingData?.gpuCards ?? []}
+          priceRanges={gamingLandingData?.priceRanges ?? []}
         />
       )}
 
