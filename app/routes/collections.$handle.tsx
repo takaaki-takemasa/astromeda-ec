@@ -335,6 +335,8 @@ export default function Collection() {
           cpuCards={gamingLandingData?.cpuCards ?? []}
           gpuCards={gamingLandingData?.gpuCards ?? []}
           priceRanges={gamingLandingData?.priceRanges ?? []}
+          gamingHeroSlides={gamingLandingData?.gamingHeroSlides ?? []}
+          contactInfo={gamingLandingData?.contactInfo ?? undefined}
         />
       )}
 

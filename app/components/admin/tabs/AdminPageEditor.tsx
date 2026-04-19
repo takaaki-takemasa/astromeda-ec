@@ -132,7 +132,7 @@ interface HeroBanner {
   endAt: string | null;
 }
 
-type SubTab = 'visual' | 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix' | 'gaming_feature_cards' | 'gaming_parts_cards' | 'gaming_price_ranges';
+type SubTab = 'visual' | 'color_models' | 'category_cards' | 'product_shelves' | 'about_sections' | 'footer_configs' | 'ip_banners' | 'hero_banners' | 'customization_matrix' | 'gaming_feature_cards' | 'gaming_parts_cards' | 'gaming_price_ranges' | 'gaming_hero' | 'gaming_contact' | 'ugc_reviews';
 
 type Toast = {id: number; message: string; type: 'success' | 'error'};
 
@@ -454,7 +454,7 @@ async function apiGet<T>(endpoint: string): Promise<T | null> {
 // メインコンポーネント
 // ══════════════════════════════════════════════════════════
 
-const VALID_SUB_TABS: SubTab[] = ['visual', 'color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix', 'gaming_feature_cards', 'gaming_parts_cards', 'gaming_price_ranges'];
+const VALID_SUB_TABS: SubTab[] = ['visual', 'color_models', 'category_cards', 'product_shelves', 'about_sections', 'footer_configs', 'ip_banners', 'hero_banners', 'customization_matrix', 'gaming_feature_cards', 'gaming_parts_cards', 'gaming_price_ranges', 'gaming_hero', 'gaming_contact', 'ugc_reviews'];
 
 export default function AdminPageEditor() {
   const [searchParams] = useSearchParams();
@@ -485,9 +485,12 @@ export default function AdminPageEditor() {
     {key: 'about_sections', label: 'ABOUT'},
     {key: 'footer_configs', label: 'フッター'},
     {key: 'customization_matrix', label: 'カスタマイズマトリックス'},
+    {key: 'gaming_hero', label: '🎮 ヒーロー (Gaming)'},
     {key: 'gaming_feature_cards', label: '🎮 特集カード (Gaming)'},
     {key: 'gaming_parts_cards', label: '🎮 パーツカード (Gaming)'},
     {key: 'gaming_price_ranges', label: '🎮 価格帯 (Gaming)'},
+    {key: 'gaming_contact', label: '🎮 お問い合わせ (Gaming)'},
+    {key: 'ugc_reviews', label: '⭐ レビュー (UGC)'},
   ];
 
   return (
@@ -534,6 +537,9 @@ export default function AdminPageEditor() {
       {subTab === 'gaming_feature_cards' && <GamingFeatureCardsSection pushToast={push} confirm={confirm} />}
       {subTab === 'gaming_parts_cards' && <GamingPartsCardsSection pushToast={push} confirm={confirm} />}
       {subTab === 'gaming_price_ranges' && <GamingPriceRangesSection pushToast={push} confirm={confirm} />}
+      {subTab === 'gaming_hero' && <GamingHeroSlidesSection pushToast={push} confirm={confirm} />}
+      {subTab === 'gaming_contact' && <GamingContactSection pushToast={push} confirm={confirm} />}
+      {subTab === 'ugc_reviews' && <UgcReviewsSection pushToast={push} confirm={confirm} />}
 
       <ToastContainer toasts={toasts} />
       <ConfirmDialog open={confirmState.open} message={confirmState.message} onOk={confirmOk} onCancel={confirmCancel} />
@@ -612,13 +618,22 @@ const HOME_SECTIONS: SectionDef[] = [
     match: (t) => /NEW\s*ARRIVALS/i.test(t.slice(0, 40)),
   },
   {
+    // patch 0039: UGC レビュー（星・コメント）を視覚編集から編集可能に
+    key: 'ugc_reviews', label: 'レビュー', desc: 'ユーザー星・コメント',
+    icon: '⭐', num: '⑦', color: '#F06292', navTab: 'ugc_reviews',
+    // .ugc-card クラス or REVIEWS 見出しで検知
+    match: (t, el) =>
+      el.classList?.contains('ugc-card') === true ||
+      /REVIEWS\b|ユーザーレビュー/.test(t.slice(0, 30)),
+  },
+  {
     key: 'footer_configs', label: 'フッター', desc: '法務情報・リンク',
-    icon: '🦶', num: '⑦', color: '#FF6B6B', navTab: 'footer_configs',
+    icon: '🦶', num: '⑧', color: '#FF6B6B', navTab: 'footer_configs',
     match: (_, el) => el.tagName === 'FOOTER',
   },
   {
     key: 'customization_matrix', label: 'カスタマイズ', desc: '商品タグ × オプション行列',
-    icon: '⚙️', num: '⑧', color: '#C9C9C9', navTab: 'customization_matrix',
+    icon: '⚙️', num: '⑨', color: '#C9C9C9', navTab: 'customization_matrix',
     match: () => false, // トップページには露出しない（商品詳細側の機能）
   },
 ];
@@ -628,9 +643,11 @@ const HOME_SECTIONS: SectionDef[] = [
 // パターンのため、text が「特集 FEATURE」「人気ランキング RANKING」等になる。
 const GAMING_PC_SECTIONS: SectionDef[] = [
   {
-    key: 'hero_banners', label: 'ヒーローバナー', desc: 'ゲーミングPC LP 上部のスライダー',
-    icon: '🎬', num: '①', color: '#FF4D8D', navTab: 'hero_banners',
-    // patch 0034: GamingPCLanding は gpc-hero-wrap、トップは hero-slider-wrap を使う。両対応。
+    // patch 0039: gaming-pc 専用 Metaobject (astromeda_gaming_hero_slide) を編集する
+    // gaming_hero タブへ誘導。トップの hero_banners とは別管理。
+    key: 'gaming_hero', label: 'ヒーローバナー', desc: 'ゲーミングPC LP 上部のスライダー',
+    icon: '🎬', num: '①', color: '#FF4D8D', navTab: 'gaming_hero',
+    // patch 0034: GamingPCLanding は gpc-hero-wrap を使う
     match: (_, el) =>
       el.classList?.contains('gpc-hero-wrap') === true ||
       el.classList?.contains('hero-slider-wrap') === true,
@@ -657,9 +674,9 @@ const GAMING_PC_SECTIONS: SectionDef[] = [
     match: (t) => /PRICE\s*RANGE|値段で選ぶ/.test(t.slice(0, 40)),
   },
   {
-    key: 'contact', label: 'お問い合わせ', desc: '電話 / LINE 連絡先',
-    icon: '📞', num: '⑥', color: '#4DB8FF',
-    info: 'お問い合わせ先は「コンテンツ」タブの固定ページ(handle=contact / contact-houjin)から編集、または法務情報タブで電話番号を変更してください。現在は GamingPCLanding コンポーネントにハードコード表示されていますので Metaobject 化が必要な場合は Claude に指示してください。',
+    // patch 0039: gaming_contact Metaobject 編集タブへ誘導
+    key: 'gaming_contact', label: 'お問い合わせ', desc: '電話 / LINE 連絡先',
+    icon: '📞', num: '⑥', color: '#4DB8FF', navTab: 'gaming_contact',
     match: (t) => /CONTACT\b|お問い合わせ/.test(t.slice(0, 30)),
   },
   {
@@ -4049,11 +4066,18 @@ type GamingCmsItem = {
   id: string;
   handle: string;
   label?: string;
+  // patch 0039: gaming_hero_slide は alt_text、contact は phone_number 等の専用フィールドを持つ
+  alt_text?: string;
   image_url?: string;
   link_url?: string;
   category?: string;
   display_order?: string;
   is_active?: string;
+  phone_number?: string;
+  phone_hours?: string;
+  line_url?: string;
+  line_label?: string;
+  line_hours?: string;
 };
 
 async function cmsList(type: string): Promise<GamingCmsItem[]> {
@@ -4082,6 +4106,10 @@ interface GamingSectionConfig {
   /** 画像URLフィールドを出すか */
   withImage?: boolean;
   categoryOptions?: Array<{value: string; label: string}>;
+  /** patch 0039: ラベルフィールドの Metaobject キー名を上書き（gaming_hero_slide では 'alt_text'） */
+  labelFieldKey?: string;
+  /** patch 0039: ラベル UI 表示名（例: 代替テキスト） */
+  labelFieldName?: string;
 }
 
 function GamingCrudSection({
@@ -4133,7 +4161,9 @@ function GamingCrudSection({
     setEditing(item);
     setCreating(false);
     setFHandle(item.handle || '');
-    setFLabel(item.label || '');
+    // patch 0039: labelFieldKey が 'alt_text' ならそれを読み込む
+    const labelKey = config.labelFieldKey || 'label';
+    setFLabel(((item as Record<string, string | undefined>)[labelKey]) || '');
     setFImageUrl(item.image_url || '');
     setFLinkUrl(item.link_url || '');
     setFCategory(item.category || config.categoryOptions?.[0]?.value || '');
@@ -4148,12 +4178,14 @@ function GamingCrudSection({
 
   const handleSave = async () => {
     if (!fLabel.trim()) {
-      pushToast('ラベルは必須です', 'error');
+      pushToast(`${config.labelFieldName || 'ラベル'}は必須です`, 'error');
       return;
     }
     setSaving(true);
+    // patch 0039: labelFieldKey で metaobject field key を切替（gaming_hero_slide では 'alt_text'）
+    const labelKey = config.labelFieldKey || 'label';
     const fields: Array<{key: string; value: string}> = [
-      {key: 'label', value: fLabel},
+      {key: labelKey, value: fLabel},
       {key: 'link_url', value: fLinkUrl},
       {key: 'display_order', value: String(fDisplayOrder)},
       {key: 'is_active', value: fIsActive ? 'true' : 'false'},
@@ -4178,7 +4210,9 @@ function GamingCrudSection({
   };
 
   const handleDelete = async (item: GamingCmsItem) => {
-    if (!(await confirm(`「${item.label || item.handle}」を削除しますか？`))) return;
+    const labelKey = config.labelFieldKey || 'label';
+    const labelVal = (item as Record<string, string | undefined>)[labelKey] || item.handle;
+    if (!(await confirm(`「${labelVal}」を削除しますか？`))) return;
     const res = await cmsDelete(config.type, item.id);
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -4225,7 +4259,7 @@ function GamingCrudSection({
           <thead>
             <tr>
               {config.withImage && <th style={thStyle}>画像</th>}
-              <th style={thStyle}>ラベル</th>
+              <th style={thStyle}>{config.labelFieldName || 'ラベル'}</th>
               {config.withCategory && <th style={thStyle}>カテゴリ</th>}
               <th style={thStyle}>リンク</th>
               <th style={thStyle}>順</th>
@@ -4239,13 +4273,13 @@ function GamingCrudSection({
                 {config.withImage && (
                   <td style={{...tdStyle, width: 72}}>
                     {item.image_url && /^https?:\/\//.test(item.image_url) ? (
-                      <img src={item.image_url} alt={item.label || ''} style={{width: 64, height: 40, objectFit: 'contain', borderRadius: 4, background: '#000'}} />
+                      <img src={item.image_url} alt={item.label || item.alt_text || ''} style={{width: 64, height: 40, objectFit: 'contain', borderRadius: 4, background: '#000'}} />
                     ) : (
                       <div style={{width: 64, height: 40, borderRadius: 4, background: al(T.tx, 0.05), fontSize: 9, color: T.t4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>未設定</div>
                     )}
                   </td>
                 )}
-                <td style={tdStyle}>{item.label || <span style={{color: T.t4}}>(未入力)</span>}</td>
+                <td style={tdStyle}>{(item as Record<string, string | undefined>)[config.labelFieldKey || 'label'] || <span style={{color: T.t4}}>(未入力)</span>}</td>
                 {config.withCategory && <td style={tdStyle}>{item.category || '—'}</td>}
                 <td style={{...tdStyle, color: T.t5, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.link_url || '—'}</td>
                 <td style={tdStyle}>{item.display_order || 0}</td>
@@ -4270,7 +4304,7 @@ function GamingCrudSection({
               </div>
             )}
             <div>
-              <label style={labelStyle}>ラベル *</label>
+              <label style={labelStyle}>{config.labelFieldName || 'ラベル'} *</label>
               <input type="text" value={fLabel} onChange={(e) => setFLabel(e.target.value)} style={inputStyle} />
             </div>
             {config.withImage && (
@@ -4362,5 +4396,393 @@ function GamingPriceRangesSection(props: SectionProps) {
         description: '「値段で選ぶ」セクションの価格帯リンク（例: 200,001〜250,000円 → /collections/gaming-pc?price=200001-250000）。',
       }}
     />
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// patch 0039: ゲーミングPC ヒーロースライド (astromeda_gaming_hero_slide)
+// ラベルフィールドは alt_text（代替テキスト）
+// ══════════════════════════════════════════════════════════
+function GamingHeroSlidesSection(props: SectionProps) {
+  return (
+    <GamingCrudSection
+      {...props}
+      config={{
+        type: 'astromeda_gaming_hero_slide',
+        title: '🎮 ゲーミングPC ヒーロースライド',
+        description: 'ゲーミングPC LP 上部のスライダー画像。トップページとは別管理。',
+        withImage: true,
+        labelFieldKey: 'alt_text',
+        labelFieldName: '代替テキスト (alt)',
+      }}
+    />
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// patch 0039: ゲーミングPC お問い合わせ (astromeda_gaming_contact)
+// 単一エントリ編集（handle=default を自動使用）
+// ══════════════════════════════════════════════════════════
+function GamingContactSection({pushToast, confirm}: SectionProps) {
+  const [item, setItem] = useState<GamingCmsItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [fPhoneNumber, setFPhoneNumber] = useState('');
+  const [fPhoneHours, setFPhoneHours] = useState('');
+  const [fLineUrl, setFLineUrl] = useState('');
+  const [fLineLabel, setFLineLabel] = useState('');
+  const [fLineHours, setFLineHours] = useState('');
+  const [fIsActive, setFIsActive] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const list = await cmsList('astromeda_gaming_contact');
+    const first = list[0] || null;
+    setItem(first);
+    setFPhoneNumber(first?.phone_number || '');
+    setFPhoneHours(first?.phone_hours || '');
+    setFLineUrl(first?.line_url || '');
+    setFLineLabel(first?.line_label || '');
+    setFLineHours(first?.line_hours || '');
+    setFIsActive(first ? first.is_active !== 'false' : true);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    const fields: Array<{key: string; value: string}> = [
+      {key: 'phone_number', value: fPhoneNumber},
+      {key: 'phone_hours', value: fPhoneHours},
+      {key: 'line_url', value: fLineUrl},
+      {key: 'line_label', value: fLineLabel},
+      {key: 'line_hours', value: fLineHours},
+      {key: 'is_active', value: fIsActive ? 'true' : 'false'},
+    ];
+    const res = item
+      ? await cmsUpdate('astromeda_gaming_contact', item.id, fields)
+      : await cmsCreate('astromeda_gaming_contact', 'default', fields);
+    setSaving(false);
+    if (res.success) {
+      pushToast(item ? '更新しました' : '作成しました', 'success');
+      await load();
+    } else {
+      pushToast(`保存失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!item) return;
+    if (!(await confirm('お問い合わせ情報を削除しますか？削除するとフロントはハードコードのフォールバックに戻ります'))) return;
+    const res = await cmsDelete('astromeda_gaming_contact', item.id);
+    if (res.success) {
+      pushToast('削除しました', 'success');
+      await load();
+    } else {
+      pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  if (loading) return <div style={{textAlign: 'center', padding: 30}}><Spinner /></div>;
+
+  return (
+    <div style={cardStyle}>
+      <div style={{marginBottom: 14}}>
+        <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>📞 ゲーミングPC お問い合わせ {item ? '(設定中)' : '(未設定 — フォールバック表示中)'}</div>
+        <div style={{fontSize: 10, color: T.t4, marginTop: 3}}>ゲーミングPC LP「CONTACT」セクションの電話・LINE 連絡先。1件のみ設定。</div>
+      </div>
+      {!item && (
+        <div style={{
+          background: al(T.c, 0.08),
+          border: `1px solid ${al(T.c, 0.3)}`,
+          borderRadius: 8,
+          padding: 14,
+          fontSize: 12,
+          color: T.tx,
+          marginBottom: 14,
+          lineHeight: 1.6,
+        }}>
+          <div style={{fontWeight: 800, marginBottom: 4}}>📦 Metaobject は空 — フロントはハードコード値（03-6903-5371 / lin.ee/v43hEUKX）を表示中</div>
+          <div style={{color: T.t4, fontSize: 11}}>下記を入力して保存すると、フロントが Metaobject から読み込まれるようになります。</div>
+        </div>
+      )}
+      <div style={{display: 'grid', gap: 14}}>
+        <div>
+          <label style={labelStyle}>電話番号（表示用テキスト）</label>
+          <input type="text" value={fPhoneNumber} onChange={(e) => setFPhoneNumber(e.target.value)} style={inputStyle} placeholder="03-6903-5371" />
+          <div style={{fontSize: 10, color: T.t4, marginTop: 4}}>※ tel: リンクは自動生成されます（数字とハイフン以外は除去）</div>
+        </div>
+        <div>
+          <label style={labelStyle}>電話 営業時間</label>
+          <input type="text" value={fPhoneHours} onChange={(e) => setFPhoneHours(e.target.value)} style={inputStyle} placeholder="営業時間：午前9時〜午後6時" />
+        </div>
+        <div>
+          <label style={labelStyle}>LINE URL</label>
+          <input type="text" value={fLineUrl} onChange={(e) => setFLineUrl(e.target.value)} style={inputStyle} placeholder="https://lin.ee/v43hEUKX" />
+        </div>
+        <div>
+          <label style={labelStyle}>LINE ボタンラベル</label>
+          <input type="text" value={fLineLabel} onChange={(e) => setFLineLabel(e.target.value)} style={inputStyle} placeholder="公式LINEを友達追加" />
+        </div>
+        <div>
+          <label style={labelStyle}>LINE 営業時間</label>
+          <input type="text" value={fLineHours} onChange={(e) => setFLineHours(e.target.value)} style={inputStyle} placeholder="営業時間：午前9時〜午後6時" />
+        </div>
+        <div>
+          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
+            <input type="checkbox" checked={fIsActive} onChange={(e) => setFIsActive(e.target.checked)} />
+            有効
+          </label>
+        </div>
+        <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+          {item && <button type="button" onClick={handleDelete} style={btn(false, true)}>削除</button>}
+          <button type="button" onClick={handleSave} style={btn(true)} disabled={saving}>
+            {saving ? '保存中…' : item ? '更新' : '作成'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// patch 0039: ユーザーレビュー (astromeda_ugc_review)
+// ビジュアル編集 → REVIEWS セクション → このタブで編集
+// AdminProducts のレビュー UGC と同じ Metaobject だが
+// ビジュアル編集経由でも辿れるように専用 SubTab で再実装
+// ══════════════════════════════════════════════════════════
+type UgcCmsItem = {
+  id: string;
+  handle: string;
+  username?: string;
+  review_text?: string;
+  accent_color?: string;
+  rating?: string;
+  date_label?: string;
+  likes?: string;
+  product_name?: string;
+  display_order?: string;
+  is_active?: string;
+};
+
+function UgcReviewsSection({pushToast, confirm}: SectionProps) {
+  const [items, setItems] = useState<UgcCmsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<UgcCmsItem | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [fHandle, setFHandle] = useState('');
+  const [fUsername, setFUsername] = useState('');
+  const [fReviewText, setFReviewText] = useState('');
+  const [fAccentColor, setFAccentColor] = useState('#F06292');
+  const [fRating, setFRating] = useState(5);
+  const [fDateLabel, setFDateLabel] = useState('');
+  const [fLikes, setFLikes] = useState(0);
+  const [fProductName, setFProductName] = useState('');
+  const [fDisplayOrder, setFDisplayOrder] = useState(0);
+  const [fIsActive, setFIsActive] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res = await apiGet<{success: boolean; items?: UgcCmsItem[]}>('/api/admin/cms?type=astromeda_ugc_review');
+    const list = (res?.items || []) as UgcCmsItem[];
+    list.sort((a, b) => Number(a.display_order || 0) - Number(b.display_order || 0));
+    setItems(list);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { void load(); }, [load]);
+
+  const openCreate = () => {
+    setCreating(true);
+    setEditing(null);
+    setFHandle('');
+    setFUsername('');
+    setFReviewText('');
+    setFAccentColor('#F06292');
+    setFRating(5);
+    setFDateLabel('');
+    setFLikes(0);
+    setFProductName('');
+    setFDisplayOrder(items.length + 1);
+    setFIsActive(true);
+  };
+
+  const openEdit = (item: UgcCmsItem) => {
+    setEditing(item);
+    setCreating(false);
+    setFHandle(item.handle || '');
+    setFUsername(item.username || '');
+    setFReviewText(item.review_text || '');
+    setFAccentColor(item.accent_color || '#F06292');
+    setFRating(Number(item.rating || 5));
+    setFDateLabel(item.date_label || '');
+    setFLikes(Number(item.likes || 0));
+    setFProductName(item.product_name || '');
+    setFDisplayOrder(Number(item.display_order || 0));
+    setFIsActive(item.is_active !== 'false');
+  };
+
+  const closeModal = () => { setCreating(false); setEditing(null); };
+
+  const handleSave = async () => {
+    if (!fUsername.trim()) { pushToast('ユーザー名は必須です', 'error'); return; }
+    if (!fReviewText.trim()) { pushToast('レビュー本文は必須です', 'error'); return; }
+    setSaving(true);
+    const fields: Array<{key: string; value: string}> = [
+      {key: 'username', value: fUsername},
+      {key: 'review_text', value: fReviewText},
+      {key: 'accent_color', value: fAccentColor},
+      {key: 'rating', value: String(fRating)},
+      {key: 'date_label', value: fDateLabel},
+      {key: 'likes', value: String(fLikes)},
+      {key: 'product_name', value: fProductName},
+      {key: 'display_order', value: String(fDisplayOrder)},
+      {key: 'is_active', value: fIsActive ? 'true' : 'false'},
+    ];
+    const res = creating
+      ? await cmsCreate('astromeda_ugc_review', fHandle || `ugc-review-${Date.now()}`, fields)
+      : await cmsUpdate('astromeda_ugc_review', editing!.id, fields);
+    setSaving(false);
+    if (res.success) {
+      pushToast(creating ? '作成しました' : '更新しました', 'success');
+      closeModal();
+      await load();
+    } else {
+      pushToast(`保存失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const handleDelete = async (item: UgcCmsItem) => {
+    if (!(await confirm(`「${item.username || item.handle}」のレビューを削除しますか？`))) return;
+    const res = await cmsDelete('astromeda_ugc_review', item.id);
+    if (res.success) {
+      pushToast('削除しました', 'success');
+      await load();
+    } else {
+      pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
+    }
+  };
+
+  const modalOpen = creating || editing !== null;
+
+  return (
+    <div style={cardStyle}>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10}}>
+        <div>
+          <div style={{fontSize: 13, fontWeight: 800, color: T.tx}}>⭐ ユーザーレビュー (UGC) ({items.length})</div>
+          <div style={{fontSize: 10, color: T.t4, marginTop: 3}}>トップページ「REVIEWS」セクションの星・コメント・いいね数。</div>
+        </div>
+        <button type="button" onClick={openCreate} style={btn(true)}>＋ 新規追加</button>
+      </div>
+      {items.length === 0 && !loading && (
+        <div style={{
+          background: al(T.c, 0.08), border: `1px solid ${al(T.c, 0.3)}`,
+          borderRadius: 8, padding: 14, fontSize: 12, color: T.tx,
+          marginBottom: 14, lineHeight: 1.6,
+        }}>
+          <div style={{fontWeight: 800, marginBottom: 4}}>📦 Metaobject 空 — フロントはハードコード UGC 定数を表示中</div>
+          <div style={{color: T.t4, fontSize: 11}}>1件追加するとフロントが Metaobject 値に切り替わります（exclusive-OR merge）。</div>
+        </div>
+      )}
+      {loading ? (
+        <div style={{textAlign: 'center', padding: 30}}><Spinner /></div>
+      ) : items.length === 0 ? (
+        <div style={{color: T.t4, fontSize: 12, textAlign: 'center', padding: 20}}>レビューがありません</div>
+      ) : (
+        <table style={{width: '100%', borderCollapse: 'collapse'}}>
+          <thead>
+            <tr>
+              <th style={thStyle}>ユーザー</th>
+              <th style={thStyle}>本文</th>
+              <th style={thStyle}>★</th>
+              <th style={thStyle}>♡</th>
+              <th style={thStyle}>順</th>
+              <th style={thStyle}>状態</th>
+              <th style={thStyle}></th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.id}>
+                <td style={tdStyle}>
+                  <span style={{display: 'inline-block', width: 8, height: 8, borderRadius: '50%', background: item.accent_color || '#F06292', marginRight: 6}} />
+                  {item.username || <span style={{color: T.t4}}>(未入力)</span>}
+                </td>
+                <td style={{...tdStyle, maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>{item.review_text || '—'}</td>
+                <td style={tdStyle}>{item.rating || 5}/5</td>
+                <td style={tdStyle}>{item.likes || 0}</td>
+                <td style={tdStyle}>{item.display_order || 0}</td>
+                <td style={tdStyle}>{item.is_active !== 'false' ? '✓' : '—'}</td>
+                <td style={{...tdStyle, textAlign: 'right'}}>
+                  <button type="button" onClick={() => openEdit(item)} style={{...btn(), marginRight: 6}}>編集</button>
+                  <button type="button" onClick={() => handleDelete(item)} style={btn(false, true)}>削除</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {modalOpen && (
+        <Modal title={creating ? 'レビュー新規追加' : 'レビュー編集'} onClose={closeModal}>
+          <div style={{display: 'grid', gap: 12}}>
+            {creating && (
+              <div>
+                <label style={labelStyle}>Handle（省略時は自動生成）</label>
+                <input type="text" value={fHandle} onChange={(e) => setFHandle(e.target.value)} style={inputStyle} placeholder="ugc-review-xxx" />
+              </div>
+            )}
+            <div>
+              <label style={labelStyle}>ユーザー名 *</label>
+              <input type="text" value={fUsername} onChange={(e) => setFUsername(e.target.value)} style={inputStyle} placeholder="ASTRO" />
+            </div>
+            <div>
+              <label style={labelStyle}>レビュー本文 *</label>
+              <textarea value={fReviewText} onChange={(e) => setFReviewText(e.target.value)} style={{...inputStyle, minHeight: 80, fontFamily: 'inherit'}} placeholder="購入してから3ヶ月、毎日使っていますが…" />
+            </div>
+            <div style={{display: 'grid', gap: 10, gridTemplateColumns: '1fr 1fr 1fr'}}>
+              <div>
+                <label style={labelStyle}>評価（1〜5）</label>
+                <input type="number" min="1" max="5" value={fRating} onChange={(e) => setFRating(Math.max(1, Math.min(5, parseInt(e.target.value, 10) || 5)))} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>いいね数</label>
+                <input type="number" min="0" value={fLikes} onChange={(e) => setFLikes(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
+              </div>
+              <div>
+                <label style={labelStyle}>表示順</label>
+                <input type="number" value={fDisplayOrder} onChange={(e) => setFDisplayOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
+              </div>
+            </div>
+            <div>
+              <label style={labelStyle}>アクセントカラー (HEX)</label>
+              <input type="text" value={fAccentColor} onChange={(e) => setFAccentColor(e.target.value)} style={inputStyle} placeholder="#F06292" />
+            </div>
+            <div>
+              <label style={labelStyle}>日付ラベル</label>
+              <input type="text" value={fDateLabel} onChange={(e) => setFDateLabel(e.target.value)} style={inputStyle} placeholder="2026/04/15" />
+            </div>
+            <div>
+              <label style={labelStyle}>商品名（任意）</label>
+              <input type="text" value={fProductName} onChange={(e) => setFProductName(e.target.value)} style={inputStyle} placeholder="Astromeda Sirius RTX5080 モデル" />
+            </div>
+            <div>
+              <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
+                <input type="checkbox" checked={fIsActive} onChange={(e) => setFIsActive(e.target.checked)} />
+                有効
+              </label>
+            </div>
+            <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+              <button type="button" onClick={closeModal} style={btn()} disabled={saving}>キャンセル</button>
+              <button type="button" onClick={handleSave} style={btn(true)} disabled={saving}>
+                {saving ? '保存中…' : creating ? '作成' : '保存'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

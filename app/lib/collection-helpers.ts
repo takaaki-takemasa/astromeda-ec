@@ -334,7 +334,10 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
   // ── ゲーミングPC Landing 用データ（astromeda / gaming-pc コレクション時のみ） ──
   const isGamingLanding = handle === 'astromeda' || handle === 'gaming-pc';
   // patch 0038: Metaobject 化した特集/パーツ/価格帯を追加。Metaobject が空ならコンポーネント側のフォールバックを使う。
+  // patch 0039: Hero スライドとお問い合わせ情報も Metaobject 化
   type MetaCard = {label: string; href: string; img?: string};
+  type GamingHeroSlide = {alt_text: string; image_url: string; link_url: string};
+  type GamingContactInfo = {phone_number: string; phone_hours: string; line_url: string; line_label: string; line_hours: string};
   const gamingLandingData: {
     rankingProducts: Array<{title: string; handle: string; price: string; image: string}>;
     newsItems: Array<{date: string; title: string; url: string}>;
@@ -342,6 +345,8 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     cpuCards: MetaCard[];
     gpuCards: MetaCard[];
     priceRanges: Array<{label: string; href: string}>;
+    gamingHeroSlides: GamingHeroSlide[];
+    contactInfo: GamingContactInfo | null;
   } = {
     rankingProducts: [],
     newsItems: [],
@@ -349,6 +354,8 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     cpuCards: [],
     gpuCards: [],
     priceRanges: [],
+    gamingHeroSlides: [],
+    contactInfo: null,
   };
   if (isGamingLanding) {
     // patch 0038: Admin client 経由で Metaobject 3 タイプを取得
@@ -367,12 +374,14 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     const emptyMo = async () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>;
 
     try {
-      const [rankingResult, blogResult, featureRes, partsRes, priceRes] = await Promise.allSettled([
+      const [rankingResult, blogResult, featureRes, partsRes, priceRes, heroRes, contactRes] = await Promise.allSettled([
         storefront.query(GAMING_RANKING_QUERY, {variables: {}}),
         storefront.query(GAMING_NEWS_QUERY, {variables: {}}),
         adminClient ? adminClient.getMetaobjects('astromeda_gaming_feature_card', 20) : emptyMo(),
         adminClient ? adminClient.getMetaobjects('astromeda_gaming_parts_card', 20) : emptyMo(),
         adminClient ? adminClient.getMetaobjects('astromeda_gaming_price_range', 20) : emptyMo(),
+        adminClient ? adminClient.getMetaobjects('astromeda_gaming_hero_slide', 20) : emptyMo(),
+        adminClient ? adminClient.getMetaobjects('astromeda_gaming_contact', 5) : emptyMo(),
       ]);
 
       if (rankingResult.status === 'fulfilled' && rankingResult.value?.collection?.products?.nodes) {
@@ -442,6 +451,40 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
           .filter((c) => c.isActive && c.label)
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map(({label, href}) => ({label, href}));
+      }
+
+      // patch 0039: Gaming Hero スライド
+      if (heroRes.status === 'fulfilled' && Array.isArray(heroRes.value)) {
+        gamingLandingData.gamingHeroSlides = heroRes.value
+          .map((node) => {
+            const m = fieldsToMap(node.fields);
+            return {
+              sortOrder: Number(m.display_order || 0),
+              isActive: m.is_active !== 'false',
+              alt_text: m.alt_text || '',
+              image_url: m.image_url || '',
+              link_url: m.link_url || '/',
+            };
+          })
+          .filter((s) => s.isActive && s.image_url)
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(({alt_text, image_url, link_url}) => ({alt_text, image_url, link_url}));
+      }
+
+      // patch 0039: Gaming お問い合わせ情報（単一レコード — 先頭の is_active=true を採用）
+      if (contactRes.status === 'fulfilled' && Array.isArray(contactRes.value)) {
+        const activeContact = contactRes.value
+          .map((node) => fieldsToMap(node.fields))
+          .find((m) => m.is_active !== 'false');
+        if (activeContact && (activeContact.phone_number || activeContact.line_url)) {
+          gamingLandingData.contactInfo = {
+            phone_number: activeContact.phone_number || '',
+            phone_hours: activeContact.phone_hours || '',
+            line_url: activeContact.line_url || '',
+            line_label: activeContact.line_label || '公式LINEを友達追加',
+            line_hours: activeContact.line_hours || '',
+          };
+        }
       }
     } catch {
       // ランディング追加データ取得失敗時はデフォルト空配列のまま

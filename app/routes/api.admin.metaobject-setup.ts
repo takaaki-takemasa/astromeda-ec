@@ -28,6 +28,8 @@
  * 18. astromeda_gaming_feature_card  ゲーミングPC LP 特集カード（FEATURE）
  * 19. astromeda_gaming_parts_card    ゲーミングPC LP パーツカード（CPU/GPU）
  * 20. astromeda_gaming_price_range   ゲーミングPC LP 価格帯リンク
+ * 21. astromeda_gaming_hero_slide    ゲーミングPC LP ヒーロースライド（patch 0039）
+ * 22. astromeda_gaming_contact       ゲーミングPC LP お問い合わせ情報（patch 0039）
  *
  * 冪等性: 既に存在する定義は「ALREADY EXISTS」としてskipし、成功扱いとする。
  *
@@ -344,6 +346,33 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'label', name: 'ラベル（例: 200,001〜250,000円）', type: 'single_line_text_field' },
       { key: 'link_url', name: 'リンク先パス', type: 'single_line_text_field' },
       { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 21. ゲーミングPC LP ヒーロースライド ──（patch 0039: トップの hero_banner とは別管理）
+  {
+    type: 'astromeda_gaming_hero_slide',
+    name: 'Astromeda ゲーミングPC ヒーロースライド',
+    description: 'ゲーミングPCランディング上部のヒーロースライダー用画像。トップページの astromeda_hero_banner とは別管理。',
+    fieldDefinitions: [
+      { key: 'alt_text', name: '代替テキスト', type: 'single_line_text_field' },
+      { key: 'image_url', name: '画像URL', type: 'single_line_text_field' },
+      { key: 'link_url', name: 'リンク先パス', type: 'single_line_text_field' },
+      { key: 'display_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
+  // ── 22. ゲーミングPC LP お問い合わせ ──（patch 0039: 単一エントリ handle=default）
+  {
+    type: 'astromeda_gaming_contact',
+    name: 'Astromeda ゲーミングPC お問い合わせ',
+    description: 'ゲーミングPCランディング「CONTACT」セクションの電話・LINE 連絡先。通常は1件（handle=default）。',
+    fieldDefinitions: [
+      { key: 'phone_number', name: '電話番号（表示用: 03-6903-5371）', type: 'single_line_text_field' },
+      { key: 'phone_hours', name: '電話営業時間', type: 'single_line_text_field' },
+      { key: 'line_url', name: 'LINE URL', type: 'single_line_text_field' },
+      { key: 'line_label', name: 'LINE ボタンラベル', type: 'single_line_text_field' },
+      { key: 'line_hours', name: 'LINE 営業時間', type: 'single_line_text_field' },
       { key: 'is_active', name: '表示中', type: 'boolean' },
     ],
   },

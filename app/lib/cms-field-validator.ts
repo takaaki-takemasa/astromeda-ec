@@ -211,6 +211,22 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     display_order: { type: 'number_integer' },
     is_active: { type: 'boolean' },
   },
+  // patch 0039
+  astromeda_gaming_hero_slide: {
+    alt_text: { type: 'single_line_text_field', maxLength: 200 },
+    image_url: { type: 'single_line_text_field', maxLength: 2000 },
+    link_url: { type: 'single_line_text_field', maxLength: 500 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  astromeda_gaming_contact: {
+    phone_number: { type: 'single_line_text_field', maxLength: 30 },
+    phone_hours: { type: 'single_line_text_field', maxLength: 100 },
+    line_url: { type: 'single_line_text_field', maxLength: 500 },
+    line_label: { type: 'single_line_text_field', maxLength: 100 },
+    line_hours: { type: 'single_line_text_field', maxLength: 100 },
+    is_active: { type: 'boolean' },
+  },
 };
 
 // ── バリデーションエラー ──

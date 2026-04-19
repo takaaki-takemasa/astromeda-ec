@@ -23,6 +23,22 @@ interface MetaCard {
   img?: string;
 }
 
+// patch 0039: Gaming Hero スライド型
+interface GamingHeroSlide {
+  alt_text: string;
+  image_url: string;
+  link_url: string;
+}
+
+// patch 0039: Gaming お問い合わせ情報型
+interface GamingContactInfo {
+  phone_number: string;
+  phone_hours: string;
+  line_url: string;
+  line_label: string;
+  line_hours: string;
+}
+
 interface GamingPCLandingProps {
   rankingProducts: RankingProduct[];
   newsItems: NewsItem[];
@@ -31,16 +47,29 @@ interface GamingPCLandingProps {
   cpuCards?: MetaCard[];
   gpuCards?: MetaCard[];
   priceRanges?: Array<{label: string; href: string}>;
+  // patch 0039: Hero スライド/お問い合わせも Metaobject 化
+  gamingHeroSlides?: GamingHeroSlide[];
+  contactInfo?: GamingContactInfo;
 }
 
 // ─── Constants: Shopify CDN images (production store) ───
 const CDN = 'https://shop.mining-base.co.jp/cdn/shop/files';
 
-const HERO_SLIDES = [
+// patch 0039: フォールバックスライド（Metaobject astromeda_gaming_hero_slide が空のとき使用）
+const FALLBACK_HERO_SLIDES = [
   {img: `${CDN}/2_830b8419-feed-446c-a267-a36b036f4a96.png`, href: 'https://lin.ee/vRLfEe0', alt: 'LINE相談バナー'},
   {img: `${CDN}/3_6ada8b33-56a9-4cc1-8843-0612112a8fa4.png`, href: '/collections/ranking', alt: 'ランキングバナー'},
   {img: `${CDN}/3_68c626f6-61b4-475e-a347-7771055c20ca.png`, href: '/pages/color', alt: 'カラーバナー'},
 ];
+
+// patch 0039: フォールバックお問い合わせ情報
+const FALLBACK_CONTACT_INFO: GamingContactInfo = {
+  phone_number: '03-6903-5371',
+  phone_hours: '営業時間：午前9時〜午後6時',
+  line_url: 'https://lin.ee/v43hEUKX',
+  line_label: '公式LINEを友達追加',
+  line_hours: '営業時間：午前9時〜午後6時',
+};
 
 // patch 0038: フォールバック値（Metaobject が空のときに表示される。Metaobject に1件でも入れば
 // Metaobject 側が完全に勝つ exclusive-OR merge）
@@ -77,9 +106,10 @@ const cardBg = 'rgba(255,255,255,0.07)';
 const cardBorder = 'rgba(255,255,255,0.18)';
 
 // ─── Hero Slider (トップページと同じstacked opacity方式) ───
-function HeroSlider() {
+// patch 0039: slides を props で受け取る (Metaobject 化対応)
+function HeroSlider({slides}: {slides: Array<{img: string; href: string; alt: string}>}) {
   const [current, setCurrent] = useState(0);
-  const total = HERO_SLIDES.length;
+  const total = slides.length;
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const goTo = useCallback((i: number) => {
@@ -121,7 +151,7 @@ function HeroSlider() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        {HERO_SLIDES.map((s, i) => {
+        {slides.map((s, i) => {
           const isActive = i === current;
           return (
             <Link
@@ -138,7 +168,7 @@ function HeroSlider() {
               }}
             >
               <img
-                src={`${s.img}?width=1400&format=webp`}
+                src={s.img.startsWith('http') ? `${s.img}?width=1400&format=webp` : s.img}
                 alt={s.alt}
                 loading={i === 0 ? 'eager' : 'lazy'}
                 style={{
@@ -171,7 +201,7 @@ function HeroSlider() {
 
         {/* Dot indicators (::after方式 — トップページと同じ) */}
         <div className="gpc-hero-dots">
-          {HERO_SLIDES.map((_, i) => (
+          {slides.map((_, i) => (
             <button
               key={i}
               type="button"
@@ -298,6 +328,9 @@ export function GamingPCLanding({
   cpuCards,
   gpuCards,
   priceRanges,
+  // patch 0039: Metaobject 化された Hero スライドとお問い合わせ
+  gamingHeroSlides,
+  contactInfo,
 }: GamingPCLandingProps) {
   const [isSP, setIsSP] = useState(false);
   useEffect(() => {
@@ -315,11 +348,18 @@ export function GamingPCLanding({
   const GPU_CARDS = (gpuCards && gpuCards.length > 0) ? gpuCards : FALLBACK_GPU_CARDS;
   const PRICE_RANGES = (priceRanges && priceRanges.length > 0) ? priceRanges : FALLBACK_PRICE_RANGES;
 
+  // patch 0039: exclusive-OR merge - Gaming Hero スライド
+  const HERO_SLIDES = (gamingHeroSlides && gamingHeroSlides.length > 0)
+    ? gamingHeroSlides.map(s => ({img: s.image_url, href: s.link_url, alt: s.alt_text}))
+    : FALLBACK_HERO_SLIDES;
+  // patch 0039: exclusive-OR merge - Gaming お問い合わせ情報
+  const CONTACT = contactInfo ?? FALLBACK_CONTACT_INFO;
+
   return (
     <div>
       {/* ── Hero Slider ── */}
       <section>
-        <HeroSlider />
+        <HeroSlider slides={HERO_SLIDES} />
       </section>
 
       {/* ── 特集 FEATURE ── */}
@@ -525,13 +565,13 @@ export function GamingPCLanding({
         </div>
       </section>
 
-      {/* ── お問い合わせ CONTACT ── */}
+      {/* ── お問い合わせ CONTACT ── patch 0039: Metaobject 化 */}
       <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
         <SectionTitle ja="お問い合わせ" en="CONTACT" />
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 'clamp(10px, 1.5vw, 16px)'}}>
           {/* 電話 */}
           <a
-            href="tel:03-6903-5371"
+            href={`tel:${CONTACT.phone_number}`}
             style={{
               display: 'block', padding: 'clamp(20px, 2.5vw, 32px)', borderRadius: 12,
               border: `1px solid ${cardBorder}`, background: cardBg,
@@ -539,12 +579,12 @@ export function GamingPCLanding({
             }}
           >
             <div style={{fontSize: 'clamp(12px, 1.3vw, 14px)', fontWeight: 700, color: T.t5, marginBottom: 8}}>電話でのご相談</div>
-            <div style={{fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 900, color: accent, marginBottom: 6}}>03-6903-5371</div>
-            <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t4}}>営業時間：午前9時〜午後6時</div>
+            <div style={{fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 900, color: accent, marginBottom: 6}}>{CONTACT.phone_number}</div>
+            <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t4}}>{CONTACT.phone_hours}</div>
           </a>
           {/* LINE */}
           <a
-            href="https://lin.ee/v43hEUKX"
+            href={CONTACT.line_url}
             target="_blank"
             rel="noopener noreferrer"
             style={{
@@ -554,8 +594,8 @@ export function GamingPCLanding({
             }}
           >
             <div style={{fontSize: 'clamp(12px, 1.3vw, 14px)', fontWeight: 700, color: T.t5, marginBottom: 8}}>LINEでのご相談</div>
-            <div style={{fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 800, color: '#06C755', marginBottom: 6}}>公式LINEを友達追加</div>
-            <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t4}}>営業時間：午前9時〜午後6時</div>
+            <div style={{fontSize: 'clamp(16px, 2vw, 20px)', fontWeight: 800, color: '#06C755', marginBottom: 6}}>{CONTACT.line_label}</div>
+            <div style={{fontSize: 'clamp(10px, 1.1vw, 12px)', color: T.t4}}>{CONTACT.line_hours}</div>
           </a>
         </div>
       </section>
