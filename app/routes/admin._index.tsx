@@ -13,6 +13,8 @@ import { Sidebar, type SectionId } from '~/components/admin/Sidebar';
 import { GlobalBar } from '~/components/admin/GlobalBar';
 import { Breadcrumbs } from '~/components/admin/ds/Breadcrumbs';
 import { RoleBadge } from '~/components/admin/ds/RoleBadge';
+// patch 0071 R1-2: Spinner を Skeleton 化。Stripe Dashboard 基準で「何が来るかの形が事前に見える」
+import { TabLoadingSkeleton } from '~/components/admin/ds/Skeleton';
 import { useIsMobile } from '~/hooks/useMediaQuery';
 import { color, font, formatJPY } from '~/lib/design-tokens';
 
@@ -272,40 +274,78 @@ export const meta = () => [
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
+// patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
+// 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
+type CommerceGroup = 'catalog' | 'content' | 'navmarketing';
+
+const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; default: SubTab}> = {
+  catalog: {
+    label: '🛍️ 商品・販売',
+    tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts'],
+    default: 'products',
+  },
+  content: {
+    label: '📝 コンテンツ・ページ',
+    tabs: ['content', 'pageEditor', 'homepage', 'siteConfig', 'files'],
+    default: 'content',
+  },
+  navmarketing: {
+    label: '🧭 ナビ・マーケ・分析',
+    tabs: ['menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics'],
+    default: 'menus',
+  },
+};
+
+const COMMERCE_GROUP_ORDER: CommerceGroup[] = ['catalog', 'content', 'navmarketing'];
+
+// SubTab → どの CommerceGroup に属するか（deep link 時の逆引き用）
+const COMMERCE_TAB_TO_GROUP: Partial<Record<SubTab, CommerceGroup>> = (() => {
+  const map: Partial<Record<SubTab, CommerceGroup>> = {};
+  (Object.entries(COMMERCE_GROUPS) as Array<[CommerceGroup, {tabs: SubTab[]}]>).forEach(([g, cfg]) => {
+    cfg.tabs.forEach((t) => {
+      map[t] = g;
+    });
+  });
+  return map;
+})();
+
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
   home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
   // patch 0069: commerce に discounts タブを追加（marketing の手前に置く）
   // patch 0070: menus タブ追加（redirects の直後、ナビゲーション系をまとめる）
-  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'menus', 'files', 'metaobjectDefs', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'discounts', 'marketing', 'analytics'], default: 'content' },
+  // patch 0071 R0-2: commerce 全タブ（deep link 逆引き用）。実 UI 描画は COMMERCE_GROUPS 側で行う
+  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
 };
 
+// patch 0071 R0-3: 絵文字ルール統一（Apple HIG: 揃えるか揃えないかの二択 → 全タブ揃える）
+// CEO が見て一瞬で識別できるよう、各タブに意味論的な絵文字を付与
 const SUB_TAB_LABELS: Record<SubTab, string> = {
   onboarding: '🚀 出品ガイド',
-  siteMap: 'サイトマップ',
-  summary: '経営サマリー',
-  content: 'コンテンツ',
-  products: '商品管理',
-  collections: 'コレクション',
+  siteMap: '🗺️ サイトマップ',
+  summary: '📊 経営サマリー',
+  content: '📄 記事・CMS',
+  products: '📦 商品管理',
+  collections: '📚 コレクション',
   bulkTags: '🏷️ タグ一括編集',
   redirects: '🔀 リダイレクト',
   files: '📁 ファイル',
   metaobjectDefs: '🧬 CMS 定義',
   discounts: '🎟️ 割引コード',
   menus: '🧭 メニュー',
-  customization: 'カスタマイズ',
-  homepage: 'ホームページ',
-  pageEditor: 'ページ編集',
-  siteConfig: 'サイト設定',
-  marketing: 'マーケティング',
-  analytics: 'データ分析',
-  agents: 'AI運用',
-  pipelines: '自動化',
-  control: '緊急対応',
-  update: '設定',
+  customization: '🎨 カスタマイズ',
+  homepage: '🏠 ホームページ',
+  pageEditor: '✏️ ページ編集',
+  siteConfig: '⚙️ サイト設定',
+  marketing: '📣 マーケティング',
+  analytics: '📈 データ分析',
+  agents: '🤖 AI運用',
+  pipelines: '⚡ 自動化',
+  control: '🚨 緊急対応',
+  update: '🔧 設定',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
@@ -325,6 +365,8 @@ export default function AdminDashboard() {
   const [section, setSection] = useState<SectionId>('home');
   // patch 0059: home の既定タブを onboarding に
   const [subTab, setSubTab] = useState<SubTab>('onboarding');
+  // patch 0071 R0-2: commerce セクションの現在グループ（商品/コンテンツ/ナビ&マーケ）
+  const [commerceGroup, setCommerceGroup] = useState<CommerceGroup>('catalog');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const isMobile = useIsMobile();
@@ -352,6 +394,7 @@ export default function AdminDashboard() {
   // Sync URL params with tab state (T083: URL routing)
   // patch 0059: 出品ガイドからの deep link (tab=pageEditor&sub=ip_banners 等) で
   // section（サイドバー）も合致させるため、tab から所属 section を逆引きして追従する。
+  // patch 0071 R0-2: commerce section の場合、tab から所属グループも逆引きして追従
   useEffect(() => {
     const tabParam = searchParams.get('tab') as SubTab | null;
     if (tabParam && Object.keys(SUB_TAB_LABELS).includes(tabParam)) {
@@ -360,6 +403,11 @@ export default function AdminDashboard() {
       for (const [secId, cfg] of Object.entries(SECTION_TABS) as Array<[SectionId, {tabs: SubTab[]; default: SubTab}]>) {
         if (cfg.tabs.includes(tabParam)) {
           setSection(secId);
+          // commerce セクションの場合はグループも合わせる
+          if (secId === 'commerce') {
+            const grp = COMMERCE_TAB_TO_GROUP[tabParam];
+            if (grp) setCommerceGroup(grp);
+          }
           break;
         }
       }
@@ -368,13 +416,31 @@ export default function AdminDashboard() {
 
   const handleNavigate = useCallback((id: SectionId) => {
     setSection(id);
+    // patch 0071 R0-2: commerce は現在グループの default に入る
+    if (id === 'commerce') {
+      const groupDefault = COMMERCE_GROUPS[commerceGroup].default;
+      setSubTab(groupDefault);
+      setSearchParams({tab: groupDefault});
+      return;
+    }
     const defaultTab = SECTION_TABS[id].default;
     setSubTab(defaultTab);
     setSearchParams({ tab: defaultTab });
+  }, [setSearchParams, commerceGroup]);
+
+  // patch 0071 R0-2: commerce グループ切り替え（商品/コンテンツ/ナビ&マーケ）
+  const handleCommerceGroupChange = useCallback((g: CommerceGroup) => {
+    setCommerceGroup(g);
+    const firstTab = COMMERCE_GROUPS[g].default;
+    setSubTab(firstTab);
+    setSearchParams({tab: firstTab});
   }, [setSearchParams]);
 
   const handleTabChange = useCallback((newTab: SubTab) => {
     setSubTab(newTab);
+    // patch 0071 R0-2: commerce 内でタブを変えたら commerceGroup も合わせて切替
+    const grp = COMMERCE_TAB_TO_GROUP[newTab];
+    if (grp) setCommerceGroup(grp);
     setSearchParams({ tab: newTab });
   }, [setSearchParams]);
 
@@ -490,7 +556,10 @@ export default function AdminDashboard() {
     }
   }, []);
 
-  const currentTabs = SECTION_TABS[section].tabs;
+  // patch 0071 R0-2: commerce 中は現在グループ内のタブのみ表示（15 → 5-6 に圧縮）
+  const currentTabs: SubTab[] = section === 'commerce'
+    ? COMMERCE_GROUPS[commerceGroup].tabs
+    : SECTION_TABS[section].tabs;
 
   return (
     <div
@@ -524,54 +593,111 @@ export default function AdminDashboard() {
         />
 
         {/* patch 0048 (Phase D): Breadcrumbs — 深い階層でも現在位置が一目でわかる */}
+        {/* patch 0071 R0-2: commerce 時はグループ名も breadcrumbs に含める */}
         <Breadcrumbs
           items={[
             {label: 'ホーム', onClick: () => handleNavigate('home')},
             ...(section !== 'home'
               ? [{label: SECTION_LABELS[section], onClick: () => handleNavigate(section)}]
               : []),
+            ...(section === 'commerce'
+              ? [{label: COMMERCE_GROUPS[commerceGroup].label, onClick: () => handleCommerceGroupChange(commerceGroup)}]
+              : []),
             {label: SUB_TAB_LABELS[subTab]},
           ]}
         />
 
+        {/* patch 0071 R0-2: commerce グループナビ（商品/コンテンツ/ナビ&マーケ） */}
+        {/* Stripe Dashboard 基準: 第一階層は 7-10 以内。15 タブを 3 グループに畳むため */}
+        {section === 'commerce' && (
+          <nav
+            role="navigation"
+            aria-label="コマース サブグループ"
+            style={{
+              display: 'flex',
+              gap: 8,
+              padding: '12px 32px 0',
+              background: color.bg0,
+              flexWrap: 'wrap',
+            }}
+          >
+            {COMMERCE_GROUP_ORDER.map((g) => {
+              const active = commerceGroup === g;
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => handleCommerceGroupChange(g)}
+                  aria-pressed={active}
+                  aria-label={`コマースグループ: ${COMMERCE_GROUPS[g].label}`}
+                  style={{
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: active ? 600 : 500,
+                    color: active ? '#000' : color.text,
+                    background: active ? color.cyan : 'rgba(255,255,255,0.04)',
+                    border: active ? 'none' : `1px solid ${color.border}`,
+                    borderRadius: 999,
+                    cursor: 'pointer',
+                    transition: 'all .15s',
+                    fontFamily: font.family,
+                  }}
+                >
+                  {COMMERCE_GROUPS[g].label}
+                </button>
+              );
+            })}
+          </nav>
+        )}
+
         {currentTabs.length > 1 && (
           <div
+            role="tablist"
+            aria-label={section === 'commerce' ? `${COMMERCE_GROUPS[commerceGroup].label} 内のページ` : `${SECTION_LABELS[section]} 内のページ`}
             style={{
               display: 'flex',
               gap: 0,
               borderBottom: `1px solid ${color.border}`,
               padding: '0 32px',
               background: color.bg0,
+              overflowX: 'auto',
             }}
           >
-            {currentTabs.map((t) => (
-              <button
-                key={t}
-                onClick={() => handleTabChange(t)}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '13px',
-                  fontWeight: subTab === t ? 600 : 400,
-                  color: subTab === t ? color.cyan : color.textMuted,
-                  background: 'none',
-                  border: 'none',
-                  borderBottom:
-                    subTab === t ? `2px solid ${color.cyan}` : '2px solid transparent',
-                  cursor: 'pointer',
-                  whiteSpace: 'nowrap',
-                  transition: 'all .15s',
-                  fontFamily: font.family,
-                }}
-              >
-                {SUB_TAB_LABELS[t]}
-              </button>
-            ))}
+            {currentTabs.map((t) => {
+              const active = subTab === t;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  aria-label={SUB_TAB_LABELS[t]}
+                  onClick={() => handleTabChange(t)}
+                  style={{
+                    padding: '10px 20px',
+                    fontSize: '13px',
+                    fontWeight: active ? 600 : 400,
+                    color: active ? color.cyan : color.textMuted,
+                    background: 'none',
+                    border: 'none',
+                    borderBottom:
+                      active ? `2px solid ${color.cyan}` : '2px solid transparent',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    transition: 'all .15s',
+                    fontFamily: font.family,
+                  }}
+                >
+                  {SUB_TAB_LABELS[t]}
+                </button>
+              );
+            })}
           </div>
         )}
 
         <main style={{ flex: 1, padding: '24px 32px', overflow: 'auto' }}>
           {subTab === 'onboarding' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminOnboarding />
             </Suspense>
           )}
@@ -590,97 +716,97 @@ export default function AdminDashboard() {
             />
           )}
           {subTab === 'content' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminContent />
             </Suspense>
           )}
           {subTab === 'products' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminProducts />
             </Suspense>
           )}
           {subTab === 'collections' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminCollections />
             </Suspense>
           )}
           {subTab === 'bulkTags' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminBulkTags />
             </Suspense>
           )}
           {subTab === 'redirects' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminRedirects />
             </Suspense>
           )}
           {subTab === 'menus' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminMenus />
             </Suspense>
           )}
           {subTab === 'files' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminFiles />
             </Suspense>
           )}
           {subTab === 'metaobjectDefs' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminMetaobjectDefinitions />
             </Suspense>
           )}
           {subTab === 'discounts' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminDiscounts />
             </Suspense>
           )}
           {subTab === 'customization' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminCustomization />
             </Suspense>
           )}
           {subTab === 'homepage' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminHomepageCMS />
             </Suspense>
           )}
           {subTab === 'pageEditor' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminPageEditor />
             </Suspense>
           )}
           {subTab === 'siteConfig' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSiteConfig />
             </Suspense>
           )}
           {subTab === 'siteMap' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSiteMap />
             </Suspense>
           )}
           {subTab === 'marketing' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminMarketing />
             </Suspense>
           )}
           {subTab === 'analytics' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminAnalytics />
             </Suspense>
           )}
           {subTab === 'agents' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminAgents agents={agents} />
             </Suspense>
           )}
           {subTab === 'pipelines' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminPipelines pipelines={pipelines} />
             </Suspense>
           )}
           {subTab === 'control' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminControl
                 metrics={metrics}
                 onAndonPull={handleAndonPull}
@@ -694,7 +820,7 @@ export default function AdminDashboard() {
             </Suspense>
           )}
           {subTab === 'update' && (
-            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+            <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSettings />
             </Suspense>
           )}

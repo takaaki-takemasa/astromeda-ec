@@ -9,6 +9,8 @@ import {useState, useCallback, useEffect} from 'react';
 import {Link} from 'react-router';
 import {T, al, PAGE_WIDTH} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+// patch 0071 R0-1: window.confirm 置換 — Stripe/Apple 基準の UX 確認モーダル
+import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 
 interface CustomOption {
   id: string;
@@ -79,6 +81,8 @@ export default function AdminCustomization() {
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{msg: string; type: 'success' | 'error'} | null>(null);
+  // patch 0071 R0-1: Promise ベース確認モーダル（window.confirm 置換）
+  const {confirm: confirmDialog, dialogProps, ConfirmDialog} = useConfirmDialog();
 
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({msg, type});
@@ -137,7 +141,14 @@ export default function AdminCustomization() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('このオプションを削除しますか？')) return;
+    // patch 0071 R0-1: window.confirm を Stripe 水準の UX モーダルに置換
+    const ok = await confirmDialog({
+      title: 'オプションを削除しますか？',
+      message: 'このカスタマイズオプションを削除します。この操作は取り消せません。',
+      confirmLabel: '削除する',
+      destructive: true,
+    });
+    if (!ok) return;
     const res = await apiPost('/api/admin/customization', {action: 'delete', metaobjectId: id});
     if (res.success) {
       showToast('削除しました', 'success');
@@ -255,6 +266,8 @@ export default function AdminCustomization() {
           {toast.msg}
         </div>
       )}
+      {/* patch 0071 R0-1: Stripe 水準の確認モーダル (window.confirm 置換) */}
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }
