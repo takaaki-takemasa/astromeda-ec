@@ -16,6 +16,7 @@
 import {useState, useEffect, useCallback} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 interface ProductListItem {
@@ -423,7 +424,7 @@ export default function AdminBulkTags() {
 
       {/* 一覧 */}
       {loading ? (
-        <div style={{padding: 48, textAlign: 'center', color: color.textMuted}}>読み込み中...</div>
+        <AdminListSkeleton rows={6} />
       ) : error ? (
         <div
           style={{
@@ -437,9 +438,11 @@ export default function AdminBulkTags() {
           エラー: {error}
         </div>
       ) : list.length === 0 ? (
-        <div style={{...cardStyle, textAlign: 'center', padding: 48, color: color.textMuted}}>
-          該当する商品がありません。
-        </div>
+        <AdminEmptyCard
+          icon="🔎"
+          title="該当する商品がありません"
+          description="検索条件を変更するか、ステータス・タイプ・ベンダーの絞り込みを解除してください。"
+        />
       ) : (
         <div style={{...cardStyle, padding: 0, overflow: 'hidden'}}>
           <table style={{width: '100%', borderCollapse: 'collapse', fontSize: font.sm}}>

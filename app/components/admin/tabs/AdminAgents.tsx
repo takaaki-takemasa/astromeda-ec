@@ -8,6 +8,7 @@ import { AgentHeatmap } from '~/components/admin/AgentHeatmap';
 import { DecisionTimeline } from '~/components/admin/DecisionTimeline';
 import { formatUptime, statusColor, statusLabel } from '~/lib/admin-utils';
 import type { AgentStatus } from '~/types/admin';
+import { AdminListSkeleton } from '~/components/admin/ds/InlineListState';
 
 interface AdminAgentsProps {
   agents: AgentStatus[];
@@ -34,7 +35,7 @@ export default function AdminAgents({agents}: AdminAgentsProps) {
 
       {viewMode === 'heatmap' && (
         <div style={{marginBottom: 32}}>
-          <Suspense fallback={<div style={{height:200,display:'flex',justifyContent:'center',alignItems:'center',color:color.textMuted}}>読み込み中...</div>}>
+          <Suspense fallback={<AdminListSkeleton rows={4} />}>
             <AgentHeatmap agents={agents} />
           </Suspense>
         </div>

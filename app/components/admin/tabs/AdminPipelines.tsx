@@ -7,6 +7,7 @@ import { color, font } from '~/lib/design-tokens';
 import { PipelineMonitor } from '~/components/admin/PipelineMonitor';
 import { statusColor, statusLabel } from '~/lib/admin-utils';
 import type { PipelineStatus } from '~/types/admin';
+import { AdminListSkeleton } from '~/components/admin/ds/InlineListState';
 
 interface AdminPipelinesProps {
   pipelines: PipelineStatus[];
@@ -70,7 +71,7 @@ export default function AdminPipelines({pipelines}: AdminPipelinesProps) {
       </div>
 
       {pipeViewMode === 'monitor' && (
-        <Suspense fallback={<div style={{height:200,display:'flex',justifyContent:'center',alignItems:'center',color:color.textMuted}}>読み込み中...</div>}>
+        <Suspense fallback={<AdminListSkeleton rows={4} />}>
           <PipelineMonitor pipelines={pipelines} />
         </Suspense>
       )}

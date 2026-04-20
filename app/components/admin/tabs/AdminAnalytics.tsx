@@ -4,6 +4,7 @@
 
 import { useState, useEffect } from 'react';
 import { color } from '~/lib/design-tokens';
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 export default function AdminAnalytics() {
   const [reports, setReports] = useState<unknown[]>([]);
@@ -24,7 +25,7 @@ export default function AdminAnalytics() {
     }).catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{color: color.textMuted, textAlign: 'center', padding: 60}}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const subTabs = [
     {key: 'insights' as const, label: '💡 インサイト', count: insights.length},
@@ -65,10 +66,11 @@ export default function AdminAnalytics() {
       {subTab === 'insights' && (
         <div style={{display: 'grid', gap: 12}}>
           {insights.length === 0 ? (
-            <div style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, padding: 40, textAlign: 'center'}}>
-              <div style={{fontSize: 32, marginBottom: 12}}>💡</div>
-              <div style={{color: color.textMuted, fontSize: 13}}>インサイトはまだありません</div>
-            </div>
+            <AdminEmptyCard
+              icon="💡"
+              title="インサイトはまだありません"
+              description="InsightAgent がユーザー行動・売上・コンバージョンを分析すると、ここにリスク警告・機会提案・改善アイデアが自動で並びます。"
+            />
           ) : insights.map((ins: Record<string, unknown>, i: number) => (
             <div key={i} style={{
               background: color.bg1, borderRadius: 12, padding: 16,
@@ -137,11 +139,11 @@ export default function AdminAnalytics() {
       {subTab === 'reports' && (
         <div>
           {reports.length === 0 ? (
-            <div style={{background: color.bg1, borderRadius: 12, border: `1px solid ${color.border}`, padding: 40, textAlign: 'center'}}>
-              <div style={{fontSize: 32, marginBottom: 12}}>📋</div>
-              <div style={{color: color.textMuted, fontSize: 13}}>レポートはまだありません</div>
-              <div style={{color: color.textDim, fontSize: 11, marginTop: 8}}>DataAnalyst Agentが分析レポートを生成すると表示されます</div>
-            </div>
+            <AdminEmptyCard
+              icon="📋"
+              title="レポートはまだありません"
+              description="DataAnalyst Agent が分析レポートを生成すると、ここにレポート一覧が表示されます。"
+            />
           ) : (
             <div style={{display: 'grid', gap: 12}}>
               {reports.map((r: Record<string, unknown>, i: number) => (

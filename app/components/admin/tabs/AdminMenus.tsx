@@ -24,6 +24,7 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {Modal} from '~/components/admin/Modal';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 
 // ━━━ Types ━━━
 
@@ -607,15 +608,37 @@ export default function AdminMenus() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  読み込み中...
+                <td colSpan={4} style={{padding: 0}}>
+                  <AdminListSkeleton rows={4} />
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  メニューはまだありません。右上の「＋ 新規メニュー」から作成できます。
+                <td colSpan={4} style={{padding: 0}}>
+                  <div
+                    style={{
+                      border: `1px dashed ${color.border}`,
+                      borderRadius: radius.lg,
+                      padding: `${space[5]} ${space[4]}`,
+                      textAlign: 'center',
+                      background: color.bg0,
+                      margin: space[3],
+                    }}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <div style={{fontSize: 32, marginBottom: 8}} aria-hidden="true">🧭</div>
+                    <div style={{fontWeight: 700, color: color.text, fontSize: font.md, marginBottom: 6}}>
+                      メニューはまだありません
+                    </div>
+                    <div style={{color: color.textMuted, fontSize: font.sm, marginBottom: 12, lineHeight: 1.6}}>
+                      ヘッダー / フッターに表示するナビゲーションメニューを作成してください。
+                    </div>
+                    <div style={{color: color.textDim, fontSize: font.xs}}>
+                      右上の「＋ 新規メニュー」ボタンから作成できます。
+                    </div>
+                  </div>
                 </td>
               </tr>
             )}
@@ -696,9 +719,7 @@ export default function AdminMenus() {
               maxWidth: 880,
             }}
           >
-            {loadingDetail && (
-              <div style={{color: color.textMuted, fontSize: font.sm}}>詳細を読み込み中...</div>
-            )}
+            {loadingDetail && <AdminListSkeleton rows={4} />}
 
             {!loadingDetail && (
               <>

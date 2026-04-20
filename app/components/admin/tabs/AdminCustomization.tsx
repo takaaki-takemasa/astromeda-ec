@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { color } from '~/lib/design-tokens';
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 interface OptionItem {
   value: string;
@@ -110,7 +111,7 @@ export default function AdminCustomization() {
         </div>
       )}
 
-      {loading && <div style={{ color: color.textMuted, fontSize: 14 }}>読み込み中...</div>}
+      {loading && <AdminListSkeleton rows={5} />}
 
       {error && (
         <div style={{ color: '#ff6b6b', fontSize: 14, padding: '16px', background: '#3a1515', borderRadius: 8, marginBottom: 16 }}>
@@ -122,25 +123,11 @@ export default function AdminCustomization() {
       )}
 
       {!loading && !error && entries.length === 0 && (
-        <div style={{
-          background: color.bg0,
-          border: `1px solid ${color.border}`,
-          borderRadius: 12,
-          padding: '32px',
-          textAlign: 'center',
-          color: color.textMuted,
-        }}>
-          <div style={{ fontSize: 14, marginBottom: 16 }}>
-            カスタマイズオプションが登録されていません
-          </div>
-          <div style={{ fontSize: 12 }}>
-            「定義を初期化」後、Shopify管理画面のメタオブジェクトから登録するか、
-            APIで一括登録してください。
-          </div>
-          <div style={{ marginTop: 16, fontSize: 12, color: color.cyan }}>
-            現在はフォールバックの STANDARD_OPTIONS（17項目）が使用されます。
-          </div>
-        </div>
+        <AdminEmptyCard
+          icon="🛠️"
+          title="カスタマイズオプションはまだ登録されていません"
+          description="「定義を初期化」ボタンを押してメタオブジェクト定義を作成すると、ここにメモリ・SSD・電源などの PC 構成オプションを登録できます。未登録の間はフォールバックの STANDARD_OPTIONS（17項目）が使用されます。"
+        />
       )}
 
       {entries.length > 0 && (

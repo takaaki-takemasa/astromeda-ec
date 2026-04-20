@@ -21,6 +21,7 @@
 import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 
 // ━━━ Types ━━━
 
@@ -655,22 +656,13 @@ export default function AdminFiles() {
 
       {/* Grid */}
       {loading ? (
-        <div style={{padding: space[6], textAlign: 'center', color: color.textMuted}}>
-          読み込み中…
-        </div>
+        <AdminListSkeleton rows={6} />
       ) : rows.length === 0 ? (
-        <div
-          style={{
-            padding: space[6],
-            textAlign: 'center',
-            color: color.textMuted,
-            background: color.bg1,
-            border: `1px dashed ${color.border}`,
-            borderRadius: radius.md,
-          }}
-        >
-          ファイルがありません。
-        </div>
+        <AdminEmptyCard
+          icon="📁"
+          title="ファイルはまだありません"
+          description="商品画像やバナー画像などを Shopify にアップロードすると、ここに一覧表示されます。検索条件で絞り込んでいる場合は、条件をクリアしてください。"
+        />
       ) : (
         <div
           style={{

@@ -23,6 +23,7 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {Modal} from '~/components/admin/Modal';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 
 // ━━━ Types ━━━
 
@@ -584,15 +585,32 @@ export default function AdminDiscounts() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={7} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  読み込み中...
+                <td colSpan={7} style={{padding: 0}}>
+                  <AdminListSkeleton rows={5} />
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={7} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  まだ割引コードはありません。右上の「＋ 新規割引コード」から作成できます。
+                <td colSpan={7} style={{padding: 0}}>
+                  <div
+                    style={{
+                      padding: `${space[6]}px ${space[4]}px`,
+                      textAlign: 'center',
+                      background: color.bg1,
+                      border: `1px dashed ${color.border}`,
+                      borderRadius: radius.md,
+                      margin: space[3],
+                    }}
+                  >
+                    <div style={{fontSize: 32, marginBottom: space[2]}}>🎟️</div>
+                    <div style={{fontSize: font.md, fontWeight: 700, color: color.text, marginBottom: space[1]}}>
+                      割引コードはまだありません
+                    </div>
+                    <div style={{fontSize: font.sm, color: color.textMuted}}>
+                      期間限定セールやキャンペーン配信用の割引コードを作成すると、ここに一覧表示されます。右上の「＋ 新規割引コード」から作成できます。
+                    </div>
+                  </div>
                 </td>
               </tr>
             )}

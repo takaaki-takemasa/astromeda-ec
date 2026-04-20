@@ -16,6 +16,7 @@ import {useState, useEffect, useCallback, useRef} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {Modal} from '~/components/admin/Modal';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 interface RuleInput {
@@ -462,18 +463,18 @@ export default function AdminCollections() {
 
       {/* 一覧 */}
       {loading ? (
-        <div style={{padding: 48, textAlign: 'center', color: color.textMuted}}>読み込み中...</div>
+        <AdminListSkeleton rows={6} />
       ) : error ? (
         <div style={{padding: 24, background: 'rgba(255,0,0,.1)', border: `1px solid ${color.red}`, borderRadius: radius.md, color: color.red}}>
           エラー: {error}
         </div>
       ) : list.length === 0 ? (
-        <div style={{...cardStyle, textAlign: 'center', padding: 48}}>
-          <div style={{fontSize: 14, color: color.textMuted, marginBottom: 12}}>
-            コレクションがまだありません。
-          </div>
-          <button onClick={openNew} style={btnPrimary}>＋ 最初のコレクションを作る</button>
-        </div>
+        <AdminEmptyCard
+          icon="🗂️"
+          title="コレクションはまだありません"
+          description="商品をまとめるグループ（例: ゲーミングPC、キーボード、IPコラボ）を作成すると、ここに一覧表示されます。スマートコレクション（ルールで自動追加）にも対応しています。"
+          action={<button onClick={openNew} style={btnPrimary}>＋ 最初のコレクションを作る</button>}
+        />
       ) : (
         <div style={{...cardStyle, padding: 0, overflow: 'hidden'}}>
           <table style={{width: '100%', borderCollapse: 'collapse', fontSize: font.sm}}>

@@ -18,6 +18,7 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {Modal} from '~/components/admin/Modal';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 
 // ━━━ Types ━━━
 
@@ -394,15 +395,32 @@ export default function AdminRedirects() {
           <tbody>
             {loading && (
               <tr>
-                <td colSpan={4} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  読み込み中...
+                <td colSpan={4} style={{padding: 0}}>
+                  <AdminListSkeleton rows={4} />
                 </td>
               </tr>
             )}
             {!loading && rows.length === 0 && (
               <tr>
-                <td colSpan={4} style={{padding: space[4], textAlign: 'center', color: color.textMuted}}>
-                  {searchQuery ? `"${searchQuery}" に一致するリダイレクトはありません` : 'リダイレクトはまだありません。右上の「＋ 新規リダイレクト」から作成できます。'}
+                <td colSpan={4} style={{padding: 0}}>
+                  <div
+                    style={{
+                      padding: `${space[6]}px ${space[4]}px`,
+                      textAlign: 'center',
+                      background: color.bg1,
+                      border: `1px dashed ${color.border}`,
+                      borderRadius: radius.md,
+                      margin: space[3],
+                    }}
+                  >
+                    <div style={{fontSize: 32, marginBottom: space[2]}}>🔀</div>
+                    <div style={{fontSize: font.md, fontWeight: 700, color: color.text, marginBottom: space[1]}}>
+                      {searchQuery ? `"${searchQuery}" に一致するリダイレクトはありません` : 'リダイレクトはまだありません'}
+                    </div>
+                    <div style={{fontSize: font.sm, color: color.textMuted}}>
+                      {searchQuery ? '検索条件を変更してください。' : '旧URL→新URLへ301リダイレクトを設定すると、SEO評価を維持できます。右上の「＋ 新規リダイレクト」から作成できます。'}
+                    </div>
+                  </div>
                 </td>
               </tr>
             )}

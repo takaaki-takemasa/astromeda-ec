@@ -16,6 +16,7 @@
 import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
+import {AdminEmptyCard, AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 
 // ━━━ Types ━━━
 
@@ -781,10 +782,15 @@ export default function AdminMetaobjectDefinitions() {
             <div>実体</div>
             <div style={{textAlign: 'right'}}>操作</div>
           </div>
+          {loading && list.length === 0 && (
+            <AdminListSkeleton rows={6} />
+          )}
           {list.length === 0 && !loading && (
-            <div style={{padding: 24, textAlign: 'center', color: color.textMuted, fontSize: font.sm}}>
-              定義がありません。
-            </div>
+            <AdminEmptyCard
+              icon="🧬"
+              title="Metaobject 定義はまだありません"
+              description="Metaobject 定義は、管理画面の各サブタブでフィールドを持ったカスタムデータ型を作るための骨組みです。「+ 定義を作る」から新規作成できます。"
+            />
           )}
           {list.map((d) => {
             const isSel = d.id === selectedId;
