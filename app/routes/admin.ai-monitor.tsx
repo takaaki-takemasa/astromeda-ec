@@ -34,6 +34,8 @@ import { AppSession } from '~/lib/session';
 import { AppError } from '~/lib/app-error';
 import { RouteErrorBoundary } from '~/components/astro/RouteErrorBoundary';
 import { PAGE_WIDTH, T } from '~/lib/astromeda-data';
+// patch 0090 (R3): 生の alert() を admin 統一 Toast プリミティブに置換（中学生基準 UX）
+import { useToast } from '~/components/admin/ds/Toast';
 
 // ── テーマ定数 ──
 const D = {
@@ -125,6 +127,9 @@ export default function AdminAIMonitor() {
     : seedData;
   const [testResults, setTestResults] = useState<AITestResult[]>(initialResults);
 
+  // patch 0090 (R3): admin 共通 Toast — 生の alert() を置換
+  const { pushToast, Toast } = useToast();
+
   // フォーム状態
   const [formData, setFormData] = useState({
     query: '',
@@ -145,7 +150,8 @@ export default function AdminAIMonitor() {
   // テスト結果を追加
   const handleAddResult = () => {
     if (!formData.query.trim()) {
-      alert('クエリを入力してください');
+      // patch 0090 (R3): 生の alert() → Toast へ。中学生基準 + a11y (role=alert)
+      pushToast('検索クエリを入力してください', 'error');
       return;
     }
 
@@ -754,6 +760,8 @@ export default function AdminAIMonitor() {
           </section>
         </div>
       </div>
+      {/* patch 0090 (R3): 生の alert() を置換した admin 共通 Toast */}
+      <Toast />
     </div>
   );
 }

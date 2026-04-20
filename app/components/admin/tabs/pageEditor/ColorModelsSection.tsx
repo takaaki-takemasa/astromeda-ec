@@ -72,7 +72,7 @@ export function ColorModelsSection({pushToast, confirm}: SectionProps) {
       victims.push(...group.slice(1));
     }
     if (victims.length === 0) {
-      pushToast('重複はありません（全 slug が一意です）', 'success');
+      pushToast('重複はありません（全カラーが一意の識別子を持っています）', 'success');
       return;
     }
     const ok = await confirm(
@@ -183,7 +183,7 @@ export function ColorModelsSection({pushToast, confirm}: SectionProps) {
                 color: T.r,
               }}
               disabled={deduping}
-              title="slug が同じレコードを 1 件に集約します"
+              title="識別子（URL 末尾）が同じ行を 1 件にまとめます"
             >
               {deduping ? '処理中...' : `🧹 重複削除 (${dupCount})`}
             </button>
@@ -200,12 +200,12 @@ export function ColorModelsSection({pushToast, confirm}: SectionProps) {
           <thead>
             <tr>
               {/* patch 0026: 現在の画像を先頭列に追加。PC カラー行では
-                  「ライフスタイル画像 → /images/pc-setup/{slug}.jpg（プロジェクト既定） → 色スウォッチ」
+                  「ライフスタイル画像 → 既定画像（識別子に対応する /images/pc-setup/ 配下） → 色スウォッチ」
                   の順で表示し、CEO がトップページ8色カードのどの行かを一目で判断できるようにする。*/}
               <th style={thStyle}>現在の画像</th>
               <th style={thStyle}>色</th>
               <th style={thStyle}>名前</th>
-              <th style={thStyle}>slug</th>
+              <th style={thStyle}>識別子</th>
               <th style={thStyle}>順</th>
               <th style={thStyle}>状態</th>
               <th style={thStyle}></th>
@@ -337,12 +337,18 @@ function ColorModelForm({
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="ホワイト" />
         </div>
         <div>
-          <label style={labelStyle}>slug (ルーティング用)</label>
+          <label style={labelStyle}>識別子（URL 末尾・英数字）</label>
           <input type="text" value={slug} onChange={(e) => setSlug(e.target.value)} style={inputStyle} placeholder="white" />
+          <div style={{fontSize: 11, color: T.t4, marginTop: 4}}>
+            例：white / black / pink（ファイル名と一致させると既定画像が自動で当たります）
+          </div>
         </div>
         <div>
-          <label style={labelStyle}>image (Shopify file GID、optional)</label>
-          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} placeholder="gid://shopify/MediaImage/..." />
+          <label style={labelStyle}>画像（任意）</label>
+          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} placeholder="画像ファイル参照（空欄で既定画像を使用）" />
+          <div style={{fontSize: 11, color: T.t4, marginTop: 4}}>
+            空欄のままで OK。Shopify ファイル管理から選んだ画像をここに貼ると上書きできます。
+          </div>
         </div>
         <div>
           <label style={labelStyle}>カラーコード (#RRGGBB)</label>

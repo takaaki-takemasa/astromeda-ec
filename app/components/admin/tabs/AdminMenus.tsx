@@ -839,11 +839,12 @@ export default function AdminMenus() {
                         {NEEDS_RESOURCE_ID.has(it.type) && (
                           <input
                             type="text"
-                            placeholder="gid://shopify/Collection/12345"
+                            placeholder="コレクション/商品などの識別子（例: gid://shopify/Collection/12345）"
                             value={it.resourceId ?? ''}
                             onChange={(e) => updateItem(i, {resourceId: e.target.value})}
                             style={{...inputStyle, fontSize: font.xs, fontFamily: 'monospace'}}
-                            aria-label={`項目 ${i + 1} の resourceId`}
+                            aria-label={`項目 ${i + 1} の遷移先識別子`}
+                            title="Shopify 管理画面の各コレクション/商品ページからコピーした識別子を貼り付けます"
                           />
                         )}
                         {!NEEDS_URL.has(it.type) && !NEEDS_RESOURCE_ID.has(it.type) && (

@@ -184,22 +184,44 @@ export default function AdminProductDetail() {
     });
   };
 
-  const adjustInventory = (idx: number, delta: number) => {
+  // patch 0090 (R3): window.prompt('Location ID (gid://...)') を admin 水準のインライン Modal に置換。
+  // CEO が技術 ID を目にしない設計：Shopify admin の拠点管理からコピペすべき値であることを明記し、
+  // 視認性の高い入力フォームで確定/キャンセルを選べるようにする。
+  const [invAdjust, setInvAdjust] = useState<{
+    idx: number;
+    delta: number;
+    locationId: string;
+  } | null>(null);
+  const openInventoryAdjust = (idx: number, delta: number) => {
     const v = variants[idx];
     if (!v.inventoryItem?.id) {
-      pushToast('inventoryItem が取得できません', 'error');
+      pushToast('在庫情報が取得できませんでした。時間を置いてやり直してください。', 'error');
       return;
     }
-    const locationId = window.prompt('Location ID (gid://shopify/Location/...):');
-    if (!locationId) return;
+    setInvAdjust({idx, delta, locationId: ''});
+  };
+  const confirmInventoryAdjust = () => {
+    if (!invAdjust) return;
+    const locationId = invAdjust.locationId.trim();
+    if (!locationId) {
+      pushToast('在庫拠点の識別子を入力してください。', 'error');
+      return;
+    }
+    const v = variants[invAdjust.idx];
+    if (!v.inventoryItem?.id) return;
     submit({
       action: 'inventory_adjust',
       inventoryItemId: v.inventoryItem.id,
       locationId,
-      delta,
+      delta: invAdjust.delta,
     });
     // 楽観的更新
-    setVariants((prev) => prev.map((x, i) => i === idx ? {...x, inventoryQuantity: x.inventoryQuantity + delta} : x));
+    setVariants((prev) =>
+      prev.map((x, i) =>
+        i === invAdjust.idx ? {...x, inventoryQuantity: x.inventoryQuantity + invAdjust.delta} : x,
+      ),
+    );
+    setInvAdjust(null);
   };
 
   // ── 画像管理 ──
@@ -537,9 +559,9 @@ export default function AdminProductDetail() {
                       </td>
                       <td style={{padding: 8, color: T.tx}}>
                         <div style={{display: 'flex', alignItems: 'center', gap: 4}}>
-                          <button type="button" onClick={() => adjustInventory(i, -1)} style={{...btnStyle(), padding: '2px 8px'}}>-</button>
+                          <button type="button" onClick={() => openInventoryAdjust(i, -1)} style={{...btnStyle(), padding: '2px 8px'}} aria-label="在庫を1つ減らす">-</button>
                           <span style={{minWidth: 36, textAlign: 'center'}}>{v.inventoryQuantity}</span>
-                          <button type="button" onClick={() => adjustInventory(i, 1)} style={{...btnStyle(), padding: '2px 8px'}}>+</button>
+                          <button type="button" onClick={() => openInventoryAdjust(i, 1)} style={{...btnStyle(), padding: '2px 8px'}} aria-label="在庫を1つ増やす">+</button>
                         </div>
                       </td>
                       <td style={{padding: 8}}>
@@ -707,6 +729,88 @@ export default function AdminProductDetail() {
               </button>
               <button type="button" onClick={confirmDeleteImage} style={{padding: '8px 16px', background: T.r, border: `1px solid ${T.r}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}>
                 削除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* patch 0090 (R3): 在庫調整モーダル — window.prompt('Location ID (gid://...)') を置換。
+          CEO が技術 ID を直接入力する必要はなくなる。Shopify admin の「設定 → 拠点」からコピーした値を貼る。 */}
+      {invAdjust !== null && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.75)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 10000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setInvAdjust(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="inv-adjust-title"
+            style={{
+              background: T.bg,
+              border: `1px solid ${al(T.tx, 0.2)}`,
+              borderRadius: 10,
+              padding: 24,
+              maxWidth: 520,
+              width: '100%',
+              boxShadow: '0 12px 32px rgba(0,0,0,.7)',
+            }}
+          >
+            <div id="inv-adjust-title" style={{fontSize: 14, fontWeight: 800, color: T.tx, marginBottom: 12}}>
+              在庫を{invAdjust.delta > 0 ? '1つ増やす' : '1つ減らす'}
+            </div>
+            <div style={{fontSize: 12, color: al(T.tx, 0.75), lineHeight: 1.7, marginBottom: 14}}>
+              どの拠点の在庫を動かすかを教えてください。<br />
+              Shopify 管理画面の「設定 → 拠点」ページで、対象拠点の識別子をコピーして貼り付けてください。
+            </div>
+            <label style={{display: 'block', fontSize: 12, fontWeight: 600, color: T.tx, marginBottom: 6}}>
+              在庫拠点の識別子
+            </label>
+            <input
+              type="text"
+              value={invAdjust.locationId}
+              onChange={(e) => setInvAdjust((prev) => (prev ? {...prev, locationId: e.target.value} : prev))}
+              placeholder="例: gid://shopify/Location/12345"
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                background: al(T.tx, 0.05),
+                border: `1px solid ${al(T.tx, 0.25)}`,
+                borderRadius: 6,
+                color: T.tx,
+                fontSize: 12,
+                fontFamily: 'monospace',
+                marginBottom: 16,
+              }}
+              aria-label="在庫拠点の識別子（Shopify Location ID）"
+            />
+            <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
+              <button
+                type="button"
+                onClick={() => setInvAdjust(null)}
+                style={{padding: '8px 16px', background: 'transparent', border: `1px solid ${al(T.tx, 0.25)}`, borderRadius: 6, color: T.tx, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}
+              >
+                キャンセル
+              </button>
+              <button
+                type="button"
+                onClick={confirmInventoryAdjust}
+                style={{padding: '8px 16px', background: T.c, border: `1px solid ${T.c}`, borderRadius: 6, color: T.bg, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit'}}
+              >
+                この拠点で反映する
               </button>
             </div>
           </div>

@@ -885,7 +885,7 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
             optional
             value={form.image_url}
             onChange={(url) => setForm({ ...form, image_url: url })}
-            hint="PC本体ではなく「PC利用シーン」のライフスタイル画像を推奨。空の場合は /images/pc-setup/{slug}.jpg が自動使用されます。"
+            hint="PC本体ではなく「PC利用シーン」のライフスタイル画像を推奨。空の場合は識別子（英数字）に対応する既定画像が自動で使われます。"
           />
         </div>
       </div>
