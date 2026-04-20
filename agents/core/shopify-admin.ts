@@ -251,6 +251,39 @@ export interface ShopifyMetaobjectDefinitionItem {
   }>;
 }
 
+/**
+ * Shopify Admin Discount Code 一覧表示用 — patch 0069
+ * CEO がキャンペーンコード (例 SPRING10 で 10% OFF) を admin から発行/削除するための表示形
+ */
+export interface ShopifyDiscountCodeItem {
+  /** gid://shopify/DiscountCodeNode/... (削除 mutation 用) */
+  id: string;
+  /** CEO 表示用タイトル */
+  title: string;
+  /** チェックアウトで入力するコード文字列 */
+  code: string;
+  /** ACTIVE / EXPIRED / SCHEDULED のいずれか */
+  status: string;
+  /** ISO 8601 開始 */
+  startsAt: string;
+  /** ISO 8601 終了 (任意) */
+  endsAt: string | null;
+  /** 利用回数上限 (null = 無制限) */
+  usageLimit: number | null;
+  /** 現在までの利用回数 */
+  asyncUsageCount: number;
+  /** 割引種別: "percentage" | "fixed_amount" */
+  kind: 'percentage' | 'fixed_amount' | 'unknown';
+  /** パーセント (kind=percentage のとき、0.10 = 10%) */
+  percentage: number | null;
+  /** 固定額 (kind=fixed_amount のとき) */
+  fixedAmount: number | null;
+  /** 顧客がいつでも使えるか (true=全員 / false=条件つき) */
+  appliesToAllCustomers: boolean;
+  /** Shopify が返す summary 文 */
+  summary: string;
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -2610,6 +2643,284 @@ export class ShopifyAdminClient {
     await this.updateMetaobjectDefinition(existing.id, toAdd);
     log.info(`[updateMetaobjectDefinitionAppendFields] Appended ${toAdd.length} fields to ${type} (skipped ${skippedKeys.length})`);
     return { id: existing.id, addedCount: toAdd.length, skippedKeys };
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Discount Code CRUD — patch 0069 (CEO 二段階修正撤廃 P5)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //
+  // 効果器: キャンペーン配信（心臓→末梢までホルモンを流す）
+  // 想定 use case: CEO が「SPRING10」で全商品 10% OFF キャンペーンコードを発行、
+  // 終了後に削除、という一連の割引運用を Shopify admin を開かずに完結。
+  //
+  // 必要 scope: read_discounts, write_discounts
+  // (未付与の場合はトークン再認可が必要。patch 0066 の urlRedirects と同じ流れ)
+
+  /**
+   * 割引コード（Basic Discount Code）一覧取得
+   * — patch 0069: Discount Code Basic を最新順で取得
+   */
+  async listDiscountCodes(
+    first = 50,
+    after?: string,
+  ): Promise<{
+    items: ShopifyDiscountCodeItem[];
+    pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query listDiscountNodes($first: Int!, $after: String) {
+        discountNodes(
+          first: $first
+          after: $after
+          sortKey: CREATED_AT
+          reverse: true
+          query: "type:discount_code_basic"
+        ) {
+          edges {
+            cursor
+            node {
+              id
+              discount {
+                __typename
+                ... on DiscountCodeBasic {
+                  title
+                  summary
+                  status
+                  startsAt
+                  endsAt
+                  usageLimit
+                  asyncUsageCount
+                  customerSelection { __typename }
+                  codes(first: 1) { nodes { code } }
+                  customerGets {
+                    value {
+                      __typename
+                      ... on DiscountPercentage { percentage }
+                      ... on DiscountAmount { amount { amount currencyCode } appliesOnEachItem }
+                    }
+                  }
+                }
+              }
+            }
+          }
+          pageInfo { hasNextPage hasPreviousPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        discountNodes: {
+          edges: Array<{
+            cursor: string;
+            node: {
+              id: string;
+              discount: {
+                __typename: string;
+                title?: string;
+                summary?: string;
+                status?: string;
+                startsAt?: string;
+                endsAt?: string | null;
+                usageLimit?: number | null;
+                asyncUsageCount?: number;
+                customerSelection?: {__typename: string};
+                codes?: {nodes: Array<{code: string}>};
+                customerGets?: {
+                  value: {
+                    __typename: string;
+                    percentage?: number;
+                    amount?: {amount: string; currencyCode: string};
+                    appliesOnEachItem?: boolean;
+                  };
+                };
+              };
+            };
+          }>;
+          pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first: Math.max(1, Math.min(first, 100)), after: after ?? null});
+
+      const items: ShopifyDiscountCodeItem[] = res.discountNodes.edges
+        .filter((e) => e.node.discount.__typename === 'DiscountCodeBasic')
+        .map((e) => {
+          const d = e.node.discount;
+          const value = d.customerGets?.value;
+          let kind: ShopifyDiscountCodeItem['kind'] = 'unknown';
+          let percentage: number | null = null;
+          let fixedAmount: number | null = null;
+          if (value?.__typename === 'DiscountPercentage' && typeof value.percentage === 'number') {
+            kind = 'percentage';
+            percentage = value.percentage;
+          } else if (value?.__typename === 'DiscountAmount' && value.amount) {
+            kind = 'fixed_amount';
+            fixedAmount = Number(value.amount.amount);
+          }
+          return {
+            id: e.node.id,
+            title: d.title ?? '',
+            code: d.codes?.nodes[0]?.code ?? '',
+            status: d.status ?? 'UNKNOWN',
+            startsAt: d.startsAt ?? '',
+            endsAt: d.endsAt ?? null,
+            usageLimit: d.usageLimit ?? null,
+            asyncUsageCount: d.asyncUsageCount ?? 0,
+            kind,
+            percentage,
+            fixedAmount,
+            appliesToAllCustomers: d.customerSelection?.__typename === 'DiscountCustomerAll',
+            summary: d.summary ?? '',
+          };
+        });
+
+      log.info(`[listDiscountCodes] Fetched ${items.length} discount codes`);
+      return {items, pageInfo: res.discountNodes.pageInfo};
+    } catch (err) {
+      this.notifyError('listDiscountCodes', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 割引コード (Basic) を新規作成
+   * — patch 0069: percentage | fixed_amount の 2 種をサポート
+   *
+   * @param input.title           管理上のタイトル（例: "2026春キャンペーン"）
+   * @param input.code            コード文字列（例: "SPRING10"）
+   * @param input.kind            'percentage' | 'fixed_amount'
+   * @param input.percentage      0.01〜1.00（10% = 0.1）kind=percentage のとき必須
+   * @param input.fixedAmount     固定額（円）kind=fixed_amount のとき必須
+   * @param input.startsAt        ISO 8601 開始日時（例: "2026-04-20T00:00:00Z"）
+   * @param input.endsAt          ISO 8601 終了日時（任意）
+   * @param input.usageLimit      利用回数上限（任意、null=無制限）
+   * @param input.appliesOncePerCustomer 1顧客1回制限
+   */
+  async createDiscountCodeBasic(input: {
+    title: string;
+    code: string;
+    kind: 'percentage' | 'fixed_amount';
+    percentage?: number;
+    fixedAmount?: number;
+    startsAt: string;
+    endsAt?: string | null;
+    usageLimit?: number | null;
+    appliesOncePerCustomer?: boolean;
+  }): Promise<{id: string; code: string; title: string}> {
+    // 値バリデーション
+    if (input.kind === 'percentage' && (input.percentage == null || input.percentage <= 0 || input.percentage > 1)) {
+      throw new Error('percentage は 0 より大きく 1 以下 (= 100%) である必要があります');
+    }
+    if (input.kind === 'fixed_amount' && (input.fixedAmount == null || input.fixedAmount <= 0)) {
+      throw new Error('fixedAmount は 0 より大きい数値である必要があります');
+    }
+
+    // customerGets.value を kind に応じて組み立て
+    const value =
+      input.kind === 'percentage'
+        ? {percentage: input.percentage}
+        : {discountAmount: {amount: String(input.fixedAmount!), appliesOnEachItem: false}};
+
+    const gql = `
+      mutation discountCodeBasicCreate($basicCodeDiscount: DiscountCodeBasicInput!) {
+        discountCodeBasicCreate(basicCodeDiscount: $basicCodeDiscount) {
+          codeDiscountNode {
+            id
+            codeDiscount {
+              ... on DiscountCodeBasic {
+                title
+                codes(first: 1) { nodes { code } }
+              }
+            }
+          }
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        discountCodeBasicCreate: {
+          codeDiscountNode: {
+            id: string;
+            codeDiscount: {title: string; codes: {nodes: Array<{code: string}>}};
+          } | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {
+        basicCodeDiscount: {
+          title: input.title,
+          code: input.code,
+          startsAt: input.startsAt,
+          endsAt: input.endsAt ?? null,
+          customerSelection: {all: true},
+          customerGets: {items: {all: true}, value},
+          usageLimit: input.usageLimit ?? null,
+          appliesOncePerCustomer: input.appliesOncePerCustomer ?? false,
+        },
+      });
+
+      const {codeDiscountNode, userErrors} = res.discountCodeBasicCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`割引コード作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!codeDiscountNode) {
+        throw new Error('割引コード作成失敗: ノードが返されませんでした');
+      }
+
+      log.info(`[createDiscountCodeBasic] Created: ${codeDiscountNode.id} (${input.code})`);
+      return {
+        id: codeDiscountNode.id,
+        code: codeDiscountNode.codeDiscount.codes.nodes[0]?.code ?? input.code,
+        title: codeDiscountNode.codeDiscount.title ?? input.title,
+      };
+    } catch (err) {
+      this.notifyError('createDiscountCodeBasic', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 割引コード (Basic) を削除
+   * — patch 0069: 冪等 (not-found → success 扱い)
+   */
+  async deleteDiscountCode(id: string): Promise<{deletedId: string | null; notFound: boolean}> {
+    const gql = `
+      mutation discountCodeDelete($id: ID!) {
+        discountCodeDelete(id: $id) {
+          deletedCodeDiscountId
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        discountCodeDelete: {
+          deletedCodeDiscountId: string | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {id});
+
+      const {deletedCodeDiscountId, userErrors} = res.discountCodeDelete;
+      if (userErrors.length > 0) {
+        const isNotFound = userErrors.every(
+          (e) =>
+            (e.code && /not[_-]?found/i.test(e.code)) ||
+            /not\s+found|does\s+not\s+exist|存在しません/i.test(e.message),
+        );
+        if (isNotFound) {
+          log.info(`[deleteDiscountCode] Not found (idempotent): ${id}`);
+          return {deletedId: null, notFound: true};
+        }
+        throw new Error(`割引コード削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+
+      log.info(`[deleteDiscountCode] Deleted: ${deletedCodeDiscountId || id}`);
+      return {deletedId: deletedCodeDiscountId, notFound: false};
+    } catch (err) {
+      this.notifyError('deleteDiscountCode', err);
+      throw err;
+    }
   }
 
 }
