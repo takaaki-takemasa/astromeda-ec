@@ -117,7 +117,11 @@ jobs:
         run: npm install --no-audit --no-fund
 
       - name: Deploy to Production
-        run: npx shopify hydrogen deploy --force --entry server --no-lockfile-check --token "$SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN"
+        # NOTE (patch 0069): --build-command "npm run build" を staging と揃える。
+        # CLI 既定ビルドだと dist/server/index.js.map (7.8MB) を残し、
+        # bundle 合計が Oxygen のアップロード上限を超えて step 5 で exit 1 になる。
+        # `npm run build` は build 後に .map を削除する postbuild を含むので必須。
+        run: npx shopify hydrogen deploy --build-command "npm run build" --force --entry server --no-lockfile-check --token "$SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN"
         env:
           SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN: ${{ secrets.SHOPIFY_HYDROGEN_DEPLOYMENT_TOKEN }}
           NODE_ENV: production
