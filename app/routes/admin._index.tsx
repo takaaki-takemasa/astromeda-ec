@@ -37,6 +37,8 @@ const AdminBulkTags = lazy(() => import('~/components/admin/tabs/AdminBulkTags')
 const AdminRedirects = lazy(() => import('~/components/admin/tabs/AdminRedirects'));
 // patch 0067: 管理画面完結化 P3 — Shopify Files ライブラリ管理
 const AdminFiles = lazy(() => import('~/components/admin/tabs/AdminFiles'));
+// patch 0068: 管理画面完結化 P4 — Metaobject 定義 CRUD
+const AdminMetaobjectDefinitions = lazy(() => import('~/components/admin/tabs/AdminMetaobjectDefinitions'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -264,13 +266,13 @@ export const meta = () => [
 
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
-type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
   home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
   // patch 0067: commerce に files タブを追加
-  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'files', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
+  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'files', 'metaobjectDefs', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -286,6 +288,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   bulkTags: '🏷️ タグ一括編集',
   redirects: '🔀 リダイレクト',
   files: '📁 ファイル',
+  metaobjectDefs: '🧬 CMS 定義',
   customization: 'カスタマイズ',
   homepage: 'ホームページ',
   pageEditor: 'ページ編集',
@@ -607,6 +610,11 @@ export default function AdminDashboard() {
           {subTab === 'files' && (
             <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
               <AdminFiles />
+            </Suspense>
+          )}
+          {subTab === 'metaobjectDefs' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminMetaobjectDefinitions />
             </Suspense>
           )}
           {subTab === 'customization' && (

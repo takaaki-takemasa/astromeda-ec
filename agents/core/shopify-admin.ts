@@ -227,6 +227,30 @@ export interface ShopifyFileListItem {
   typeName: string;
 }
 
+/** メタオブジェクト定義一覧アイテム（patch 0068 — 管理画面完結化 P4） */
+export interface ShopifyMetaobjectDefinitionItem {
+  /** gid://shopify/MetaobjectDefinition/... */
+  id: string;
+  /** 例: astromeda_marquee_item */
+  type: string;
+  /** 表示名 */
+  name: string;
+  /** 説明（任意） */
+  description: string | null;
+  /** 定義済みフィールド数 */
+  fieldCount: number;
+  /** 実体の Metaobject インスタンス件数 — 削除警告用 */
+  metaobjectsCount: number;
+  /** フィールド一覧 */
+  fieldDefinitions: Array<{
+    key: string;
+    name: string;
+    type: string;
+    required: boolean;
+    description: string | null;
+  }>;
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -1501,6 +1525,228 @@ export class ShopifyAdminClient {
       return res.metaobjectDefinitionByType;
     } catch (err) {
       this.notifyError('getMetaobjectDefinition', err);
+      throw err;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // メタオブジェクト定義 一覧/詳細/削除（patch 0068 — 管理画面完結化 P4）
+  //
+  // CEO が Shopify admin に行かずに新しい Metaobject タイプを
+  // 定義・閲覧・廃棄できるようにするための拡張。
+  // ══════════════════════════════════════════════════════════
+
+  /**
+   * メタオブジェクト定義の一覧を取得（cursor pagination）
+   *
+   * @param first 1〜100
+   * @param after cursor（Relay）
+   */
+  async listMetaobjectDefinitions(
+    first: number = 50,
+    after?: string,
+  ): Promise<{
+    items: ShopifyMetaobjectDefinitionItem[];
+    pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query listMetaobjectDefinitions($first: Int!, $after: String) {
+        metaobjectDefinitions(first: $first, after: $after) {
+          edges {
+            cursor
+            node {
+              id
+              type
+              name
+              description
+              metaobjects(first: 1) { nodes { id } }
+              fieldDefinitions {
+                key
+                name
+                description
+                required
+                type { name }
+              }
+            }
+          }
+          pageInfo { hasNextPage hasPreviousPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        metaobjectDefinitions: {
+          edges: Array<{
+            cursor: string;
+            node: {
+              id: string;
+              type: string;
+              name: string;
+              description: string | null;
+              metaobjects: {nodes: Array<{id: string}>};
+              fieldDefinitions: Array<{
+                key: string;
+                name: string;
+                description: string | null;
+                required: boolean;
+                type: {name: string};
+              }>;
+            };
+          }>;
+          pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first, after});
+
+      const items: ShopifyMetaobjectDefinitionItem[] = res.metaobjectDefinitions.edges.map(e => ({
+        id: e.node.id,
+        type: e.node.type,
+        name: e.node.name,
+        description: e.node.description,
+        fieldCount: e.node.fieldDefinitions.length,
+        // metaobjects(first:1) で件数の有無のみ確認可（厳密件数は別 query 必要）。
+        // 1件以上ヒットした場合は -1 を返し UI 側で「(>=1)」と表記する戦略でも可だが、
+        // 単純に edges.length を返す（最大1）。
+        metaobjectsCount: e.node.metaobjects.nodes.length,
+        fieldDefinitions: e.node.fieldDefinitions.map(f => ({
+          key: f.key,
+          name: f.name,
+          type: f.type.name,
+          required: f.required,
+          description: f.description,
+        })),
+      }));
+
+      return {items, pageInfo: res.metaobjectDefinitions.pageInfo};
+    } catch (err) {
+      this.notifyError('listMetaobjectDefinitions', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 単一定義の詳細取得（type または id 指定）
+   */
+  async getMetaobjectDefinitionFull(
+    typeOrId: {type?: string; id?: string},
+  ): Promise<ShopifyMetaobjectDefinitionItem | null> {
+    const fragmentBody = `
+      id
+      type
+      name
+      description
+      metaobjects(first: 1) { nodes { id } }
+      fieldDefinitions {
+        key
+        name
+        description
+        required
+        type { name }
+      }
+    `;
+
+    let gql: string;
+    let variables: Record<string, string>;
+
+    if (typeOrId.id) {
+      gql = `query metaobjectDefinitionById($id: ID!) { metaobjectDefinition(id: $id) { ${fragmentBody} } }`;
+      variables = {id: typeOrId.id};
+    } else if (typeOrId.type) {
+      gql = `query metaobjectDefinitionByType($type: String!) { metaobjectDefinitionByType(type: $type) { ${fragmentBody} } }`;
+      variables = {type: typeOrId.type};
+    } else {
+      throw new Error('getMetaobjectDefinitionFull: type または id を指定してください');
+    }
+
+    try {
+      const res = await this.query<Record<string, {
+        id: string;
+        type: string;
+        name: string;
+        description: string | null;
+        metaobjects: {nodes: Array<{id: string}>};
+        fieldDefinitions: Array<{
+          key: string;
+          name: string;
+          description: string | null;
+          required: boolean;
+          type: {name: string};
+        }>;
+      } | null>>(gql, variables);
+
+      const node = typeOrId.id ? res.metaobjectDefinition : res.metaobjectDefinitionByType;
+      if (!node) return null;
+
+      return {
+        id: node.id,
+        type: node.type,
+        name: node.name,
+        description: node.description,
+        fieldCount: node.fieldDefinitions.length,
+        metaobjectsCount: node.metaobjects.nodes.length,
+        fieldDefinitions: node.fieldDefinitions.map(f => ({
+          key: f.key,
+          name: f.name,
+          type: f.type.name,
+          required: f.required,
+          description: f.description,
+        })),
+      };
+    } catch (err) {
+      this.notifyError('getMetaobjectDefinitionFull', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メタオブジェクト定義を削除
+   *
+   * **危険**: 実体の Metaobject インスタンスがある場合、それらも全て削除される。
+   * 必ず UI 側で metaobjectsCount を確認させ、明示的な確認ダイアログを表示すること。
+   *
+   * 戻り値:
+   *   - deletedId: 削除した GID（成功時）
+   *   - notFound: 既に存在しない場合 true（idempotent — 並行削除で安全）
+   */
+  async deleteMetaobjectDefinition(
+    id: string,
+  ): Promise<{deletedId: string | null; notFound: boolean}> {
+    const gql = `
+      mutation metaobjectDefinitionDelete($id: ID!) {
+        metaobjectDefinitionDelete(id: $id) {
+          deletedId
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        metaobjectDefinitionDelete: {
+          deletedId: string | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {id});
+
+      const {deletedId, userErrors} = res.metaobjectDefinitionDelete;
+
+      if (userErrors.length > 0) {
+        const isNotFound = userErrors.every(
+          e =>
+            (e.code && /not[_-]?found/i.test(e.code)) ||
+            /not\s+found|does\s+not\s+exist|存在しません/i.test(e.message),
+        );
+        if (isNotFound) {
+          log.info(`[deleteMetaobjectDefinition] Not found (idempotent): ${id}`);
+          return {deletedId: null, notFound: true};
+        }
+        throw new Error(`メタオブジェクト定義削除失敗: ${userErrors.map(e => e.message).join(', ')}`);
+      }
+
+      log.info(`[deleteMetaobjectDefinition] Deleted: ${deletedId || id}`);
+      return {deletedId, notFound: false};
+    } catch (err) {
+      this.notifyError('deleteMetaobjectDefinition', err);
       throw err;
     }
   }
