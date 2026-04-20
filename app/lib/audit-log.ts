@@ -30,11 +30,15 @@ export type AuditAction =
   | 'system_download'
   | 'content_edit'
   | 'product_edit'
+  | 'collection_create'
+  | 'collection_update'
+  | 'collection_delete'
   | 'approval_decide'
   | 'andon_pull'
   | 'andon_clear'
   | 'password_change'
-  | 'api_access';
+  | 'api_access'
+  | 'api_error';
 
 export interface AuditEntry {
   /** ISO 8601 タイムスタンプ */

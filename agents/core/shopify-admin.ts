@@ -118,6 +118,72 @@ export interface ProductSummary {
   avgPrice: number;
 }
 
+/** コレクション作成/更新用の入力型（patch 0064 — 管理画面完結化） */
+export interface CollectionCreateInput {
+  title: string;
+  descriptionHtml?: string;
+  handle?: string;
+  /** image: { src: 既存ファイル URL or stagedUpload resourceUrl, altText?: string } または { id: 既存 MediaImage GID } */
+  image?: {id?: string; src?: string; altText?: string};
+  /** スマートコレクション条件。省略時は手動コレクション。 */
+  ruleSet?: {
+    appliedDisjunctively: boolean;
+    rules: Array<{
+      column:
+        | 'TAG'
+        | 'TITLE'
+        | 'TYPE'
+        | 'VENDOR'
+        | 'VARIANT_PRICE'
+        | 'IS_PRICE_REDUCED'
+        | 'VARIANT_COMPARE_AT_PRICE'
+        | 'VARIANT_WEIGHT'
+        | 'VARIANT_INVENTORY';
+      relation:
+        | 'EQUALS'
+        | 'NOT_EQUALS'
+        | 'GREATER_THAN'
+        | 'LESS_THAN'
+        | 'STARTS_WITH'
+        | 'ENDS_WITH'
+        | 'CONTAINS'
+        | 'NOT_CONTAINS'
+        | 'IS_SET'
+        | 'IS_NOT_SET';
+      condition: string;
+    }>;
+  };
+  seo?: {title?: string; description?: string};
+  sortOrder?:
+    | 'MANUAL'
+    | 'BEST_SELLING'
+    | 'ALPHA_ASC'
+    | 'ALPHA_DESC'
+    | 'PRICE_ASC'
+    | 'PRICE_DESC'
+    | 'CREATED'
+    | 'CREATED_DESC';
+  templateSuffix?: string;
+}
+
+export interface CollectionListItem {
+  id: string;
+  handle: string;
+  title: string;
+  updatedAt: string;
+  productsCount: number;
+  imageUrl: string | null;
+  ruleSet: {appliedDisjunctively: boolean; rules: Array<{column: string; relation: string; condition: string}>} | null;
+  sortOrder: string;
+}
+
+export interface CollectionDetail extends CollectionListItem {
+  descriptionHtml: string;
+  description: string;
+  seo: {title: string | null; description: string | null};
+  templateSuffix: string | null;
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -457,6 +523,276 @@ export class ShopifyAdminClient {
       return true;
     } catch (err) {
       this.notifyError('deleteProduct', err);
+      throw err;
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════
+  // コレクションCRUD（効果器: 組織化 — patch 0064）
+  //
+  // 医学的メタファー: 商品(細胞)を特定のルール(タグ条件等)で
+  // 束ねて「組織」(コレクション)を作る。新 IP コラボの親コレクション
+  // 作成を管理画面から完結するために 2026-04-20 に新設。
+  // ══════════════════════════════════════════════════════════
+
+  /**
+   * コレクション一覧（Admin API — draft を含む）
+   */
+  async listCollectionsAdmin(
+    first = 50,
+    queryStr?: string,
+    cursor?: string,
+  ): Promise<{
+    collections: CollectionListItem[];
+    pageInfo: {hasNextPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query CollectionsAdmin($first: Int!, $query: String, $after: String) {
+        collections(first: $first, query: $query, after: $after, sortKey: UPDATED_AT, reverse: true) {
+          edges {
+            cursor
+            node {
+              id
+              handle
+              title
+              updatedAt
+              productsCount { count }
+              image { url altText }
+              ruleSet {
+                appliedDisjunctively
+                rules { column relation condition }
+              }
+              sortOrder
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        collections: {
+          edges: Array<{
+            cursor: string;
+            node: {
+              id: string;
+              handle: string;
+              title: string;
+              updatedAt: string;
+              productsCount: {count: number} | null;
+              image: {url: string; altText: string | null} | null;
+              ruleSet: {
+                appliedDisjunctively: boolean;
+                rules: Array<{column: string; relation: string; condition: string}>;
+              } | null;
+              sortOrder: string;
+            };
+          }>;
+          pageInfo: {hasNextPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first, query: queryStr, after: cursor});
+
+      const collections: CollectionListItem[] = res.collections.edges.map(({node}) => ({
+        id: node.id,
+        handle: node.handle,
+        title: node.title,
+        updatedAt: node.updatedAt,
+        productsCount: node.productsCount?.count ?? 0,
+        imageUrl: node.image?.url ?? null,
+        ruleSet: node.ruleSet,
+        sortOrder: node.sortOrder,
+      }));
+
+      return {collections, pageInfo: res.collections.pageInfo};
+    } catch (err) {
+      this.notifyError('listCollectionsAdmin', err);
+      throw err;
+    }
+  }
+
+  /**
+   * コレクション詳細（編集用）
+   */
+  async getCollectionDetail(id: string): Promise<CollectionDetail | null> {
+    const gql = `
+      query CollectionDetail($id: ID!) {
+        collection(id: $id) {
+          id
+          handle
+          title
+          description
+          descriptionHtml
+          updatedAt
+          templateSuffix
+          sortOrder
+          productsCount { count }
+          image { url altText }
+          seo { title description }
+          ruleSet {
+            appliedDisjunctively
+            rules { column relation condition }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        collection: {
+          id: string;
+          handle: string;
+          title: string;
+          description: string;
+          descriptionHtml: string;
+          updatedAt: string;
+          templateSuffix: string | null;
+          sortOrder: string;
+          productsCount: {count: number} | null;
+          image: {url: string; altText: string | null} | null;
+          seo: {title: string | null; description: string | null};
+          ruleSet: {
+            appliedDisjunctively: boolean;
+            rules: Array<{column: string; relation: string; condition: string}>;
+          } | null;
+        } | null;
+      }>(gql, {id});
+
+      if (!res.collection) return null;
+      const c = res.collection;
+      return {
+        id: c.id,
+        handle: c.handle,
+        title: c.title,
+        description: c.description,
+        descriptionHtml: c.descriptionHtml,
+        updatedAt: c.updatedAt,
+        productsCount: c.productsCount?.count ?? 0,
+        imageUrl: c.image?.url ?? null,
+        seo: c.seo,
+        ruleSet: c.ruleSet,
+        sortOrder: c.sortOrder,
+        templateSuffix: c.templateSuffix,
+      };
+    } catch (err) {
+      this.notifyError('getCollectionDetail', err);
+      throw err;
+    }
+  }
+
+  /**
+   * コレクションを作成（効果器: 新組織の形成）
+   */
+  async createCollection(input: CollectionCreateInput): Promise<{id: string; handle: string}> {
+    const gql = `
+      mutation collectionCreate($input: CollectionInput!) {
+        collectionCreate(input: $input) {
+          collection { id handle title }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        collectionCreate: {
+          collection: {id: string; handle: string; title: string} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {input});
+
+      const {collection, userErrors} = res.collectionCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`コレクション作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!collection) throw new Error('コレクション作成: レスポンスにcollectionが含まれません');
+
+      log.info(`[createCollection] Created: ${collection.handle} (${collection.id})`);
+      return {id: collection.id, handle: collection.handle};
+    } catch (err) {
+      this.notifyError('createCollection', err);
+      throw err;
+    }
+  }
+
+  /**
+   * コレクションを更新（効果器: 組織の再編）
+   */
+  async updateCollection(
+    id: string,
+    input: Partial<CollectionCreateInput>,
+  ): Promise<{id: string; handle: string}> {
+    const gql = `
+      mutation collectionUpdate($input: CollectionInput!) {
+        collectionUpdate(input: $input) {
+          collection { id handle title }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        collectionUpdate: {
+          collection: {id: string; handle: string} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {input: {id, ...input}});
+
+      const {collection, userErrors} = res.collectionUpdate;
+      if (userErrors.length > 0) {
+        throw new Error(`コレクション更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!collection) throw new Error('コレクション更新: レスポンスにcollectionが含まれません');
+
+      log.info(`[updateCollection] Updated: ${collection.handle} (${collection.id})`);
+      return {id: collection.id, handle: collection.handle};
+    } catch (err) {
+      this.notifyError('updateCollection', err);
+      throw err;
+    }
+  }
+
+  /**
+   * コレクションを削除（効果器: 組織の吸収）
+   * 冪等性: 既に削除済みの場合も true
+   */
+  async deleteCollection(id: string): Promise<boolean> {
+    const gql = `
+      mutation collectionDelete($input: CollectionDeleteInput!) {
+        collectionDelete(input: $input) {
+          deletedCollectionId
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        collectionDelete: {
+          deletedCollectionId: string | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {input: {id}});
+
+      const {userErrors} = res.collectionDelete;
+      if (userErrors.length > 0) {
+        const isAlreadyDeleted = userErrors.some(
+          (e) =>
+            e.message.toLowerCase().includes('not found') ||
+            e.message.toLowerCase().includes('does not exist'),
+        );
+        if (isAlreadyDeleted) {
+          log.info(`[deleteCollection] Already deleted: ${id}`);
+          return true;
+        }
+        throw new Error(`コレクション削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+
+      log.info(`[deleteCollection] Deleted: ${id}`);
+      return true;
+    } catch (err) {
+      this.notifyError('deleteCollection', err);
       throw err;
     }
   }

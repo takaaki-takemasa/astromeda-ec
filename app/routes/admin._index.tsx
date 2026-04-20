@@ -29,6 +29,8 @@ const AdminPipelines = lazy(() => import('~/components/admin/tabs/AdminPipelines
 const AdminControl = lazy(() => import('~/components/admin/tabs/AdminControl'));
 const AdminSettings = lazy(() => import('~/components/admin/tabs/AdminSettings'));
 const AdminProducts = lazy(() => import('~/components/admin/tabs/AdminProducts'));
+// patch 0064: 管理画面完結化 P0 — Shopify admin への迂回を撤廃
+const AdminCollections = lazy(() => import('~/components/admin/tabs/AdminCollections'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -256,12 +258,12 @@ export const meta = () => [
 
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
-type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
   home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
-  commerce: { tabs: ['content', 'products', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
+  commerce: { tabs: ['content', 'products', 'collections', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -273,6 +275,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   summary: '経営サマリー',
   content: 'コンテンツ',
   products: '商品管理',
+  collections: 'コレクション',
   customization: 'カスタマイズ',
   homepage: 'ホームページ',
   pageEditor: 'ページ編集',
@@ -574,6 +577,11 @@ export default function AdminDashboard() {
           {subTab === 'products' && (
             <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
               <AdminProducts />
+            </Suspense>
+          )}
+          {subTab === 'collections' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminCollections />
             </Suspense>
           )}
           {subTab === 'customization' && (
