@@ -184,6 +184,21 @@ export interface CollectionDetail extends CollectionListItem {
   templateSuffix: string | null;
 }
 
+/** URL リダイレクト作成/更新用の入力型（patch 0066 — 管理画面完結化 P2） */
+export interface UrlRedirectInput {
+  /** リダイレクト元パス（例: /pages/old-page） */
+  path: string;
+  /** リダイレクト先パスまたはURL（例: /collections/new-page） */
+  target: string;
+}
+
+/** URL リダイレクト一覧アイテム */
+export interface UrlRedirectListItem {
+  id: string;
+  path: string;
+  target: string;
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -912,6 +927,167 @@ export class ShopifyAdminClient {
       return true;
     } catch (err) {
       this.notifyError('deleteCollection', err);
+      throw err;
+    }
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // patch 0066 — URL リダイレクト CRUD（管理画面完結化 P2）
+  // 効果器: 記憶の再経路化（旧URL→新URLへ神経経路を接続）
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  /**
+   * URL リダイレクト一覧を取得（受容器: 現在の記憶再経路マップを読み取る）
+   */
+  async listUrlRedirects(
+    first = 50,
+    query?: string,
+    after?: string,
+  ): Promise<{
+    items: UrlRedirectListItem[];
+    pageInfo: {hasNextPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query UrlRedirects($first: Int!, $query: String, $after: String) {
+        urlRedirects(first: $first, query: $query, after: $after, sortKey: ID, reverse: true) {
+          edges {
+            cursor
+            node { id path target }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        urlRedirects: {
+          edges: Array<{cursor: string; node: {id: string; path: string; target: string}}>;
+          pageInfo: {hasNextPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first, query, after});
+
+      const items = res.urlRedirects.edges.map((e) => e.node);
+      return {items, pageInfo: res.urlRedirects.pageInfo};
+    } catch (err) {
+      this.notifyError('listUrlRedirects', err);
+      throw err;
+    }
+  }
+
+  /**
+   * URL リダイレクトを作成（効果器: 新しい経路の配線）
+   */
+  async createUrlRedirect(input: UrlRedirectInput): Promise<{id: string; path: string; target: string}> {
+    const gql = `
+      mutation urlRedirectCreate($urlRedirect: UrlRedirectInput!) {
+        urlRedirectCreate(urlRedirect: $urlRedirect) {
+          urlRedirect { id path target }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        urlRedirectCreate: {
+          urlRedirect: {id: string; path: string; target: string} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {urlRedirect: input});
+
+      const {urlRedirect, userErrors} = res.urlRedirectCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`リダイレクト作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!urlRedirect) throw new Error('リダイレクト作成: レスポンスに urlRedirect が含まれません');
+
+      log.info(`[createUrlRedirect] Created: ${urlRedirect.path} → ${urlRedirect.target} (${urlRedirect.id})`);
+      return urlRedirect;
+    } catch (err) {
+      this.notifyError('createUrlRedirect', err);
+      throw err;
+    }
+  }
+
+  /**
+   * URL リダイレクトを更新（効果器: 経路の再配線）
+   */
+  async updateUrlRedirect(
+    id: string,
+    input: UrlRedirectInput,
+  ): Promise<{id: string; path: string; target: string}> {
+    const gql = `
+      mutation urlRedirectUpdate($id: ID!, $urlRedirect: UrlRedirectInput!) {
+        urlRedirectUpdate(id: $id, urlRedirect: $urlRedirect) {
+          urlRedirect { id path target }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        urlRedirectUpdate: {
+          urlRedirect: {id: string; path: string; target: string} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {id, urlRedirect: input});
+
+      const {urlRedirect, userErrors} = res.urlRedirectUpdate;
+      if (userErrors.length > 0) {
+        throw new Error(`リダイレクト更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!urlRedirect) throw new Error('リダイレクト更新: レスポンスに urlRedirect が含まれません');
+
+      log.info(`[updateUrlRedirect] Updated: ${urlRedirect.path} → ${urlRedirect.target} (${urlRedirect.id})`);
+      return urlRedirect;
+    } catch (err) {
+      this.notifyError('updateUrlRedirect', err);
+      throw err;
+    }
+  }
+
+  /**
+   * URL リダイレクトを削除（効果器: 経路の切断）
+   * 冪等性: 既に削除済みの場合も true
+   */
+  async deleteUrlRedirect(id: string): Promise<boolean> {
+    const gql = `
+      mutation urlRedirectDelete($id: ID!) {
+        urlRedirectDelete(id: $id) {
+          deletedUrlRedirectId
+          userErrors { field message }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        urlRedirectDelete: {
+          deletedUrlRedirectId: string | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {id});
+
+      const {userErrors} = res.urlRedirectDelete;
+      if (userErrors.length > 0) {
+        const isAlreadyDeleted = userErrors.some(
+          (e) =>
+            e.message.toLowerCase().includes('not found') ||
+            e.message.toLowerCase().includes('does not exist'),
+        );
+        if (isAlreadyDeleted) {
+          log.info(`[deleteUrlRedirect] Already deleted: ${id}`);
+          return true;
+        }
+        throw new Error(`リダイレクト削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+
+      log.info(`[deleteUrlRedirect] Deleted: ${id}`);
+      return true;
+    } catch (err) {
+      this.notifyError('deleteUrlRedirect', err);
       throw err;
     }
   }

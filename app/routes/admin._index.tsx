@@ -33,6 +33,8 @@ const AdminProducts = lazy(() => import('~/components/admin/tabs/AdminProducts')
 const AdminCollections = lazy(() => import('~/components/admin/tabs/AdminCollections'));
 // patch 0065: 管理画面完結化 P1 — 商品タグ一括編集
 const AdminBulkTags = lazy(() => import('~/components/admin/tabs/AdminBulkTags'));
+// patch 0066: 管理画面完結化 P2 — URL リダイレクト CRUD
+const AdminRedirects = lazy(() => import('~/components/admin/tabs/AdminRedirects'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -260,12 +262,12 @@ export const meta = () => [
 
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
-type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
   home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
-  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
+  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -279,6 +281,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   products: '商品管理',
   collections: 'コレクション',
   bulkTags: '🏷️ タグ一括編集',
+  redirects: '🔀 リダイレクト',
   customization: 'カスタマイズ',
   homepage: 'ホームページ',
   pageEditor: 'ページ編集',
@@ -590,6 +593,11 @@ export default function AdminDashboard() {
           {subTab === 'bulkTags' && (
             <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
               <AdminBulkTags />
+            </Suspense>
+          )}
+          {subTab === 'redirects' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminRedirects />
             </Suspense>
           )}
           {subTab === 'customization' && (
