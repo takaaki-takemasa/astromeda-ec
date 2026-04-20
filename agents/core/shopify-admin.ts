@@ -284,6 +284,62 @@ export interface ShopifyDiscountCodeItem {
   summary: string;
 }
 
+/**
+ * Shopify Navigation Menu 一覧表示用 — patch 0070
+ * CEO がヘッダー/フッターのメニュー構造を admin から編集するための表示形
+ */
+export interface ShopifyMenuSummary {
+  /** gid://shopify/Menu/... */
+  id: string;
+  /** handle (main-menu / footer / shop など。url path にも使われる) */
+  handle: string;
+  /** CEO 表示用タイトル */
+  title: string;
+  /** メニュー項目数（トップレベルのみの件数。Admin API が直接返す） */
+  itemsCount: number;
+  /** Shopify の既定 (main-menu / footer) かどうか (削除不可) */
+  isDefault: boolean;
+}
+
+/** メニュー項目（再帰的ツリー） */
+export interface ShopifyMenuItem {
+  /** gid://shopify/MenuItem/... (update 時に同 id を渡せば置き換え) */
+  id?: string;
+  /** 表示ラベル */
+  title: string;
+  /** 項目タイプ */
+  type: ShopifyMenuItemType;
+  /** type=COLLECTION/PRODUCT/PAGE/BLOG/ARTICLE/METAOBJECT のとき参照する gid */
+  resourceId?: string | null;
+  /** type=HTTP のときの URL (外部/相対どちらも可) */
+  url?: string | null;
+  /** 補助タグ */
+  tags?: string[];
+  /** 子メニュー (深さ 3 まで) */
+  items?: ShopifyMenuItem[];
+}
+
+/** Shopify MenuItemType enum (2025-10 schema) */
+export type ShopifyMenuItemType =
+  | 'FRONTPAGE'
+  | 'COLLECTION'
+  | 'COLLECTIONS'
+  | 'CATALOG'
+  | 'PRODUCT'
+  | 'PAGE'
+  | 'BLOG'
+  | 'ARTICLE'
+  | 'SEARCH'
+  | 'SHOP_POLICY'
+  | 'CUSTOMER_ACCOUNT_PAGE'
+  | 'METAOBJECT'
+  | 'HTTP';
+
+/** メニュー詳細 (getMenu 戻り値) */
+export interface ShopifyMenuDetail extends ShopifyMenuSummary {
+  items: ShopifyMenuItem[];
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -2923,6 +2979,386 @@ export class ShopifyAdminClient {
     }
   }
 
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // Navigation Menu CRUD — patch 0070 (CEO 二段階修正撤廃 P6)
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  //
+  // 効果器: 末梢神経路の再配線（ヘッダー/フッターの導線を組み替える）
+  // 想定 use case: CEO が新しいキャンペーンページやコレクションを追加したとき、
+  // ヘッダー/フッターの「メニュー項目」を Shopify admin を開かず管理画面から並べ替え・追加・削除する。
+  //
+  // 必要 scope: read_online_store_navigation, write_online_store_navigation
+  // (patch 0066 の urlRedirects と同じ scope — 追加認可不要)
+  //
+  // 深さ上限: Shopify の仕様で最大 3 階層まで (trim する責任は呼び出し側)
+  // 参照: https://shopify.dev/docs/api/admin-graphql/latest/objects/Menu
+
+  /**
+   * ナビゲーションメニュー一覧
+   * — patch 0070: handle / title / 項目数 のみの summary
+   */
+  async listMenus(
+    first = 50,
+    after?: string,
+  ): Promise<{
+    items: ShopifyMenuSummary[];
+    pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query listMenus($first: Int!, $after: String) {
+        menus(first: $first, after: $after, sortKey: TITLE) {
+          edges {
+            cursor
+            node {
+              id
+              handle
+              title
+              itemsCount { count precision }
+              isDefault
+            }
+          }
+          pageInfo { hasNextPage hasPreviousPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        menus: {
+          edges: Array<{
+            cursor: string;
+            node: {
+              id: string;
+              handle: string;
+              title: string;
+              itemsCount: {count: number; precision: string} | number | null;
+              isDefault: boolean;
+            };
+          }>;
+          pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first: Math.max(1, Math.min(first, 100)), after: after ?? null});
+
+      const items: ShopifyMenuSummary[] = res.menus.edges.map((e) => {
+        const raw = e.node.itemsCount;
+        const count =
+          typeof raw === 'number'
+            ? raw
+            : raw && typeof raw === 'object' && 'count' in raw
+              ? raw.count
+              : 0;
+        return {
+          id: e.node.id,
+          handle: e.node.handle,
+          title: e.node.title,
+          itemsCount: count,
+          isDefault: e.node.isDefault,
+        };
+      });
+
+      log.info(`[listMenus] Fetched ${items.length} menus`);
+      return {items, pageInfo: res.menus.pageInfo};
+    } catch (err) {
+      this.notifyError('listMenus', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メニュー詳細（ネストした items ツリーつき）
+   * — patch 0070: 深さ 3 階層まで取得。それ以上は切り捨て
+   */
+  async getMenu(id: string): Promise<ShopifyMenuDetail> {
+    const itemFragment = `
+      id
+      title
+      type
+      resourceId
+      url
+      tags
+    `;
+    // 深さ 3 までのネスト（Shopify 仕様上限）
+    const gql = `
+      query getMenu($id: ID!) {
+        menu(id: $id) {
+          id
+          handle
+          title
+          itemsCount { count precision }
+          isDefault
+          items {
+            ${itemFragment}
+            items {
+              ${itemFragment}
+              items {
+                ${itemFragment}
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        menu: {
+          id: string;
+          handle: string;
+          title: string;
+          itemsCount: {count: number; precision: string} | number | null;
+          isDefault: boolean;
+          items: ShopifyMenuItemRaw[];
+        } | null;
+      }>(gql, {id});
+
+      if (!res.menu) {
+        throw new Error(`メニューが見つかりません: ${id}`);
+      }
+
+      const raw = res.menu.itemsCount;
+      const count =
+        typeof raw === 'number'
+          ? raw
+          : raw && typeof raw === 'object' && 'count' in raw
+            ? raw.count
+            : 0;
+
+      const items = normalizeMenuItemsTree(res.menu.items);
+      log.info(`[getMenu] Fetched: ${id} (${items.length} top-level items)`);
+      return {
+        id: res.menu.id,
+        handle: res.menu.handle,
+        title: res.menu.title,
+        itemsCount: count,
+        isDefault: res.menu.isDefault,
+        items,
+      };
+    } catch (err) {
+      this.notifyError('getMenu', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メニュー新規作成
+   * — patch 0070: handle は URL handle として使われる (重複不可)
+   */
+  async createMenu(input: {
+    title: string;
+    handle: string;
+    items?: ShopifyMenuItem[];
+  }): Promise<{id: string; handle: string; title: string}> {
+    const gql = `
+      mutation menuCreate($title: String!, $handle: String!, $items: [MenuItemCreateInput!]!) {
+        menuCreate(title: $title, handle: $handle, items: $items) {
+          menu { id handle title }
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    const itemsForCreate = toMenuItemCreateInputList(input.items ?? []);
+
+    try {
+      const res = await this.query<{
+        menuCreate: {
+          menu: {id: string; handle: string; title: string} | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {
+        title: input.title,
+        handle: input.handle,
+        items: itemsForCreate,
+      });
+
+      const {menu, userErrors} = res.menuCreate;
+      if (userErrors.length > 0) {
+        throw new Error(`メニュー作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!menu) {
+        throw new Error('メニュー作成失敗: ノードが返されませんでした');
+      }
+
+      log.info(`[createMenu] Created: ${menu.id} (${menu.handle})`);
+      return menu;
+    } catch (err) {
+      this.notifyError('createMenu', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メニュー更新 (title / handle / items を丸ごと置換)
+   * — patch 0070: items は全置換方式 (Shopify の menuUpdate 仕様)
+   */
+  async updateMenu(
+    id: string,
+    input: {title: string; handle: string; items: ShopifyMenuItem[]},
+  ): Promise<{id: string; handle: string; title: string}> {
+    const gql = `
+      mutation menuUpdate(
+        $id: ID!
+        $title: String!
+        $handle: String!
+        $items: [MenuItemUpdateInput!]!
+      ) {
+        menuUpdate(id: $id, title: $title, handle: $handle, items: $items) {
+          menu { id handle title }
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    const itemsForUpdate = toMenuItemUpdateInputList(input.items);
+
+    try {
+      const res = await this.query<{
+        menuUpdate: {
+          menu: {id: string; handle: string; title: string} | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {
+        id,
+        title: input.title,
+        handle: input.handle,
+        items: itemsForUpdate,
+      });
+
+      const {menu, userErrors} = res.menuUpdate;
+      if (userErrors.length > 0) {
+        throw new Error(`メニュー更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+      if (!menu) {
+        throw new Error('メニュー更新失敗: ノードが返されませんでした');
+      }
+
+      log.info(`[updateMenu] Updated: ${menu.id} (${input.items.length} top-level items)`);
+      return menu;
+    } catch (err) {
+      this.notifyError('updateMenu', err);
+      throw err;
+    }
+  }
+
+  /**
+   * メニュー削除
+   * — patch 0070: 冪等 (not-found → success 扱い)。既定メニュー (main-menu/footer) は削除不可エラーを投げる
+   */
+  async deleteMenu(id: string): Promise<{deletedId: string | null; notFound: boolean}> {
+    const gql = `
+      mutation menuDelete($id: ID!) {
+        menuDelete(id: $id) {
+          deletedMenuId
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        menuDelete: {
+          deletedMenuId: string | null;
+          userErrors: Array<{field: string[] | null; message: string; code: string | null}>;
+        };
+      }>(gql, {id});
+
+      const {deletedMenuId, userErrors} = res.menuDelete;
+      if (userErrors.length > 0) {
+        const isNotFound = userErrors.every(
+          (e) =>
+            (e.code && /not[_-]?found/i.test(e.code)) ||
+            /not\s+found|does\s+not\s+exist|存在しません/i.test(e.message),
+        );
+        if (isNotFound) {
+          log.info(`[deleteMenu] Not found (idempotent): ${id}`);
+          return {deletedId: null, notFound: true};
+        }
+        throw new Error(`メニュー削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+      }
+
+      log.info(`[deleteMenu] Deleted: ${deletedMenuId || id}`);
+      return {deletedId: deletedMenuId, notFound: false};
+    } catch (err) {
+      this.notifyError('deleteMenu', err);
+      throw err;
+    }
+  }
+
+}
+
+// ── Menu 補助 (patch 0070) ──
+
+/** GraphQL が返す MenuItem の生形（items が任意深さで再帰） */
+interface ShopifyMenuItemRaw {
+  id?: string | null;
+  title: string;
+  type: string;
+  resourceId?: string | null;
+  url?: string | null;
+  tags?: string[] | null;
+  items?: ShopifyMenuItemRaw[] | null;
+}
+
+/**
+ * GraphQL レスポンスの items ツリーを ShopifyMenuItem に正規化
+ * — 深さ 3 階層以降は Shopify が返さないので null check のみ
+ */
+function normalizeMenuItemsTree(raw: ShopifyMenuItemRaw[] | null | undefined): ShopifyMenuItem[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw.map((r) => ({
+    id: r.id ?? undefined,
+    title: r.title,
+    type: (r.type as ShopifyMenuItemType) ?? 'HTTP',
+    resourceId: r.resourceId ?? null,
+    url: r.url ?? null,
+    tags: Array.isArray(r.tags) ? r.tags : [],
+    items: normalizeMenuItemsTree(r.items),
+  }));
+}
+
+/**
+ * ShopifyMenuItem[] → MenuItemCreateInput[] へ変換
+ * — Shopify の schema が要求するキーだけ残す
+ */
+function toMenuItemCreateInputList(items: ShopifyMenuItem[]): Array<Record<string, unknown>> {
+  return items.map((it) => toMenuItemCreateInput(it));
+}
+
+function toMenuItemCreateInput(it: ShopifyMenuItem): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    title: it.title,
+    type: it.type,
+  };
+  if (it.resourceId) out.resourceId = it.resourceId;
+  if (it.url) out.url = it.url;
+  if (it.tags && it.tags.length > 0) out.tags = it.tags;
+  if (it.items && it.items.length > 0) {
+    out.items = it.items.map((child) => toMenuItemCreateInput(child));
+  }
+  return out;
+}
+
+/**
+ * ShopifyMenuItem[] → MenuItemUpdateInput[] へ変換
+ * — update は既存 id を渡せば同一 MenuItem を維持、なければ新規作成扱い
+ */
+function toMenuItemUpdateInputList(items: ShopifyMenuItem[]): Array<Record<string, unknown>> {
+  return items.map((it) => toMenuItemUpdateInput(it));
+}
+
+function toMenuItemUpdateInput(it: ShopifyMenuItem): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    title: it.title,
+    type: it.type,
+  };
+  if (it.id) out.id = it.id;
+  if (it.resourceId) out.resourceId = it.resourceId;
+  if (it.url) out.url = it.url;
+  if (it.tags && it.tags.length > 0) out.tags = it.tags;
+  if (it.items && it.items.length > 0) {
+    out.items = it.items.map((child) => toMenuItemUpdateInput(child));
+  }
+  return out;
 }
 
 // ── 環境変数キャッシュ ──

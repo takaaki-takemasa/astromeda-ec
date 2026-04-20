@@ -41,6 +41,8 @@ const AdminFiles = lazy(() => import('~/components/admin/tabs/AdminFiles'));
 const AdminMetaobjectDefinitions = lazy(() => import('~/components/admin/tabs/AdminMetaobjectDefinitions'));
 // patch 0069: 管理画面完結化 P5 — 割引コード CRUD
 const AdminDiscounts = lazy(() => import('~/components/admin/tabs/AdminDiscounts'));
+// patch 0070: 管理画面完結化 P6 — ナビゲーションメニュー CRUD (最終章)
+const AdminMenus = lazy(() => import('~/components/admin/tabs/AdminMenus'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -268,13 +270,14 @@ export const meta = () => [
 
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
-type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
   home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
   // patch 0069: commerce に discounts タブを追加（marketing の手前に置く）
-  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'files', 'metaobjectDefs', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'discounts', 'marketing', 'analytics'], default: 'content' },
+  // patch 0070: menus タブ追加（redirects の直後、ナビゲーション系をまとめる）
+  commerce: { tabs: ['content', 'products', 'collections', 'bulkTags', 'redirects', 'menus', 'files', 'metaobjectDefs', 'customization', 'homepage', 'pageEditor', 'siteConfig', 'discounts', 'marketing', 'analytics'], default: 'content' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -292,6 +295,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   files: '📁 ファイル',
   metaobjectDefs: '🧬 CMS 定義',
   discounts: '🎟️ 割引コード',
+  menus: '🧭 メニュー',
   customization: 'カスタマイズ',
   homepage: 'ホームページ',
   pageEditor: 'ページ編集',
@@ -608,6 +612,11 @@ export default function AdminDashboard() {
           {subTab === 'redirects' && (
             <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
               <AdminRedirects />
+            </Suspense>
+          )}
+          {subTab === 'menus' && (
+            <Suspense fallback={<div className="animate-pulse p-8" style={{color: color.textMuted}}>読み込み中...</div>}>
+              <AdminMenus />
             </Suspense>
           )}
           {subTab === 'files' && (
