@@ -16,6 +16,7 @@ import {T, al, COLLABS} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {CollabGrid} from '~/components/astro/CollabGrid';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
+import {Wizard, type WizardStep} from '~/components/admin/ds/Wizard';
 import {
   type IpBanner,
   type SectionProps,
@@ -301,10 +302,8 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
         </table>
       )}
 
-      {modalOpen && (
-        <IpBannerForm
-          initial={initial}
-          isCreate={creating}
+      {modalOpen && creating && (
+        <IpBannerWizard
           saving={saving}
           collections={synthCols}
           collabImages={collabImages}
@@ -312,7 +311,21 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
             setEditing(null);
             setCreating(false);
           }}
-          onSubmit={(form) => handleSave(form, creating)}
+          onSubmit={(form) => handleSave(form, true)}
+        />
+      )}
+      {modalOpen && !creating && editing && (
+        <IpBannerForm
+          initial={initial}
+          isCreate={false}
+          saving={saving}
+          collections={synthCols}
+          collabImages={collabImages}
+          onCancel={() => {
+            setEditing(null);
+            setCreating(false);
+          }}
+          onSubmit={(form) => handleSave(form, false)}
         />
       )}
     </div>
@@ -428,6 +441,239 @@ function IpBannerForm({
           </button>
         </div>
       </div>
+    </Modal>
+  );
+}
+
+// ══════════════════════════════════════════════════════════
+// IpBannerWizard — patch 0086 (2026-04-20) R2-P2-1
+// 「新規追加」フローだけウィザードに差し替え。3ステップで迷わず登録できる。
+// 編集フローは既存の IpBannerForm をそのまま使う（既存 UX を壊さないため）。
+// ══════════════════════════════════════════════════════════
+
+function IpBannerWizard({
+  saving,
+  collections,
+  collabImages,
+  onCancel,
+  onSubmit,
+}: {
+  saving: boolean;
+  collections: SynthCollection[];
+  collabImages: Record<string, string>;
+  onCancel: () => void;
+  onSubmit: (form: Partial<IpBanner> & {handle?: string}) => void;
+}) {
+  // ステップ①「基本情報」
+  const [handle, setHandle] = useState('');
+  const [name, setName] = useState('');
+  const [shopHandle, setShopHandle] = useState('');
+  // ステップ②「見た目」
+  const [image, setImage] = useState('');
+  const [tagline, setTagline] = useState('');
+  const [label, setLabel] = useState('');
+  // ステップ③「公開設定」
+  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [featured, setFeatured] = useState<boolean>(true);
+
+  const [device, setDevice] = useState<PreviewDevice>('desktop');
+
+  // Handle 自動生成（IP名から slug っぽくする）— 空ならステップ③で generate
+  const autoHandle = useMemo(() => {
+    if (handle) return handle;
+    const base = (name || shopHandle || '').toLowerCase().trim();
+    return base.replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40);
+  }, [handle, name, shopHandle]);
+
+  // ライブプレビュー画像: image URL 入力が空なら Shopify コレクション画像で代替
+  const resolvedImage = image || (shopHandle ? collabImages[shopHandle] || null : null);
+
+  const previewMeta = [
+    {
+      id: 'preview',
+      handle: autoHandle || 'preview',
+      name: name || '(IP名未入力)',
+      shopHandle: shopHandle || 'preview',
+      image: resolvedImage,
+      tagline: tagline || null,
+      label: label || null,
+      sortOrder,
+      featured,
+    },
+  ];
+
+  const previewPane = (
+    <PreviewFrame device={device} onDeviceChange={setDevice}>
+      <CollabGrid collections={collections} metaCollabs={previewMeta} />
+    </PreviewFrame>
+  );
+
+  // バリデーション: ステップ①は name と shopHandle が必須
+  const step1Ok = name.trim().length > 0 && shopHandle.trim().length > 0;
+
+  const handleFinalSubmit = () => {
+    onSubmit({
+      handle: autoHandle,
+      name,
+      shopHandle,
+      image: image || undefined,
+      tagline: tagline || undefined,
+      label: label || undefined,
+      sortOrder,
+      featured,
+    });
+  };
+
+  const steps: WizardStep[] = [
+    {
+      id: 'basics',
+      title: '① 基本情報',
+      description: '最低限ここだけ入れれば登録できます。続きのステップは自動で後回しにできます。',
+      canProceed: step1Ok,
+      errorMessage: 'IP名と Shopify コレクション URL 末尾の両方を入力してください。',
+      body: (
+        <div style={{display: 'grid', gap: 12}}>
+          <div>
+            <label style={labelStyle}>
+              IP名 <span style={{color: T.r, fontWeight: 800}}>＊</span>
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              style={inputStyle}
+              placeholder="例: ONE PIECE"
+              autoFocus
+            />
+            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
+              お客様に見えるバナーのタイトルになります。
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>
+              Shopify コレクション URL 末尾 <span style={{color: T.r, fontWeight: 800}}>＊</span>
+            </label>
+            <input
+              type="text"
+              value={shopHandle}
+              onChange={(e) => setShopHandle(e.target.value)}
+              style={inputStyle}
+              placeholder="例: one-piece-bountyrush-collaboration"
+            />
+            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
+              Shopify の商品コレクションを開いた時の URL 末尾部分（/collections/xxx の xxx）を入力してください。
+              このコレクションの画像が自動でバナーに使われます。
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'visual',
+      title: '② 見た目の調整（任意）',
+      description: 'すべて省略できます。画像は Shopify コレクションのものが自動で使われます。',
+      body: (
+        <div style={{display: 'grid', gap: 12}}>
+          <div>
+            <label style={labelStyle}>画像 URL（任意）</label>
+            <input
+              type="text"
+              value={image}
+              onChange={(e) => setImage(e.target.value)}
+              style={inputStyle}
+              placeholder="https://cdn.shopify.com/... または Shopify 画像 ID"
+            />
+            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
+              空のままにすると Shopify の「{shopHandle || 'コレクション'}」の画像が自動で使われます。
+              {resolvedImage && (
+                <span style={{color: T.c, fontWeight: 700}}> 現在のプレビュー画像あり ✓</span>
+              )}
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>タグライン（任意）</label>
+            <input
+              type="text"
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              style={inputStyle}
+              placeholder="例: 15カテゴリ"
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>ラベル（任意）</label>
+            <input
+              type="text"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              style={inputStyle}
+              placeholder="例: HOT / NEW / COLLAB"
+            />
+            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
+              バナーの右上に小さく表示されるバッジです。
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'publish',
+      title: '③ 公開設定',
+      description: 'お客様に見せるか、下書きのままにするかを選んでください。',
+      body: (
+        <div style={{display: 'grid', gap: 12}}>
+          <div>
+            <label style={labelStyle}>表示順</label>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)}
+              style={inputStyle}
+            />
+            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
+              数字が小さいほど先に表示されます（0 が先頭）。分からない場合は 0 のままで OK です。
+            </div>
+          </div>
+          <div>
+            <ToggleSwitch
+              checked={featured}
+              onChange={setFeatured}
+              label="すぐ公開する"
+              hint="オフにすると下書き扱いになり、お客様にはこのバナーが見えません。"
+            />
+          </div>
+          <div
+            style={{
+              padding: 12,
+              background: al(T.c, 0.06),
+              border: `1px solid ${al(T.c, 0.3)}`,
+              borderRadius: 8,
+              fontSize: 12,
+              color: T.tx,
+              lineHeight: 1.6,
+            }}
+          >
+            <div style={{fontWeight: 700, marginBottom: 6}}>入力内容の確認</div>
+            <div>IP名: <b>{name || '(未入力)'}</b></div>
+            <div>Shopify URL 末尾: <b style={{fontFamily: 'monospace', fontSize: 11}}>{shopHandle || '(未入力)'}</b></div>
+            <div>ラベル: <b>{label || 'なし'}</b></div>
+            <div>画像: <b>{image ? '手動指定あり' : resolvedImage ? 'Shopify から自動取得' : 'グラデーション代用'}</b></div>
+            <div>公開: <b>{featured ? 'すぐ公開' : '下書きのまま'}</b></div>
+          </div>
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <Modal title="IPコラボ 新規追加" onClose={onCancel} preview={previewPane}>
+      <Wizard
+        steps={steps}
+        onCancel={onCancel}
+        onSubmit={handleFinalSubmit}
+        submitLabel="保存して公開"
+        saving={saving}
+      />
     </Modal>
   );
 }
