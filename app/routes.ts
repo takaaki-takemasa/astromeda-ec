@@ -1,45 +1,17 @@
 import {flatRoutes} from '@react-router/fs-routes';
-import {
-  type RouteConfig,
-  type RouteConfigEntry,
-  route,
-} from '@react-router/dev/routes';
+import {type RouteConfig} from '@react-router/dev/routes';
 import {hydrogenRoutes} from '@shopify/hydrogen';
 
 /**
- * patch 0061: /sitemap.xml 404 Go-Live blocker 修正
+ * patch 0062 (2026-04-20): /sitemap.xml の Oxygen CDN 固定 interceptor を
+ * 回避するため、正式サイトマップ URL を /sitemap-index.xml に切替えた。
+ * 旧 [sitemap.xml].tsx はフォールバックとして残置（Oxygen が将来
+ * この挙動を改める可能性に備える）。詳細は [sitemap-index.xml].tsx
+ * ファイル冒頭コメント参照。
  *
- * 症状: 本番で /sitemap.xml が 404 を返す。同じ bracket-escape 形式の
- *   /robots.txt, /llms.txt, /feed.xml, /sitemap-static.xml は全て 200。
- *   唯一 /sitemap.xml だけが壊れている。
- *
- * 原因: React Router v7 の flat-routes アルゴリズムが
- *   `[sitemap.xml].tsx` と兄弟の `sitemap.$type.$page[.xml].tsx` を
- *   同じ `sitemap` 先頭セグメントで nest させる結果、前者の URL 解決が
- *   破綻し 404 になる。
- *
- * 修正: flat-routes 出力を再帰的に走査して `[sitemap.xml].tsx` を
- *   参照するエントリを除外し、明示的な route() で /sitemap.xml を
- *   top-level に固定する。他の bracket-escape ルートには影響させない。
+ * patch 0061 (revert): flat-routes の bracket-escape 衝突を原因と疑った
+ * stripSitemapXml フィルタは不要だったので除去。真因は Oxygen edge 層。
  */
-const SITEMAP_XML_FILE_SUFFIX = '[sitemap.xml].tsx';
-
-function stripSitemapXml(entries: RouteConfigEntry[]): RouteConfigEntry[] {
-  return entries
-    .filter(
-      (e) => !(typeof e.file === 'string' && e.file.endsWith(SITEMAP_XML_FILE_SUFFIX)),
-    )
-    .map((e) =>
-      e.children && e.children.length > 0
-        ? {...e, children: stripSitemapXml(e.children)}
-        : e,
-    );
-}
-
-const fsRoutes = await flatRoutes();
-const filteredFsRoutes = stripSitemapXml(fsRoutes);
-
 export default hydrogenRoutes([
-  ...filteredFsRoutes,
-  route('/sitemap.xml', 'routes/[sitemap.xml].tsx', {id: 'sitemap-xml-index'}),
+  ...(await flatRoutes()),
 ]) satisfies RouteConfig;

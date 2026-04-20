@@ -18,7 +18,10 @@ export async function loader({request}: Route.LoaderArgs) {
 }
 
 function robotsTxtData({url, shopId}: {shopId?: string; url?: string}) {
-  const sitemapUrl = url ? `${url}/sitemap.xml` : undefined;
+  // patch 0062 (2026-04-20): Oxygen CDN が /sitemap.xml を intercept する
+  // ため、canonical sitemap URL を /sitemap-index.xml に変更。
+  // 詳細は app/routes/sitemap-index[.xml].tsx 冒頭コメント参照。
+  const sitemapUrl = url ? `${url}/sitemap-index.xml` : undefined;
   const llmsUrl = url ? `${url}/llms.txt` : undefined;
 
   // ── Phase 1: 全AIボット許可（GEO対策） ──
