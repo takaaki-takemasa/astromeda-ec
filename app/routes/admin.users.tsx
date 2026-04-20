@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link, data, useLoaderData } from 'react-router';
 import { AppSession } from '~/lib/session';
+// patch 0076 (2026-04-20): Stripe/Apple 水準の確認モーダルで window.confirm を置換
+import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── テーマ定数 ──
 const D = {
@@ -61,6 +63,8 @@ interface RoleInfo {
 }
 
 export default function AdminUsers() {
+  // patch 0076 (2026-04-20): window.confirm を Stripe 水準の確認モーダルに置換
+  const {confirm, dialogProps, ConfirmDialog} = useConfirmDialog();
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [roles, setRoles] = useState<RoleInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -141,7 +145,16 @@ export default function AdminUsers() {
   };
 
   const handleDeactivate = async (userId: string) => {
-    if (!confirm('このユーザーを無効化しますか？')) return;
+    // patch 0076: Stripe/Apple 水準の確認モーダル。destructive=true で赤色 CTA、contextPath で階層明示
+    const ok = await confirm({
+      title: 'このユーザーを無効化しますか？',
+      message: '無効化すると、このユーザーは管理画面にログインできなくなります。再有効化は管理者が行います。',
+      destructive: true,
+      confirmLabel: '無効化する',
+      cancelLabel: 'キャンセル',
+      contextPath: ['ユーザー管理', 'ユーザー無効化'],
+    });
+    if (!ok) return;
     setActionLoading(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5_000); // 5s timeout for internal API
@@ -597,6 +610,8 @@ export default function AdminUsers() {
           </div>
         )}
       </div>
+      {/* patch 0076: Stripe 水準の確認モーダル */}
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 }

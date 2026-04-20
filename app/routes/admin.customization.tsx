@@ -351,7 +351,7 @@ function CustomOptionForm({
           <div style={{fontSize: 14, fontWeight: 900, color: T.tx}}>
             {isCreate ? 'オプション 新規追加' : 'オプション 編集'}
           </div>
-          <button type="button" onClick={onCancel} style={{...btnStyle(), padding: '4px 10px'}}>×</button>
+          <button type="button" onClick={onCancel} aria-label="モーダルを閉じる" title="閉じる" style={{...btnStyle(), padding: '4px 10px'}}>×</button>
         </div>
         <div style={{padding: 20, display: 'grid', gap: 12}}>
           {isCreate && (
