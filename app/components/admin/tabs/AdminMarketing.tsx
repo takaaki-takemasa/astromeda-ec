@@ -876,8 +876,9 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
           <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
+          {/* patch 0085: 「商品ハンドル」→「商品 URL 末尾」 */}
           <label style={labelStyle}>対象商品（カンマ区切り）</label>
-          <input style={inputStyle} value={form.applicable_products || ''} onChange={(e) => setForm({ ...form, applicable_products: e.target.value })} placeholder="空=全商品 / 商品ハンドルをカンマ区切り" />
+          <input style={inputStyle} value={form.applicable_products || ''} onChange={(e) => setForm({ ...form, applicable_products: e.target.value })} placeholder="空=全商品 / 商品 URL 末尾をカンマ区切り" />
         </div>
       </div>
       <div style={{ marginTop: 12 }}>

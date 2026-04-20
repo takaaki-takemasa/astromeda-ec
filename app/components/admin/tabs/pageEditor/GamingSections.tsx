@@ -216,9 +216,10 @@ function GamingCrudSection({
           marginBottom: 14,
           lineHeight: 1.6,
         }}>
-          <div style={{fontWeight: 800, marginBottom: 4}}>📦 Metaobject は空です — フロントはコード内ハードコード値を表示中</div>
+          {/* patch 0085: 「Metaobject」「ハードコード」等の技術用語を中学生向け日本語に置換 */}
+          <div style={{fontWeight: 800, marginBottom: 4}}>📦 まだ登録データがありません — ページは初期値で表示中</div>
           <div style={{color: T.t4, fontSize: 11}}>
-            新規追加するとこのセクションが Metaobject から読み込まれるようになります。1件でも追加すると、フロントのハードコード値は完全に置き換わります。
+            新規追加するとこのセクションが登録データから読み込まれるようになります。1 件でも追加すると、初期値は完全に置き換わります。
           </div>
         </div>
       )}
@@ -455,7 +456,7 @@ export function GamingContactSection({pushToast, confirm}: SectionProps) {
 
   const handleDelete = async () => {
     if (!item) return;
-    if (!(await confirm('お問い合わせ情報を削除しますか？削除するとフロントはハードコードのフォールバックに戻ります'))) return;
+    if (!(await confirm('お問い合わせ情報を削除しますか？削除するとページは初期値の表示に戻ります'))) return;
     const res = await cmsDelete('astromeda_gaming_contact', item.id);
     if (res.success) {
       pushToast('削除しました', 'success');
@@ -484,8 +485,9 @@ export function GamingContactSection({pushToast, confirm}: SectionProps) {
           marginBottom: 14,
           lineHeight: 1.6,
         }}>
-          <div style={{fontWeight: 800, marginBottom: 4}}>📦 Metaobject は空 — フロントはハードコード値（03-6903-5371 / lin.ee/v43hEUKX）を表示中</div>
-          <div style={{color: T.t4, fontSize: 11}}>下記を入力して保存すると、フロントが Metaobject から読み込まれるようになります。</div>
+          {/* patch 0085: 「Metaobject」「ハードコード値」等の技術用語を中学生向け日本語に置換 */}
+          <div style={{fontWeight: 800, marginBottom: 4}}>📦 まだ登録データがありません — ページは初期値（03-6903-5371 / lin.ee/v43hEUKX）を表示中</div>
+          <div style={{color: T.t4, fontSize: 11}}>下記を入力して保存すると、ページが登録データから読み込まれるようになります。</div>
         </div>
       )}
       <div style={{display: 'grid', gap: 14}}>

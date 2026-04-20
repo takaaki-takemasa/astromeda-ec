@@ -132,7 +132,7 @@ export default function AdminSiteMap() {
           sub: 'hero_banners',
           metaCount: counts?.metaBanners ?? null,
           fallbackCount: FEATURED.length,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'IPコラボグリッド',
@@ -142,7 +142,7 @@ export default function AdminSiteMap() {
           sub: 'ip_banners',
           metaCount: counts?.metaCollabs ?? null,
           fallbackCount: COLLABS.length,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'PC 8色カラー',
@@ -152,7 +152,7 @@ export default function AdminSiteMap() {
           sub: 'color_models',
           metaCount: counts?.metaColors ?? null,
           fallbackCount: PC_COLORS.length,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'CATEGORYカード',
@@ -162,7 +162,7 @@ export default function AdminSiteMap() {
           sub: 'category_cards',
           metaCount: counts?.metaCategoryCards ?? null,
           fallbackCount: 3,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'NEW ARRIVALS (商品棚)',
@@ -182,7 +182,7 @@ export default function AdminSiteMap() {
           sub: 'about_sections',
           metaCount: counts?.metaAboutSections ?? null,
           fallbackCount: 1,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'Footer',
@@ -192,7 +192,7 @@ export default function AdminSiteMap() {
           sub: 'footer_configs',
           metaCount: counts?.metaFooterConfigs ?? null,
           fallbackCount: 13,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
       ],
     },
@@ -268,7 +268,7 @@ export default function AdminSiteMap() {
           sub: 'footer_configs',
           metaCount: counts?.metaFooterConfigs ?? null,
           fallbackCount: 13,
-          fallbackLabel: 'ハードコード',
+          fallbackLabel: '初期値',
         },
         {
           label: 'ヘッダーナビ',

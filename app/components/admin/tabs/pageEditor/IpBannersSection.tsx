@@ -130,7 +130,7 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
   // フロントが使っている COLLABS 26 件フォールバックをそのまま admin に表示し、
   // 「一括登録」で Metaobject 化できるようにする。
   const handleSeedCollabs = async () => {
-    if (!(await confirm('COLLABS 26件を Metaobject に一括登録しますか？（既存エントリには影響しません）'))) return;
+    if (!(await confirm('COLLABS 26件を登録データに一括登録しますか？（既存エントリには影響しません）'))) return;
     setSeeding(true);
     try {
       const res = await fetch('/api/admin/cms-seed', {
@@ -140,7 +140,7 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
       });
       const json = (await res.json().catch(() => ({}))) as {success?: boolean; error?: string};
       if (res.ok && json.success) {
-        pushToast('COLLABS を Metaobject に登録しました', 'success');
+        pushToast('COLLABS を登録データに登録しました', 'success');
         await load();
       } else {
         pushToast(`一括登録失敗: ${json.error || res.status}`, 'error');
@@ -175,11 +175,11 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
           }}>
             <div style={{flex: 1, minWidth: 240}}>
               <div style={{fontSize: 12, fontWeight: 800, color: T.tx, marginBottom: 4}}>
-                Metaobject は空です — フロントは COLLABS 26件フォールバックで表示中
+                まだ登録データがありません — ページは初期値の COLLABS 26件を表示中
               </div>
               <div style={{fontSize: 11, color: T.t4, lineHeight: 1.5}}>
-                下に表示されているのが現在フロントで使われているフォールバック画像です。
-                「一括登録」ボタンを押すと、26件を編集可能な Metaobject として登録できます。
+                下に表示されているのが現在ページで使われている初期値の画像です。
+                「一括登録」ボタンを押すと、26件を編集可能な登録データとして登録できます。
               </div>
             </div>
             <button
@@ -387,11 +387,13 @@ function IpBannerForm({
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} style={inputStyle} placeholder="ONE PIECE" />
         </div>
         <div>
-          <label style={labelStyle}>Shopifyコレクションハンドル</label>
+          {/* patch 0085: 「Shopifyコレクションハンドル」→「Shopify コレクション URL」 */}
+          <label style={labelStyle}>Shopify コレクション URL 末尾</label>
           <input type="text" value={shopHandle} onChange={(e) => setShopHandle(e.target.value)} style={inputStyle} placeholder="onepiece" />
         </div>
         <div>
-          <label style={labelStyle}>画像 (URL または Shopify file GID)</label>
+          {/* patch 0085: 「Shopify file GID」→「Shopify 画像 ID」（GID は内部用語） */}
+          <label style={labelStyle}>画像 (URL または Shopify 画像 ID)</label>
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>

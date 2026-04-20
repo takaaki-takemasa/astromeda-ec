@@ -196,10 +196,10 @@ export function UgcReviewsSection({pushToast, confirm}: SectionProps) {
           }}
         >
           <div style={{fontWeight: 800, marginBottom: 4}}>
-            📦 Metaobject 空 — フロントはハードコード UGC 定数を表示中
+            📦 まだ登録データがありません — ページは初期値の UGC レビューを表示中
           </div>
           <div style={{color: T.t4, fontSize: 11}}>
-            1件追加するとフロントが Metaobject 値に切り替わります（exclusive-OR merge）。
+            1件追加するとページが登録データから読み込まれるようになります（1件でも追加で切替）。
           </div>
         </div>
       )}

@@ -91,7 +91,7 @@ const ABOUT_SECTION_FIELDS: FieldDef[] = [
 
 const STATIC_PAGE_FIELDS: FieldDef[] = [
   { key: 'title', label: 'ページタイトル', type: 'text', required: true, span: 2, placeholder: '保証・修理について' },
-  { key: 'page_slug', label: 'URLスラッグ', type: 'text', required: true, span: 1, placeholder: 'warranty' },
+  { key: 'page_slug', label: 'URL 末尾', type: 'text', required: true, span: 1, placeholder: 'warranty' },
   { key: 'updated_label', label: '更新日ラベル', type: 'text', span: 1, placeholder: '2026年4月1日改定' },
   { key: 'meta_description', label: 'メタディスクリプション（SEO）', type: 'textarea', span: 2 },
   { key: 'body_html', label: '本文 HTML', type: 'textarea', span: 2 },

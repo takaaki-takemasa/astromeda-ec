@@ -276,7 +276,7 @@ export function UrlPicker({
           type="text"
           value={slug}
           onChange={(e) => updateSlug(e.target.value)}
-          placeholder={kind === 'external' ? 'https://line.me/...' : '商品の URL ハンドル'}
+          placeholder={kind === 'external' ? 'https://line.me/...' : '商品 URL の末尾'}
           style={inputStyleFull}
         />
       ) : (

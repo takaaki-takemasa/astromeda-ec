@@ -422,9 +422,10 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         <HintText>例: 呪術廻戦、ONE PIECE バウンティラッシュ</HintText>
       </div>
       <div>
-        <label style={labelStyle}>Shopifyハンドル<RequiredMark /></label>
-        <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} />
-        <HintText>Shopify コレクションの URL の末尾（例: jujutsukaisen-collaboration）</HintText>
+        {/* patch 0085: 「ハンドル」という技術用語を「URL 末尾」に置換 */}
+        <label style={labelStyle}>Shopify URL 末尾<RequiredMark /></label>
+        <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
+        <HintText>Shopify コレクションの URL の末尾です（例: jujutsukaisen-collaboration）。</HintText>
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <label style={labelStyle}>タグライン<OptionalMark /></label>
@@ -456,7 +457,7 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
           <AdminEmptyCard
             icon="🎨"
             title="IPコラボはまだ登録されていません"
-            description="Shopifyコレクションのハンドル（例: jujutsukaisen-collaboration）でIPコラボを登録すると、トップページのグリッドに表示されます。登録されるまでは astromeda-data.ts のフォールバックが使用されます。"
+            description="Shopify コレクションの URL 末尾（例: jujutsukaisen-collaboration）を指定して IP コラボを登録すると、トップページのグリッドに表示されます。登録されるまでは初期値のコラボ一覧が使用されます。"
           />
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
@@ -632,9 +633,10 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         <HintText>トップのヒーローに大きく出る見出し</HintText>
       </div>
       <div>
-        <label style={labelStyle}>コレクションハンドル<OptionalMark /></label>
+        {/* patch 0085: 「コレクションハンドル」という技術用語を「商品グループ URL」に置換 */}
+        <label style={labelStyle}>商品グループ URL<OptionalMark /></label>
         <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
-        <HintText>画像が空のとき、このコレクション画像をフォールバックに使います</HintText>
+        <HintText>画像を空のままにした時、この商品グループ（Shopify コレクション）の画像が代わりに使われます。</HintText>
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <UrlPicker
@@ -832,9 +834,10 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
           <HintText>お客さまが見る日本語のカラー名です（例: ホワイト・ブラック）。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>スラッグ (EN) <RequiredMark /></label>
+          {/* patch 0085: 「スラッグ」という技術用語を「URL 末尾（英数字）」に置換 */}
+          <label style={labelStyle}>URL 末尾（英数字） <RequiredMark /></label>
           <input style={inputStyle} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="white" />
-          <HintText>URLや画像ファイル名に使う英単語です（例: white）。半角小文字のみ。</HintText>
+          <HintText>URL や画像ファイル名に使う英単語です（例: white）。半角小文字のみ。</HintText>
         </div>
         <div>
           <label style={labelStyle}>HEX カラー <RequiredMark /></label>
@@ -845,9 +848,10 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
           <HintText>カラーコードです（例: #ffffff は真っ白）。左の □ を押すと色を選べます。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>コレクションハンドル <RequiredMark /></label>
+          {/* patch 0085: 「コレクションハンドル」という技術用語を「商品グループ URL」に置換 */}
+          <label style={labelStyle}>商品グループ URL <RequiredMark /></label>
           <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="white" />
-          <HintText>このカラーをクリックした時に表示される Shopify コレクションの識別名です。</HintText>
+          <HintText>このカラーをクリックした時に表示される商品グループ（Shopify コレクション）の URL 末尾です。</HintText>
         </div>
         <div>
           <label style={labelStyle}>表示順 <OptionalMark /></label>

@@ -314,7 +314,8 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
           <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="記事タイトル" />
         </div>
         <div>
-          <label style={labelStyle}>スラッグ</label>
+          {/* patch 0085: 「スラッグ」→「URL 末尾（英数字）」 */}
+          <label style={labelStyle}>URL 末尾（英数字）</label>
           <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: gaming-pc-guide" />
         </div>
         <div>
@@ -571,7 +572,8 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
           <input style={inputStyle} value={form.ip_name || ''} onChange={(e) => setForm({ ...form, ip_name: e.target.value })} placeholder="例: 呪術廻戦" />
         </div>
         <div>
-          <label style={labelStyle}>コレクションハンドル</label>
+          {/* patch 0085: 「コレクションハンドル」→「商品グループ URL」 */}
+          <label style={labelStyle}>商品グループ URL</label>
           <input style={inputStyle} value={form.collection_handle || ''} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="例: jujutsukaisen-collaboration" />
         </div>
         <div>
@@ -672,7 +674,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
               </div>
               <div style={{ padding: '10px 12px' }}>
                 <div style={{ fontSize: 11, color: color.textMuted, marginBottom: 6 }}>
-                  {item.collection_handle || '（ハンドル未設定）'}
+                  {item.collection_handle || '（URL 未設定）'}
                   {item.tagline && ` · ${item.tagline}`}
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
@@ -798,7 +800,8 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
           <input style={inputStyle} value={form.title || ''} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="SEO記事タイトル" />
         </div>
         <div>
-          <label style={labelStyle}>スラッグ</label>
+          {/* patch 0085: 「スラッグ」→「URL 末尾（英数字）」 */}
+          <label style={labelStyle}>URL 末尾（英数字）</label>
           <input style={inputStyle} value={form.slug || ''} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="例: best-gaming-pc-2026" />
         </div>
         <div>
