@@ -1,9 +1,13 @@
 /**
- * ProductCustomization — PC製品のカスタマイズオプション（メモリ、SSD、電源等）
+ * ProductCustomization — 製品ごとの line_item_property を送信するコンポーネント
  *
- * 本番サイトのCustomizeryアプリと同等の17カスタマイズ項目を
- * Shopify cart line item properties として送信。
- * PC製品のみ表示（ガジェット・グッズは非表示）。
+ * PC製品: 本番サイトのCustomizeryアプリと同等の17カスタマイズ項目
+ *   (管理画面のカスタマイズマトリックスで設定された Metaobject 由来オプションを優先使用)
+ * キーボード: 配列(日本語配列/英語配列) ← 本番の Globo プラグイン相当
+ *
+ * いずれも Shopify cart line item properties として送信。
+ * カラー/素材/サイズ等は Shopify native variant で処理するため、
+ * このコンポーネントでは扱わない（AstroProductFormで処理）。
  */
 
 import React, {useState, useCallback, useMemo} from 'react';
@@ -201,6 +205,81 @@ export const STANDARD_OPTIONS: CustomizationOption[] = [
   },
 ];
 
+/**
+ * キーボード用 line_item_property オプション
+ * 本番サイトのGloboプラグインで注入されていた「配列」を新サイトでも踏襲。
+ * 価格差なし（どちらを選んでも本体価格のまま）。
+ */
+export const KEYBOARD_OPTIONS: CustomizationOption[] = [
+  {
+    name: '配列',
+    options: [
+      {value: '日本語配列', label: '日本語配列（標準）'},
+      {value: '英語配列', label: '英語配列'},
+    ],
+  },
+];
+
+/**
+ * 製品タイプごとのオプションセット定義
+ */
+interface OptionSet {
+  /** 大見出し（小さく薄い文字） */
+  heading: string;
+  /** 小見出し（太字） */
+  subheading: string;
+  /** 表示するカスタマイズ項目 */
+  options: CustomizationOption[];
+}
+
+/**
+ * 製品タイトル／タグ・管理画面オプションから適切なオプションセットを判定。
+ * 該当なし（= ガジェット/グッズ本体カラーのみ等）は null。
+ *
+ * 優先順位:
+ *   1. キーボード → KEYBOARD_OPTIONS (固定: 配列)
+ *   2. ガジェット/グッズ(キーボード以外) → null (native variantのみ)
+ *   3. PC + 管理画面 customOptions → customOptions (Metaobject由来)
+ *   4. PC のみ → STANDARD_OPTIONS (ハードコードフォールバック)
+ *   5. その他 → null
+ */
+function pickOptionSet(
+  title: string,
+  tags: string[],
+  customOptions: CustomizationOption[] | undefined,
+): OptionSet | null {
+  const combined = `${title} ${tags.join(' ')}`.toLowerCase();
+
+  // キーボードは Globo の 配列 line_item_property を踏襲
+  if (combined.includes('キーボード')) {
+    return {
+      heading: 'OPTIONS',
+      subheading: 'キー配列を選択',
+      options: KEYBOARD_OPTIONS,
+    };
+  }
+
+  // それ以外のガジェット/グッズは native variant のみで処理
+  const gadgetKeywords = ['マウスパッド', 'パネル', 'pcケース'];
+  const goodsKeywords = ['アクリル', 'tシャツ', 'パーカー', 'グッズ', 'ステッカー', '缶バッジ'];
+  for (const kw of [...gadgetKeywords, ...goodsKeywords]) {
+    if (combined.includes(kw)) return null;
+  }
+
+  // PC: 管理画面 Metaobject を優先、フォールバックは STANDARD_OPTIONS (17項目)
+  const pcKeywords = ['pc', 'デスクトップ', 'gaming', 'ゲーミング', 'rtx', 'gtx', 'ryzen', 'core'];
+  if (pcKeywords.some((kw) => combined.includes(kw))) {
+    const opts = customOptions && customOptions.length > 0 ? customOptions : STANDARD_OPTIONS;
+    return {
+      heading: 'CUSTOMIZATION',
+      subheading: 'パーツカスタマイズ',
+      options: opts,
+    };
+  }
+
+  return null;
+}
+
 interface ProductCustomizationProps {
   productTitle: string;
   productTags: string[];
@@ -208,19 +287,9 @@ interface ProductCustomizationProps {
   /**
    * 管理画面(カスタマイズマトリックス)で設定された Metaobject 由来の動的オプション。
    * 空配列または未指定の場合は STANDARD_OPTIONS（ハードコードのフォールバック）を使用。
+   * ※ キーボードは KEYBOARD_OPTIONS 固定で customOptions は適用されない。
    */
   customOptions?: CustomizationOption[];
-}
-
-function isPC(title: string, tags: string[]): boolean {
-  const combined = `${title} ${tags.join(' ')}`.toLowerCase();
-  const gadgetKeywords = ['マウスパッド', 'キーボード', 'パネル', 'pcケース'];
-  const goodsKeywords = ['アクリル', 'tシャツ', 'パーカー', 'グッズ', 'ステッカー', '缶バッジ'];
-  for (const kw of [...gadgetKeywords, ...goodsKeywords]) {
-    if (combined.includes(kw)) return false;
-  }
-  const pcKeywords = ['pc', 'デスクトップ', 'gaming', 'ゲーミング', 'rtx', 'gtx', 'ryzen', 'core'];
-  return pcKeywords.some((kw) => combined.includes(kw));
 }
 
 export function ProductCustomization({
@@ -233,16 +302,19 @@ export function ProductCustomization({
   const [expanded, setExpanded] = useState(false);
   const [surcharge, setSurcharge] = useState(0);
 
-  // 実効オプション: 管理画面 Metaobject 由来が非空ならそれを使用、それ以外は STANDARD_OPTIONS
-  const effectiveOptions = useMemo<CustomizationOption[]>(
-    () => (customOptions && customOptions.length > 0 ? customOptions : STANDARD_OPTIONS),
-    [customOptions],
+  // 製品タイプに応じてオプションセットを判定
+  // (PC: STANDARD_OPTIONS or Metaobject / キーボード: KEYBOARD_OPTIONS / その他: null)
+  const optionSet = useMemo<OptionSet | null>(
+    () => pickOptionSet(productTitle, productTags, customOptions),
+    [productTitle, productTags, customOptions],
   );
 
-  // PC製品のみ表示（Hooksの後に条件分岐）
-  if (!isPC(productTitle, productTags)) {
+  // 該当なし製品は非表示（Hooksの後に条件分岐）
+  if (!optionSet) {
     return null;
   }
+
+  const effectiveOptions = optionSet.options;
 
   const handleChange = useCallback(
     (fieldName: string, value: string) => {
@@ -252,7 +324,7 @@ export function ProductCustomization({
         const attrs: CustomizationSelection[] = Object.entries(next)
           .filter(([, v]) => v !== '')
           .map(([k, v]) => ({key: k, value: v}));
-        // カスタマイズ追加金額の合計を計算（実効オプションから参照）
+        // カスタマイズ追加金額の合計を計算（keyboard 配列は label に +¥ がないので 0）
         const totalSurcharge = Object.entries(next)
           .filter(([, v]) => v !== '')
           .reduce((sum, [k, v]) => sum + calcSurchargeForSelection(effectiveOptions, k, v), 0);
@@ -307,7 +379,7 @@ export function ProductCustomization({
               marginBottom: 2,
             }}
           >
-            CUSTOMIZATION
+            {optionSet.heading}
           </div>
           <div
             style={{
@@ -316,7 +388,7 @@ export function ProductCustomization({
               color: T.tx,
             }}
           >
-            パーツカスタマイズ
+            {optionSet.subheading}
           </div>
         </div>
         <div
