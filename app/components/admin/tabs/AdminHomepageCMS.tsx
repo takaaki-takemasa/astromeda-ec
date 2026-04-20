@@ -15,6 +15,7 @@ import { HeroSlider, type MetaBanner } from '~/components/astro/HeroSlider';
 import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T, al } from '~/lib/astromeda-data';
 import { UrlPicker } from '~/components/admin/ds/UrlPicker';
+import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 
 // ── Types ──
 interface MetaField {
@@ -300,16 +301,28 @@ export default function AdminHomepageCMS() {
       {error && <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 16 }}>{error}</div>}
 
       {!loading && activeTab === 'collabs' && (
-        <CollabList items={collabs} onRefresh={fetchAll} onMsg={showMsg} />
+        <>
+          <CanonicalRedirectBanner metaobjectType="astromeda_ip_banner" currentTab="homepage" />
+          <CollabList items={collabs} onRefresh={fetchAll} onMsg={showMsg} />
+        </>
       )}
       {!loading && activeTab === 'banners' && (
-        <BannerList items={banners} onRefresh={fetchAll} onMsg={showMsg} />
+        <>
+          <CanonicalRedirectBanner metaobjectType="astromeda_hero_banner" currentTab="homepage" />
+          <BannerList items={banners} onRefresh={fetchAll} onMsg={showMsg} />
+        </>
       )}
       {!loading && activeTab === 'colors' && (
-        <ColorList items={colors} onRefresh={fetchAll} onMsg={showMsg} />
+        <>
+          <CanonicalRedirectBanner metaobjectType="astromeda_pc_color" currentTab="homepage" />
+          <ColorList items={colors} onRefresh={fetchAll} onMsg={showMsg} />
+        </>
       )}
       {!loading && activeTab === 'marquee' && (
-        <MarqueeList items={marquee} onRefresh={fetchAll} onMsg={showMsg} />
+        <>
+          <CanonicalRedirectBanner metaobjectType="astromeda_marquee_item" currentTab="homepage" />
+          <MarqueeList items={marquee} onRefresh={fetchAll} onMsg={showMsg} />
+        </>
       )}
     </div>
   );

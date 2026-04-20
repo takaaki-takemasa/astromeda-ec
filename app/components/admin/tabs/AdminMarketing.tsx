@@ -13,6 +13,8 @@ import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/Pre
 import { T, al } from '~/lib/astromeda-data';
 // patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
+// patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
+import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -984,7 +986,16 @@ export default function AdminMarketing() {
       </div>
 
       {tab === 'campaigns' && <CampaignList onToast={showToast} />}
-      {tab === 'options' && <CustomOptionList onToast={showToast} />}
+      {tab === 'options' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_custom_option"
+            currentTab="marketing"
+            note="カスタムオプション（プルダウン追加料金など）は「カスタマイズ」タブが正規の編集場所です。ここでも変更できますが、商品紐付けを伴う編集は正規タブが安全です。"
+          />
+          <CustomOptionList onToast={showToast} />
+        </>
+      )}
 
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>

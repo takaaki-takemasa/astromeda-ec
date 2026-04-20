@@ -14,6 +14,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { color } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 import { GenericCrudSublist, extractField, type MetaobjectNode, type FieldDef } from '~/components/admin/GenericCrudSublist';
+// patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
+import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 
 type SubTab =
   | 'site_config'
@@ -566,6 +568,12 @@ export default function AdminSiteConfig() {
       )}
 
       {!loading && activeTab === 'category' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_category_card"
+            currentTab="siteConfig"
+            note="カテゴリカードはトップページのレイアウトに直接影響するブロックです。配置やカラーを同時に確認したい場合は「ビジュアル編集」が便利です。"
+          />
         <GenericCrudSublist
           items={categories}
           onRefresh={fetchAll}
@@ -586,9 +594,16 @@ export default function AdminSiteConfig() {
             <CategoryCardPreview items={items} form={form} editingId={editingId} isCreating={isCreating} />
           )}
         />
+        </>
       )}
 
       {!loading && activeTab === 'shelf' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_product_shelf"
+            currentTab="siteConfig"
+            note="商品シェルフもトップページ・コレクションページの横スクロール表示に直結します。配置プレビュー付きで編集したい場合は「ビジュアル編集」へ。"
+          />
         <GenericCrudSublist
           items={shelves}
           onRefresh={fetchAll}
@@ -606,9 +621,16 @@ export default function AdminSiteConfig() {
           })}
           renderPreview={({ items, form }) => <ProductShelfPreview items={items} form={form} />}
         />
+        </>
       )}
 
       {!loading && activeTab === 'about' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_about_section"
+            currentTab="siteConfig"
+            note="ABOUTセクションはトップページの下層ブロックです。写真や装飾を同時に確認したい場合は「ビジュアル編集」のほうが直感的です。"
+          />
         <GenericCrudSublist
           items={abouts}
           onRefresh={fetchAll}
@@ -626,6 +648,7 @@ export default function AdminSiteConfig() {
           })}
           renderPreview={({ items, form }) => <AboutSectionPreview items={items} form={form} />}
         />
+        </>
       )}
 
       {!loading && activeTab === 'static_page' && (

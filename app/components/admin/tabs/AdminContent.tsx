@@ -14,6 +14,8 @@ import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T } from '~/lib/astromeda-data';
 // patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
+// patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
+import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 
 // ── Article/SEO 用軽量プレビュー ──
 function ArticlePreview({title, body, excerpt, author, tags, metaDesc}: {
@@ -913,7 +915,16 @@ export default function AdminContent() {
       </div>
 
       {tab === 'articles' && <ArticleList onToast={showToast} />}
-      {tab === 'banners' && <BannerList onToast={showToast} />}
+      {tab === 'banners' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_ip_banner"
+            currentTab="content"
+            note="ここでも編集できますが、トップページのレイアウト全体をビジュアル確認しながら編集したい場合は「ビジュアル編集」タブが便利です。"
+          />
+          <BannerList onToast={showToast} />
+        </>
+      )}
       {tab === 'seo' && <SEOArticleList onToast={showToast} />}
 
       {toast && <Toast msg={toast.msg} type={toast.type} />}

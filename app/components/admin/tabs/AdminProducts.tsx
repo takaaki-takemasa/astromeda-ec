@@ -13,6 +13,8 @@ import PreviewFrame, { type PreviewDevice } from '~/components/admin/preview/Pre
 import { T, al } from '~/lib/astromeda-data';
 // patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
+// patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
+import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 
 // ── Types ──
 interface ProductSummary {
@@ -1096,8 +1098,26 @@ export default function AdminProducts() {
 
       {/* Content */}
       {tab === 'products' && <ProductList />}
-      {tab === 'tiers' && <TierList onToast={showToast} />}
-      {tab === 'reviews' && <ReviewList onToast={showToast} />}
+      {tab === 'tiers' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_pc_tier"
+            currentTab="products"
+            note="PCティア（GAMER/CREATOR 等）はトップページの横スクロール表示に直結します。価格や並びをビジュアルで確認しながら編集したい場合は「ビジュアル編集」がおすすめです。"
+          />
+          <TierList onToast={showToast} />
+        </>
+      )}
+      {tab === 'reviews' && (
+        <>
+          <CanonicalRedirectBanner
+            metaobjectType="astromeda_ugc_review"
+            currentTab="products"
+            note="UGCレビューはトップページの「お客様の声」ブロックに表示されます。配置プレビュー付きで編集したい場合は「ビジュアル編集」が便利です。"
+          />
+          <ReviewList onToast={showToast} />
+        </>
+      )}
 
       {toast && <Toast msg={toast.msg} type={toast.type} />}
     </div>
