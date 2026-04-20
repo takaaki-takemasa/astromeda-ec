@@ -25,6 +25,8 @@
 import {useCallback, useEffect, useRef, useState} from 'react';
 import type {CSSProperties} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
+// patch 0084: 任意マーカーとヒントの視覚一貫性のため共有 primitive を使う
+import {HintText, OptionalMark} from './FormField';
 
 // ━━━ 型定義 ━━━
 
@@ -234,9 +236,10 @@ export function ImagePicker({
   // ━━━ render ━━━
   return (
     <div style={wrapperStyle}>
+      {/* patch 0084: optional マーカーを OptionalMark プリミティブに統一 */}
       <label style={labelStyle}>
-        {label}
-        {optional ? ' (任意)' : ''}
+        <span>{label}</span>
+        {optional ? <OptionalMark /> : null}
       </label>
 
       {/* 現在画像プレビュー */}
@@ -315,11 +318,11 @@ export function ImagePicker({
         ))}
       </div>
 
-      {/* ヘルパー */}
-      <div style={{fontSize: font.xs, color: color.textMuted}}>
+      {/* patch 0084: ヘルパーを HintText プリミティブに統一 */}
+      <HintText>
         {MODES.find((m) => m.id === mode)?.helper}
         {hint ? ` ・ ${hint}` : ''}
-      </div>
+      </HintText>
 
       {/* タブ本体 */}
       {mode === 'upload' ? (

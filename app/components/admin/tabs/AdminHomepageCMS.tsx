@@ -16,6 +16,8 @@ import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T, al } from '~/lib/astromeda-data';
 import { UrlPicker } from '~/components/admin/ds/UrlPicker';
 import { ImagePicker } from '~/components/admin/ds/ImagePicker';
+// patch 0084: 必須/任意マーカー + ヒント文の統一プリミティブ
+import { RequiredMark, OptionalMark, HintText } from '~/components/admin/ds/FormField';
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
@@ -413,29 +415,36 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const renderForm = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {/* patch 0084: 必須/任意マーカー + 中学生向けヒントを全フィールドに統一付与 */}
       <div>
-        <label style={labelStyle}>IP名</label>
+        <label style={labelStyle}>IP名<RequiredMark /></label>
         <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <HintText>例: 呪術廻戦、ONE PIECE バウンティラッシュ</HintText>
       </div>
       <div>
-        <label style={labelStyle}>Shopifyハンドル</label>
+        <label style={labelStyle}>Shopifyハンドル<RequiredMark /></label>
         <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} />
+        <HintText>Shopify コレクションの URL の末尾（例: jujutsukaisen-collaboration）</HintText>
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
-        <label style={labelStyle}>タグライン</label>
+        <label style={labelStyle}>タグライン<OptionalMark /></label>
         <input style={inputStyle} value={form.tagline} onChange={(e) => setForm({ ...form, tagline: e.target.value })} />
+        <HintText>IP 名の下に小さく出るキャッチコピー（空でも OK）</HintText>
       </div>
       <div>
-        <label style={labelStyle}>ラベル (HOT/NEW)</label>
-        <input style={inputStyle} value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
+        <label style={labelStyle}>ラベル<OptionalMark /></label>
+        <input style={inputStyle} value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} placeholder="HOT / NEW など" />
+        <HintText>「HOT」や「NEW」のような短い強調バッジ</HintText>
       </div>
       <div>
-        <label style={labelStyle}>並び順</label>
+        <label style={labelStyle}>並び順<OptionalMark /></label>
         <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        <HintText>数字が小さいほど左・上に出ます</HintText>
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
-        <label style={labelStyle}>フィーチャー (true/false)</label>
-        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} />
+        <label style={labelStyle}>フィーチャー<OptionalMark /></label>
+        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} placeholder="true / false" />
+        <HintText>true にするとトップの目立つ枠に入ります</HintText>
       </div>
     </div>
   );
@@ -616,13 +625,16 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
 
   const renderForm = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+      {/* patch 0084: 必須/任意マーカー + ヒントを全フィールドに統一 */}
       <div>
-        <label style={labelStyle}>タイトル</label>
+        <label style={labelStyle}>タイトル<RequiredMark /></label>
         <input style={inputStyle} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="バナータイトル" />
+        <HintText>トップのヒーローに大きく出る見出し</HintText>
       </div>
       <div>
-        <label style={labelStyle}>コレクションハンドル</label>
+        <label style={labelStyle}>コレクションハンドル<OptionalMark /></label>
         <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="jujutsukaisen-collaboration" />
+        <HintText>画像が空のとき、このコレクション画像をフォールバックに使います</HintText>
       </div>
       <div style={{ gridColumn: '1 / -1' }}>
         <UrlPicker
@@ -633,16 +645,19 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
         />
       </div>
       <div>
-        <label style={labelStyle}>代替テキスト</label>
+        <label style={labelStyle}>代替テキスト<OptionalMark /></label>
         <input style={inputStyle} value={form.alt_text} onChange={(e) => setForm({ ...form, alt_text: e.target.value })} />
+        <HintText>画像が出ないときに代わりに読み上げられる文字（SEO にも使用）</HintText>
       </div>
       <div>
-        <label style={labelStyle}>並び順</label>
+        <label style={labelStyle}>並び順<OptionalMark /></label>
         <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        <HintText>数字が小さいほど先に表示されます</HintText>
       </div>
       <div>
-        <label style={labelStyle}>有効 (true/false)</label>
-        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} />
+        <label style={labelStyle}>有効<OptionalMark /></label>
+        <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} placeholder="true / false" />
+        <HintText>false にするとトップに出なくなります（下書きの時など）</HintText>
       </div>
     </div>
   );
@@ -812,43 +827,52 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
   const renderForm = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div>
-          <label style={labelStyle}>名前 (JP)</label>
+          <label style={labelStyle}>名前 (JP) <RequiredMark /></label>
           <input style={inputStyle} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="ホワイト" />
+          <HintText>お客さまが見る日本語のカラー名です（例: ホワイト・ブラック）。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>スラッグ (EN)</label>
+          <label style={labelStyle}>スラッグ (EN) <RequiredMark /></label>
           <input style={inputStyle} value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} placeholder="white" />
+          <HintText>URLや画像ファイル名に使う英単語です（例: white）。半角小文字のみ。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>HEX カラー</label>
+          <label style={labelStyle}>HEX カラー <RequiredMark /></label>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             <input type="color" value={form.hex_color || '#000000'} onChange={(e) => setForm({ ...form, hex_color: e.target.value })} style={{ width: 36, height: 32, border: 'none', cursor: 'pointer' }} />
             <input style={{ ...inputStyle, flex: 1 }} value={form.hex_color} onChange={(e) => setForm({ ...form, hex_color: e.target.value })} />
           </div>
+          <HintText>カラーコードです（例: #ffffff は真っ白）。左の □ を押すと色を選べます。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>コレクションハンドル</label>
+          <label style={labelStyle}>コレクションハンドル <RequiredMark /></label>
           <input style={inputStyle} value={form.collection_handle} onChange={(e) => setForm({ ...form, collection_handle: e.target.value })} placeholder="white" />
+          <HintText>このカラーをクリックした時に表示される Shopify コレクションの識別名です。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>表示順</label>
+          <label style={labelStyle}>表示順 <OptionalMark /></label>
           <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+          <HintText>数字が小さいほど左・上に出ます（例: 1 が最初）。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>ダーク (true/false)</label>
+          <label style={labelStyle}>ダーク (true/false) <OptionalMark /></label>
           <input style={inputStyle} value={form.is_dark} onChange={(e) => setForm({ ...form, is_dark: e.target.value })} placeholder="false" />
+          <HintText>true にすると黒系カラー扱いになり、文字色が白に切り替わります。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>カラーキーワード (カンマ区切り)</label>
+          <label style={labelStyle}>カラーキーワード (カンマ区切り) <OptionalMark /></label>
           <input style={inputStyle} value={form.color_keywords} onChange={(e) => setForm({ ...form, color_keywords: e.target.value })} placeholder="ホワイト,White,WHITE" />
+          <HintText>商品タグからこのカラーに自動で紐づけたい時のキーワードです。カンマで区切ってください。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>表示中 (true/false)</label>
+          <label style={labelStyle}>表示中 (true/false) <OptionalMark /></label>
           <input style={inputStyle} value={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.value })} placeholder="true" />
+          <HintText>false にすると一時的にトップから隠せます（Shopify側のデータは消えません）。</HintText>
         </div>
         <div>
-          <label style={labelStyle}>グラデーションカラー (HEX・任意)</label>
+          <label style={labelStyle}>グラデーションカラー (HEX) <OptionalMark /></label>
           <input style={inputStyle} value={form.gradient_color} onChange={(e) => setForm({ ...form, gradient_color: e.target.value })} placeholder="#E8E0FF" />
+          <HintText>画像が無い時の背景グラデーションに使う色です。空なら HEX カラーのみで表示します。</HintText>
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
           {/* patch 0083 R1-P1-1: URL 手打ちから ImagePicker(アップロード/ライブラリ/URL) 3モードへ */}
@@ -1058,16 +1082,19 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
   const renderForm = () => (
     <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px', gap: 10 }}>
       <div>
-        <label style={labelStyle}>アイコン</label>
+        <label style={labelStyle}>アイコン <OptionalMark /></label>
         <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+        <HintText>テキストの左に出す絵文字・記号です（例: ✦ ・ 🚚）。</HintText>
       </div>
       <div>
-        <label style={labelStyle}>テキスト</label>
+        <label style={labelStyle}>テキスト <RequiredMark /></label>
         <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="送料無料" />
+        <HintText>トップ上部を横に流れる 1 行のキャッチです（例: 送料無料・即日発送）。</HintText>
       </div>
       <div>
-        <label style={labelStyle}>並び順</label>
+        <label style={labelStyle}>並び順 <OptionalMark /></label>
         <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        <HintText>数字が小さいほど先に流れます。</HintText>
       </div>
     </div>
   );
