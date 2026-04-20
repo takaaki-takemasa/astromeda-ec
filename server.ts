@@ -1,6 +1,9 @@
 import * as serverBuild from 'virtual:react-router/server-build';
 import {createRequestHandler, storefrontRedirect} from '@shopify/hydrogen';
 import {createHydrogenRouterContext} from '~/lib/context';
+// patch 0089 (R2-P2-4): Zod 既定エラーを worker 起動時に日本語化する
+// side-effect import。z.setErrorMap を worker boot 時に一度だけ呼ぶ。
+import '~/lib/zod-error-map';
 
 /**
  * ============================================================

@@ -15,6 +15,8 @@
  */
 
 import { createLogger } from '../core/logger.js';
+// patch 0089 (R2-P2-4): GraphQL userErrors を日本語化
+import { translateUserErrors } from '../../app/lib/graphql-error-i18n.js';
 
 const log = createLogger('shopify-admin');
 
@@ -592,7 +594,7 @@ export class ShopifyAdminClient {
 
       const {product, userErrors} = res.productCreate;
       if (userErrors.length > 0) {
-        throw new Error(`商品作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`商品作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!product) throw new Error('商品作成: レスポンスにproductが含まれません');
 
@@ -627,7 +629,7 @@ export class ShopifyAdminClient {
 
       const {product, userErrors} = res.productUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`商品更新失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`商品更新失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!product) throw new Error('商品更新: レスポンスにproductが含まれません');
 
@@ -672,7 +674,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteProduct] Already deleted: ${id}`);
           return true;
         }
-        throw new Error(`商品削除失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`商品削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteProduct] Deleted: ${id}`);
@@ -734,7 +736,7 @@ export class ShopifyAdminClient {
           results.push({
             id,
             success: false,
-            error: userErrors.map(e => e.message).join(', '),
+            error: translateUserErrors(userErrors),
           });
         } else {
           results.push({id, success: true});
@@ -786,7 +788,7 @@ export class ShopifyAdminClient {
           results.push({
             id,
             success: false,
-            error: userErrors.map(e => e.message).join(', '),
+            error: translateUserErrors(userErrors),
           });
         } else {
           results.push({id, success: true});
@@ -978,7 +980,7 @@ export class ShopifyAdminClient {
 
       const {collection, userErrors} = res.collectionCreate;
       if (userErrors.length > 0) {
-        throw new Error(`コレクション作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`コレクション作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!collection) throw new Error('コレクション作成: レスポンスにcollectionが含まれません');
 
@@ -1016,7 +1018,7 @@ export class ShopifyAdminClient {
 
       const {collection, userErrors} = res.collectionUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`コレクション更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`コレクション更新失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!collection) throw new Error('コレクション更新: レスポンスにcollectionが含まれません');
 
@@ -1061,7 +1063,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteCollection] Already deleted: ${id}`);
           return true;
         }
-        throw new Error(`コレクション削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`コレクション削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteCollection] Deleted: ${id}`);
@@ -1139,7 +1141,7 @@ export class ShopifyAdminClient {
 
       const {urlRedirect, userErrors} = res.urlRedirectCreate;
       if (userErrors.length > 0) {
-        throw new Error(`リダイレクト作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`リダイレクト作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!urlRedirect) throw new Error('リダイレクト作成: レスポンスに urlRedirect が含まれません');
 
@@ -1177,7 +1179,7 @@ export class ShopifyAdminClient {
 
       const {urlRedirect, userErrors} = res.urlRedirectUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`リダイレクト更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`リダイレクト更新失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!urlRedirect) throw new Error('リダイレクト更新: レスポンスに urlRedirect が含まれません');
 
@@ -1222,7 +1224,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteUrlRedirect] Already deleted: ${id}`);
           return true;
         }
-        throw new Error(`リダイレクト削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`リダイレクト削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteUrlRedirect] Deleted: ${id}`);
@@ -1384,7 +1386,7 @@ export class ShopifyAdminClient {
         );
         if (!allMissing) {
           throw new Error(
-            `ファイル削除失敗: ${userErrors.map((e) => e.message).join(', ')}`,
+            `ファイル削除失敗: ${translateUserErrors(userErrors)}`,
           );
         }
         log.info(
@@ -1434,7 +1436,7 @@ export class ShopifyAdminClient {
 
       const {productVariant, userErrors} = res.productVariantCreate;
       if (userErrors.length > 0) {
-        throw new Error(`バリアント作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`バリアント作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!productVariant) throw new Error('バリアント作成: レスポンスにproductVariantが含まれません');
 
@@ -1469,7 +1471,7 @@ export class ShopifyAdminClient {
 
       const {productVariant, userErrors} = res.productVariantUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`バリアント更新失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`バリアント更新失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!productVariant) throw new Error('バリアント更新: レスポンスにproductVariantが含まれません');
 
@@ -1526,7 +1528,7 @@ export class ShopifyAdminClient {
 
       const {metaobjectDefinition, userErrors} = res.metaobjectDefinitionCreate;
       if (userErrors.length > 0) {
-        throw new Error(`メタオブジェクト定義作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト定義作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!metaobjectDefinition) throw new Error('メタオブジェクト定義: レスポンスが空');
 
@@ -1576,7 +1578,7 @@ export class ShopifyAdminClient {
 
       const {metaobjectDefinition, userErrors} = res.metaobjectDefinitionUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`メタオブジェクト定義更新失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト定義更新失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[updateMetaobjectDefinition] Updated: ${id} (+${fieldDefinitionsToAdd.length} fields)`);
@@ -1829,7 +1831,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteMetaobjectDefinition] Not found (idempotent): ${id}`);
           return {deletedId: null, notFound: true};
         }
-        throw new Error(`メタオブジェクト定義削除失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト定義削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteMetaobjectDefinition] Deleted: ${deletedId || id}`);
@@ -1869,7 +1871,7 @@ export class ShopifyAdminClient {
 
       const {metaobject, userErrors} = res.metaobjectCreate;
       if (userErrors.length > 0) {
-        throw new Error(`メタオブジェクト作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!metaobject) throw new Error('メタオブジェクト作成: レスポンスが空');
 
@@ -1904,7 +1906,7 @@ export class ShopifyAdminClient {
 
       const {metaobject, userErrors} = res.metaobjectUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`メタオブジェクト更新失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト更新失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[updateMetaobject] Updated: ${id}`);
@@ -1943,7 +1945,7 @@ export class ShopifyAdminClient {
           e.message.toLowerCase().includes('does not exist')
         );
         if (isGone) return true;
-        throw new Error(`メタオブジェクト削除失敗: ${userErrors.map(e => e.message).join(', ')}`);
+        throw new Error(`メタオブジェクト削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteMetaobject] Deleted: ${id}`);
@@ -2046,7 +2048,7 @@ export class ShopifyAdminClient {
 
     const { stagedTargets, userErrors } = res.stagedUploadsCreate;
     if (userErrors.length > 0) {
-      throw new Error(`Staged upload 作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+      throw new Error(`Staged upload 作成失敗: ${translateUserErrors(userErrors)}`);
     }
     if (!stagedTargets?.[0]) {
       throw new Error('Staged upload: レスポンスにtargetが含まれません');
@@ -2146,7 +2148,7 @@ export class ShopifyAdminClient {
 
     const { files, userErrors } = res.fileCreate;
     if (userErrors.length > 0) {
-      throw new Error(`ファイル作成失敗: ${userErrors.map(e => e.message).join(', ')}`);
+      throw new Error(`ファイル作成失敗: ${translateUserErrors(userErrors)}`);
     }
     if (!files?.[0]) {
       throw new Error('fileCreate: レスポンスにfileが含まれません');
@@ -2206,7 +2208,7 @@ export class ShopifyAdminClient {
 
       const { productVariants, userErrors } = res.productVariantsBulkUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`バリアント一括更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`バリアント一括更新失敗: ${translateUserErrors(userErrors)}`);
       }
       log.info(`[productVariantsBulkUpdate] Updated ${productVariants.length} variants for ${productId}`);
       return productVariants.map((v) => ({ id: v.id, title: v.title, price: v.price }));
@@ -2251,7 +2253,7 @@ export class ShopifyAdminClient {
 
       const { productVariants, userErrors } = res.productVariantsBulkCreate;
       if (userErrors.length > 0) {
-        throw new Error(`バリアント一括作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`バリアント一括作成失敗: ${translateUserErrors(userErrors)}`);
       }
       log.info(`[productVariantsBulkCreate] Created ${productVariants.length} variants for ${productId}`);
       return productVariants;
@@ -2305,7 +2307,7 @@ export class ShopifyAdminClient {
 
       const { inventoryAdjustmentGroup, userErrors } = res.inventoryAdjustQuantities;
       if (userErrors.length > 0) {
-        throw new Error(`在庫調整失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`在庫調整失敗: ${translateUserErrors(userErrors)}`);
       }
       const changedQuantity = inventoryAdjustmentGroup?.changes?.reduce((s, c) => s + (c.delta || 0), 0) || 0;
       log.info(`[inventoryAdjustQuantity] Adjusted ${inventoryItemId} @ ${locationId} by ${delta}`);
@@ -2630,7 +2632,7 @@ export class ShopifyAdminClient {
 
       const { userErrors } = res.publishablePublish;
       if (userErrors.length > 0) {
-        throw new Error(`商品公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`商品公開失敗: ${translateUserErrors(userErrors)}`);
       }
       log.info(`[productPublish] Published ${productId} to ${publicationIds.length} channels`);
       return true;
@@ -2664,7 +2666,7 @@ export class ShopifyAdminClient {
 
       const { userErrors } = res.publishableUnpublish;
       if (userErrors.length > 0) {
-        throw new Error(`商品非公開失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`商品非公開失敗: ${translateUserErrors(userErrors)}`);
       }
       log.info(`[productUnpublish] Unpublished ${productId} from ${publicationIds.length} channels`);
       return true;
@@ -2917,7 +2919,7 @@ export class ShopifyAdminClient {
 
       const {codeDiscountNode, userErrors} = res.discountCodeBasicCreate;
       if (userErrors.length > 0) {
-        throw new Error(`割引コード作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`割引コード作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!codeDiscountNode) {
         throw new Error('割引コード作成失敗: ノードが返されませんでした');
@@ -2968,7 +2970,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteDiscountCode] Not found (idempotent): ${id}`);
           return {deletedId: null, notFound: true};
         }
-        throw new Error(`割引コード削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`割引コード削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteDiscountCode] Deleted: ${deletedCodeDiscountId || id}`);
@@ -3173,7 +3175,7 @@ export class ShopifyAdminClient {
 
       const {menu, userErrors} = res.menuCreate;
       if (userErrors.length > 0) {
-        throw new Error(`メニュー作成失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`メニュー作成失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!menu) {
         throw new Error('メニュー作成失敗: ノードが返されませんでした');
@@ -3226,7 +3228,7 @@ export class ShopifyAdminClient {
 
       const {menu, userErrors} = res.menuUpdate;
       if (userErrors.length > 0) {
-        throw new Error(`メニュー更新失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`メニュー更新失敗: ${translateUserErrors(userErrors)}`);
       }
       if (!menu) {
         throw new Error('メニュー更新失敗: ノードが返されませんでした');
@@ -3273,7 +3275,7 @@ export class ShopifyAdminClient {
           log.info(`[deleteMenu] Not found (idempotent): ${id}`);
           return {deletedId: null, notFound: true};
         }
-        throw new Error(`メニュー削除失敗: ${userErrors.map((e) => e.message).join(', ')}`);
+        throw new Error(`メニュー削除失敗: ${translateUserErrors(userErrors)}`);
       }
 
       log.info(`[deleteMenu] Deleted: ${deletedMenuId || id}`);
