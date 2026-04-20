@@ -17,6 +17,8 @@ import {useState, useEffect, useCallback} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import { useToast } from '~/components/admin/ds/Toast';
 // patch 0082 (R0-P0-4): 生 Shopify ENUM を中学生向け日本語に変換
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 
@@ -110,27 +112,7 @@ const btnDanger: React.CSSProperties = {
 };
 
 // ── Toast ──
-function Toast({msg, type}: {msg: string; type: 'ok' | 'err'}) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        padding: '10px 20px',
-        borderRadius: radius.md,
-        fontSize: font.sm,
-        fontWeight: 600,
-        color: type === 'ok' ? '#000' : '#fff',
-        background: type === 'ok' ? color.cyan : color.red,
-        zIndex: 200,
-        boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      }}
-    >
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ── API helpers ──
 async function apiList(
@@ -198,13 +180,14 @@ export default function AdminBulkTags() {
   const [lastResults, setLastResults] = useState<BulkResult[] | null>(null);
   const [lastAction, setLastAction] = useState<'add' | 'remove' | null>(null);
   const [lastTags, setLastTags] = useState<string[]>([]);
-  const [toast, setToast] = useState<{msg: string; type: 'ok' | 'err'} | null>(null);
   const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({msg, type});
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const { pushToast, Toast } = useToast();
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -318,7 +301,7 @@ export default function AdminBulkTags() {
   // ── Render ──
   return (
     <div style={{maxWidth: 1400, margin: '0 auto'}}>
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
       <Dialog {...dialogProps} />
 
       {/* ヘッダー */}

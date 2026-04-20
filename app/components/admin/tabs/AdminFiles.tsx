@@ -22,6 +22,8 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import { useToast } from '~/components/admin/ds/Toast';
 
 // ━━━ Types ━━━
 
@@ -200,28 +202,7 @@ function typeBadgeColor(typeName: string): string {
 }
 
 // ━━━ Toast ━━━
-
-function Toast({msg, type}: {msg: string; type: 'ok' | 'err'}) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        padding: '10px 20px',
-        borderRadius: radius.md,
-        fontSize: font.sm,
-        fontWeight: 600,
-        color: type === 'ok' ? '#000' : '#fff',
-        background: type === 'ok' ? color.cyan : color.red,
-        zIndex: 200,
-        boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      }}
-    >
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ━━━ File Card ━━━
 
@@ -389,13 +370,16 @@ export default function AdminFiles() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('ALL');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [toast, setToast] = useState<{msg: string; type: 'ok' | 'err'} | null>(null);
+  // patch 0087: 保存中/削除中ボタン状態
+  const [deleting, setDeleting] = useState(false);
   const {confirm: confirmDialog, ConfirmDialog: Dialog, dialogProps} = useConfirmDialog();
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({msg, type});
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const { pushToast, Toast } = useToast();
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   const currentCursor = cursorHistory[cursorHistory.length - 1];
 
@@ -532,13 +516,19 @@ export default function AdminFiles() {
       contextPath: ['コマース', '📝 コンテンツ・ページ', '📁 ファイル'],
     });
     if (!ok) return;
-    const res = await apiDelete(ids);
-    if (res.success) {
-      showToast(`${res.deleted ?? ids.length} / ${res.requested ?? ids.length} 件削除しました`, 'ok');
-      setSelectedIds(new Set());
-      reload();
-    } else {
-      showToast(`一括削除失敗: ${res.error}`, 'err');
+    // patch 0087: 進行中は多重発火を防ぐ
+    setDeleting(true);
+    try {
+      const res = await apiDelete(ids);
+      if (res.success) {
+        showToast(`${res.deleted ?? ids.length} / ${res.requested ?? ids.length} 件削除しました`, 'ok');
+        setSelectedIds(new Set());
+        reload();
+      } else {
+        showToast(`一括削除失敗: ${res.error}`, 'err');
+      }
+    } finally {
+      setDeleting(false);
     }
   }, [selectedIds, confirmDialog, showToast, reload]);
 
@@ -579,10 +569,18 @@ export default function AdminFiles() {
         {selectedCount > 0 && (
           <button
             type="button"
-            style={{...btnDanger, fontSize: font.sm, padding: '8px 16px'}}
+            style={{
+              ...btnDanger,
+              fontSize: font.sm,
+              padding: '8px 16px',
+              opacity: deleting ? 0.5 : 1,
+              cursor: deleting ? 'not-allowed' : 'pointer',
+            }}
             onClick={deleteSelected}
+            disabled={deleting}
+            aria-busy={deleting}
           >
-            🗑 選択した {selectedCount} 件を削除
+            {deleting ? '削除中…' : `🗑 選択した ${selectedCount} 件を削除`}
           </button>
         )}
       </div>
@@ -721,7 +719,7 @@ export default function AdminFiles() {
         </div>
       </div>
 
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
       <Dialog {...dialogProps} />
     </div>
   );

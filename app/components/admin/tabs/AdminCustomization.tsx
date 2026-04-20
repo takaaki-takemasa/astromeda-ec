@@ -20,6 +20,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { Modal } from '~/components/admin/Modal';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import { useToast } from '~/components/admin/ds/Toast';
 import { ToggleSwitch } from '~/components/admin/ds/ToggleSwitch';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
@@ -148,27 +150,7 @@ const btnGhost: React.CSSProperties = {
 };
 
 // ── Toast ──
-function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        padding: '10px 20px',
-        borderRadius: radius.md,
-        fontSize: font.sm,
-        fontWeight: 600,
-        color: type === 'ok' ? '#000' : '#fff',
-        background: type === 'ok' ? color.cyan : color.red,
-        zIndex: 200,
-        boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      }}
-    >
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ══════════════════════════════════
 // Main Component
@@ -179,7 +161,6 @@ export default function AdminCustomization() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [initStatus, setInitStatus] = useState<string | null>(null);
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
   // 編集モーダル
   const [editOpen, setEditOpen] = useState(false);
@@ -188,10 +169,12 @@ export default function AdminCustomization() {
 
   const { confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog } = useConfirmDialog();
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3200);
-  }, []);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const { pushToast, Toast } = useToast();
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   const fetchData = useCallback(async () => {
     try {
@@ -841,7 +824,7 @@ export default function AdminCustomization() {
       )}
 
       <Dialog {...dialogProps} />
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
     </div>
   );
 }

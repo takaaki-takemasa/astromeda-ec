@@ -17,6 +17,8 @@ import {useState, useEffect, useCallback, useMemo} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminEmptyCard, AdminListSkeleton} from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import { useToast } from '~/components/admin/ds/Toast';
 
 // ━━━ Types ━━━
 
@@ -200,28 +202,7 @@ async function apiDelete(
 }
 
 // ━━━ Toast ━━━
-
-function Toast({msg, type}: {msg: string; type: 'ok' | 'err'}) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        padding: '10px 20px',
-        borderRadius: radius.md,
-        fontSize: font.sm,
-        fontWeight: 600,
-        color: type === 'ok' ? '#000' : '#fff',
-        background: type === 'ok' ? color.cyan : color.red,
-        zIndex: 200,
-        boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      }}
-    >
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ━━━ Type バッジ用色 ━━━
 
@@ -635,16 +616,17 @@ export default function AdminMetaobjectDefinitions() {
   const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([null]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [toast, setToast] = useState<{msg: string; type: 'ok' | 'err'} | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const {confirm, dialogProps, ConfirmDialog} = useConfirmDialog();
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({msg, type});
-    setTimeout(() => setToast(null), 3500);
-  }, []);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const { pushToast, Toast } = useToast();
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   const load = useCallback(async (cursor: string | null) => {
     setLoading(true);
@@ -892,7 +874,7 @@ export default function AdminMetaobjectDefinitions() {
         onToast={showToast}
       />
 
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
       <ConfirmDialog {...dialogProps} />
     </div>
   );

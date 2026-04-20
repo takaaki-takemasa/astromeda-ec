@@ -17,6 +17,8 @@ import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 // patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import { useToast } from '~/components/admin/ds/Toast';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -124,19 +126,7 @@ async function cmsPost(body: Record<string, unknown>): Promise<{ success: boolea
 }
 
 // ── Toast ──
-function Toast({ msg, type }: { msg: string; type: 'ok' | 'err' }) {
-  return (
-    <div style={{
-      position: 'fixed', bottom: 24, right: 24, padding: '10px 20px',
-      borderRadius: radius.md, fontSize: font.sm, fontWeight: 600,
-      color: type === 'ok' ? '#000' : '#fff',
-      background: type === 'ok' ? color.cyan : color.red,
-      zIndex: 200, boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-    }}>
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ══════════════════════════════════
 // Preview Components
@@ -967,12 +957,13 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
 // ══════════════════════════════════
 export default function AdminMarketing() {
   const [tab, setTab] = useState<SubTab>('campaigns');
-  const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const { pushToast, Toast } = useToast();
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   return (
     <div>
@@ -1003,7 +994,7 @@ export default function AdminMarketing() {
         </>
       )}
 
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
     </div>
   );
 }

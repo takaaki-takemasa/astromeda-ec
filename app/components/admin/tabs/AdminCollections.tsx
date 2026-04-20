@@ -17,6 +17,8 @@ import {color, font, radius, space} from '~/lib/design-tokens';
 import {Modal} from '~/components/admin/Modal';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
+// patch 0087: useToast 統合プリミティブ
+import {useToast} from '~/components/admin/ds/Toast';
 
 // ── Types ──
 interface RuleInput {
@@ -221,27 +223,7 @@ async function uploadImageToShopify(file: File): Promise<string> {
 }
 
 // ── Toast ──
-function Toast({msg, type}: {msg: string; type: 'ok' | 'err'}) {
-  return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        padding: '10px 20px',
-        borderRadius: radius.md,
-        fontSize: font.sm,
-        fontWeight: 600,
-        color: type === 'ok' ? '#000' : '#fff',
-        background: type === 'ok' ? color.cyan : color.red,
-        zIndex: 200,
-        boxShadow: '0 4px 20px rgba(0,0,0,.5)',
-      }}
-    >
-      {msg}
-    </div>
-  );
-}
+// patch 0087: ローカル Toast は ~/components/admin/ds/Toast に統合
 
 // ── Column/Relation options ──
 const COLUMN_OPTIONS: Array<{value: string; label: string}> = [
@@ -272,7 +254,8 @@ export default function AdminCollections() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [toast, setToast] = useState<{msg: string; type: 'ok' | 'err'} | null>(null);
+  // patch 0087: useToast 統合プリミティブで variant 別 duration (error=6.5s)
+  const {pushToast, Toast} = useToast();
   const [editId, setEditId] = useState<string | null | 'new'>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -280,10 +263,10 @@ export default function AdminCollections() {
   const fileRef = useRef<HTMLInputElement>(null);
   const {confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog} = useConfirmDialog();
 
-  const showToast = useCallback((msg: string, type: 'ok' | 'err') => {
-    setToast({msg, type});
-    setTimeout(() => setToast(null), 3000);
-  }, []);
+  const showToast = useCallback(
+    (msg: string, type: 'ok' | 'err') => pushToast(msg, type),
+    [pushToast],
+  );
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -427,7 +410,8 @@ export default function AdminCollections() {
   // ── Render ──
   return (
     <div style={{maxWidth: 1200, margin: '0 auto'}}>
-      {toast && <Toast msg={toast.msg} type={toast.type} />}
+      <Toast />
+      {/* patch 0087: useToast が自前で render するため条件分岐不要 */}
       <Dialog {...dialogProps} />
 
       {/* ヘッダー */}
