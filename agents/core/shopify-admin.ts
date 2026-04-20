@@ -528,6 +528,125 @@ export class ShopifyAdminClient {
   }
 
   // ══════════════════════════════════════════════════════════
+  // 商品タグ一括操作（効果器: 分類の再編 — patch 0065）
+  //
+  // 医学的メタファー: 細胞(商品)の表面マーカー(タグ)を
+  // 一括で付け替えることで、Smart Collection の rule 判定を
+  // 瞬時に再構成する。個別 productUpdate を 100 回呼ぶのではなく
+  // Shopify 2025-10 の tagsAdd / tagsRemove mutation を使い、
+  // 既存タグを上書きせずマージ/削除する。
+  // ══════════════════════════════════════════════════════════
+
+  /**
+   * 複数商品に対してタグを一括付与（既存タグは保持・冪等）
+   *
+   * Shopify の tagsAdd mutation は Taggable interface を受けるので
+   * Product GID をそのまま渡せる。既存タグとのマージは Shopify 側で処理。
+   *
+   * @param productIds - Product GID の配列
+   * @param tags - 追加するタグ文字列の配列
+   * @returns 各商品の成否を示す配列
+   */
+  async bulkAddTagsToProducts(
+    productIds: string[],
+    tags: string[],
+  ): Promise<Array<{id: string; success: boolean; error?: string}>> {
+    const gql = `
+      mutation tagsAdd($id: ID!, $tags: [String!]!) {
+        tagsAdd(id: $id, tags: $tags) {
+          node { id }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const results: Array<{id: string; success: boolean; error?: string}> = [];
+
+    // Shopify Admin API は 2req/sec 制限があるので直列で処理（ループ内で await）
+    // 将来 graphqlBulkOperations に置換可能だが、数十〜数百件想定なら直列で十分
+    for (const id of productIds) {
+      try {
+        const res = await this.query<{
+          tagsAdd: {
+            node: {id: string} | null;
+            userErrors: Array<{field: string[]; message: string}>;
+          };
+        }>(gql, {id, tags});
+
+        const {userErrors} = res.tagsAdd;
+        if (userErrors.length > 0) {
+          results.push({
+            id,
+            success: false,
+            error: userErrors.map(e => e.message).join(', '),
+          });
+        } else {
+          results.push({id, success: true});
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        results.push({id, success: false, error: msg});
+      }
+    }
+
+    const ok = results.filter(r => r.success).length;
+    log.info(`[bulkAddTagsToProducts] ${ok}/${productIds.length} 成功 (tags=${tags.join(',')})`);
+    return results;
+  }
+
+  /**
+   * 複数商品からタグを一括削除（指定タグが無ければ何もしない・冪等）
+   *
+   * @param productIds - Product GID の配列
+   * @param tags - 削除するタグ文字列の配列
+   * @returns 各商品の成否を示す配列
+   */
+  async bulkRemoveTagsFromProducts(
+    productIds: string[],
+    tags: string[],
+  ): Promise<Array<{id: string; success: boolean; error?: string}>> {
+    const gql = `
+      mutation tagsRemove($id: ID!, $tags: [String!]!) {
+        tagsRemove(id: $id, tags: $tags) {
+          node { id }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const results: Array<{id: string; success: boolean; error?: string}> = [];
+
+    for (const id of productIds) {
+      try {
+        const res = await this.query<{
+          tagsRemove: {
+            node: {id: string} | null;
+            userErrors: Array<{field: string[]; message: string}>;
+          };
+        }>(gql, {id, tags});
+
+        const {userErrors} = res.tagsRemove;
+        if (userErrors.length > 0) {
+          results.push({
+            id,
+            success: false,
+            error: userErrors.map(e => e.message).join(', '),
+          });
+        } else {
+          results.push({id, success: true});
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        results.push({id, success: false, error: msg});
+      }
+    }
+
+    const ok = results.filter(r => r.success).length;
+    log.info(`[bulkRemoveTagsFromProducts] ${ok}/${productIds.length} 成功 (tags=${tags.join(',')})`);
+    return results;
+  }
+
+  // ══════════════════════════════════════════════════════════
   // コレクションCRUD（効果器: 組織化 — patch 0064）
   //
   // 医学的メタファー: 商品(細胞)を特定のルール(タグ条件等)で

@@ -33,6 +33,7 @@ export type AuditAction =
   | 'collection_create'
   | 'collection_update'
   | 'collection_delete'
+  | 'product_bulk_tag'
   | 'approval_decide'
   | 'andon_pull'
   | 'andon_clear'

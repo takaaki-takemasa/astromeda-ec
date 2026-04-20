@@ -106,6 +106,20 @@ const ExtendedProductActionSchema = z.discriminatedUnion('action', [
     productId: GidProduct,
     publicationIds: z.array(GidPublication).min(1).max(20),
   }).strict(),
+
+  // patch 0065: タグ一括付与（Smart Collection 所属を即時切替）
+  z.object({
+    action: z.literal('tags_bulk_add'),
+    productIds: z.array(GidProduct).min(1).max(250),
+    tags: z.array(z.string().min(1).max(255)).min(1).max(50),
+  }).strict(),
+
+  // patch 0065: タグ一括削除
+  z.object({
+    action: z.literal('tags_bulk_remove'),
+    productIds: z.array(GidProduct).min(1).max(250),
+    tags: z.array(z.string().min(1).max(255)).min(1).max(50),
+  }).strict(),
 ]);
 
 // ── GET: 一覧 or 詳細 ──
@@ -347,6 +361,46 @@ export async function action({ request, context }: Route.ActionArgs) {
             success: result,
           });
           return data({ success: result });
+        }
+
+        // patch 0065: タグ一括付与
+        case 'tags_bulk_add': {
+          const role = requirePermission(session, 'products.edit');
+          const results = await client.bulkAddTagsToProducts(v.productIds, v.tags);
+          const ok = results.filter((r) => r.success).length;
+          const failed = results.length - ok;
+          auditLog({
+            action: 'product_bulk_tag',
+            role,
+            resource: `products (${v.productIds.length} items)`,
+            detail: `add tags=[${v.tags.join(', ')}] ok=${ok} failed=${failed}`,
+            success: failed === 0,
+          });
+          return data({
+            success: failed === 0,
+            results,
+            summary: { total: results.length, ok, failed, tags: v.tags },
+          });
+        }
+
+        // patch 0065: タグ一括削除
+        case 'tags_bulk_remove': {
+          const role = requirePermission(session, 'products.edit');
+          const results = await client.bulkRemoveTagsFromProducts(v.productIds, v.tags);
+          const ok = results.filter((r) => r.success).length;
+          const failed = results.length - ok;
+          auditLog({
+            action: 'product_bulk_tag',
+            role,
+            resource: `products (${v.productIds.length} items)`,
+            detail: `remove tags=[${v.tags.join(', ')}] ok=${ok} failed=${failed}`,
+            success: failed === 0,
+          });
+          return data({
+            success: failed === 0,
+            results,
+            summary: { total: results.length, ok, failed, tags: v.tags },
+          });
         }
 
         default:
