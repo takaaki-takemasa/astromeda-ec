@@ -1,19 +1,53 @@
 /**
- * AdminOnboarding — 非エンジニア向け 出品ガイド (patch 0059)
+ * AdminOnboarding — 非エンジニア向け 出品ガイド
  *
- * 「新IPコラボを開始する → 新製品を販売できる状態にする」までの
- * 全工程を、ステップ単位の navigation として可視化する。
+ * patch 0059 (2026-04-19) 初版: 6ステップ navigation 実装
+ * patch 0078 (2026-04-20) 刷新:
+ *   - Button primitive (variant=primary/secondary/ghost) 導入
+ *   - Progressive disclosure: 現在ステップのみ展開し完了ステップは折り畳む
+ *     (Apple Wallet / Stripe Onboarding 流儀)
+ *   - 完了時に次ステップへ自動スクロール
+ *   - 6ステップ card の枠構造をシンプル化し視認性を Stripe/Apple 水準に
  *
  * CEO（非エンジニア）が最初にここを開けば、どのタブに行って何を編集すれば
  * いいかが順番に分かる。各ステップに admin 内タブへのワンクリック導線と
- * Shopify 管理画面への外部リンクを併設。
- *
- * 進捗チェックは localStorage に保存（個人作業用メモ）。
+ * Shopify 管理画面への外部リンクを併設。進捗チェックは localStorage に保存。
  */
 
-import React, {useCallback, useEffect, useMemo, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
-import {color, font} from '~/lib/design-tokens';
+import {color, font, radius, space, transition} from '~/lib/design-tokens';
+import {Button} from '~/components/admin/Button';
+
+/**
+ * Button primitive と視覚的に完全一致する <a> スタイル。
+ * Button は <button> 固定のため、外部リンクは <a> に同等スタイルを付けて描画する。
+ * variant: 'secondary' | 'ghost' (外部リンクは primary は使わない)
+ */
+const linkButtonStyle = (variant: 'secondary' | 'ghost'): React.CSSProperties => {
+  const v = variant === 'secondary'
+    ? {bg: 'transparent', text: color.cyan, border: color.cyan, hoverBg: color.cyanDim}
+    : {bg: 'transparent', text: color.textSecondary, border: 'transparent', hoverBg: 'rgba(255,255,255,.06)'};
+  return {
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 34,
+    padding: '0 16px',
+    fontSize: font.sm,
+    fontWeight: font.semibold,
+    fontFamily: font.family,
+    color: v.text,
+    background: v.bg,
+    border: v.border !== 'transparent' ? `1px solid ${v.border}` : 'none',
+    borderRadius: radius.md,
+    cursor: 'pointer',
+    transition: `all ${transition.fast}`,
+    whiteSpace: 'nowrap',
+    textDecoration: 'none',
+  };
+};
 
 const SHOPIFY_ADMIN_BASE = 'https://admin.shopify.com/store/production-mining-base';
 const SITE_BASE = 'https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev';
@@ -107,7 +141,7 @@ const STEPS: Step[] = [
       '1. ステップ② で付けたタグが、ステップ① のコレクション条件と一致しているか確認する。',
       '2. 管理画面「コレクション」タブを開き、対象コレクションの行で productsCount が期待通り増えていれば成功。',
       '3. もし増えていない場合は、「商品管理」タブで対象商品のタグを修正するか、「コレクション」タブで該当コレクションの編集モーダルを開いてルール条件（タグ名のスペル）を見直す。',
-      '4. 大量に追加する場合は、商品管理タブの一覧から複数選択してタグを一括付与する運用が早い（準備中の一括編集機能で対応予定）。',
+      '4. 大量に追加する場合は、「タグ一括編集」タブから複数商品にタグを同時付与できる。',
     ],
     cautions: [
       '「自動コレクション」のチェックを外すと自動拾いが効かなくなる。基本は「自動 + タグ条件」で運用する。',
@@ -120,10 +154,16 @@ const STEPS: Step[] = [
         description: 'コレクション一覧と各コレクションの商品件数を確認',
       },
       {
+        label: 'タグ一括編集タブを開く',
+        type: 'admin',
+        target: 'bulkTags',
+        description: '複数商品に同じタグを一発付与／除去',
+      },
+      {
         label: '商品管理タブを開く',
         type: 'admin',
         target: 'products',
-        description: 'タグを確認・編集',
+        description: '個別商品のタグを編集',
       },
     ],
   },
@@ -226,44 +266,19 @@ const STEPS: Step[] = [
 const cardStyle: React.CSSProperties = {
   background: color.bg1,
   border: `1px solid ${color.border}`,
-  borderRadius: 12,
-  padding: 24,
-  marginBottom: 20,
-};
-
-const buttonPrimary: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 6,
-  padding: '8px 16px',
-  borderRadius: 8,
-  border: 'none',
-  background: color.cyan,
-  color: '#000',
-  fontWeight: 700,
-  fontSize: 13,
-  cursor: 'pointer',
-  fontFamily: font.family,
-  textDecoration: 'none',
-};
-
-const buttonSecondary: React.CSSProperties = {
-  ...buttonPrimary,
-  background: 'transparent',
-  color: color.cyan,
-  border: `1px solid ${color.cyan}`,
-};
-
-const buttonExternal: React.CSSProperties = {
-  ...buttonSecondary,
-  color: color.textMuted,
-  border: `1px solid ${color.border}`,
+  borderRadius: radius.lg,
+  padding: space[6],
+  marginBottom: space[5],
 };
 
 // ── Main Component ──
 export default function AdminOnboarding() {
   const [, setSearchParams] = useSearchParams();
   const [done, setDone] = useState<Record<string, boolean>>({});
+  /** 明示的に開いている step id (user が toggle したもの)。null なら自動挙動に任せる。 */
+  const [openId, setOpenId] = useState<string | null>(null);
+  /** ステップ DOM への ref — 完了時の scrollIntoView 用 */
+  const stepRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // localStorage から進捗ロード
   useEffect(() => {
@@ -277,16 +292,44 @@ export default function AdminOnboarding() {
     }
   }, []);
 
-  const toggle = useCallback((id: string) => {
-    setDone((prev) => {
-      const next = {...prev, [id]: !prev[id]};
-      try {
-        window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
+  /** 自動開閉: 最初の未完了ステップを既定で開く (user が明示操作していれば尊重) */
+  const currentOpenId = useMemo(() => {
+    if (openId) return openId;
+    const firstIncomplete = STEPS.find((s) => !done[s.id]);
+    return firstIncomplete?.id ?? STEPS[STEPS.length - 1].id;
+  }, [openId, done]);
+
+  const toggleDone = useCallback(
+    (id: string) => {
+      setDone((prev) => {
+        const next = {...prev, [id]: !prev[id]};
+        try {
+          window.localStorage.setItem(CHECKLIST_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      });
+      // 完了にマークされた場合、次ステップへ自動スクロール (Apple Wallet 流)
+      if (!done[id]) {
+        const currentIdx = STEPS.findIndex((s) => s.id === id);
+        const nextStep = STEPS.slice(currentIdx + 1).find((s) => !done[s.id]);
+        if (nextStep) {
+          setOpenId(nextStep.id);
+          requestAnimationFrame(() => {
+            stepRefs.current[nextStep.id]?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+            });
+          });
+        }
       }
-      return next;
-    });
+    },
+    [done],
+  );
+
+  const toggleOpen = useCallback((id: string) => {
+    setOpenId((prev) => (prev === id ? null : id));
   }, []);
 
   const goAdmin = useCallback(
@@ -294,7 +337,6 @@ export default function AdminOnboarding() {
       const params: Record<string, string> = {tab: target};
       if (extra) Object.assign(params, extra);
       setSearchParams(params);
-      // 上にスクロール
       try {
         window.scrollTo({top: 0, behavior: 'smooth'});
       } catch {
@@ -313,29 +355,31 @@ export default function AdminOnboarding() {
     <div style={{maxWidth: 1100, margin: '0 auto'}}>
       {/* イントロ */}
       <div style={{...cardStyle, background: color.bg2}}>
-        <div style={{display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8}}>
-          <div style={{fontSize: 28}}>🚀</div>
+        <div style={{display: 'flex', alignItems: 'center', gap: space[3], marginBottom: space[2]}}>
+          <div style={{fontSize: 28}} aria-hidden="true">🚀</div>
           <h2 style={{margin: 0, fontSize: 22, fontWeight: 800, color: color.text}}>
             出品ガイド — 新コラボから販売開始まで
           </h2>
         </div>
-        <p style={{margin: '4px 0 16px', color: color.textMuted, fontSize: 14, lineHeight: 1.7}}>
+        <p style={{margin: `${space[1]} 0 ${space[4]}`, color: color.textMuted, fontSize: font.base, lineHeight: 1.7}}>
           このページは、エンジニアでない CEO が「新しい IP コラボを始めて、新製品を販売できる状態」にするまでの
-          手順を、すべて順番に並べたものです。各ステップのボタンを押すと、必要な編集画面に直接ジャンプできます。
-          完了したらチェックを入れて、進捗を可視化できます（このブラウザにのみ保存）。
+          手順を、すべて順番に並べたものです。現在のステップが自動で開き、完了にチェックすると次のステップへ進みます
+          （進捗はこのブラウザにのみ保存）。
         </p>
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            gap: 16,
-            padding: '12px 16px',
+            gap: space[4],
+            padding: `${space[3]} ${space[4]}`,
             background: color.bg0,
-            borderRadius: 8,
+            borderRadius: radius.md,
             border: `1px solid ${color.border}`,
           }}
+          role="group"
+          aria-label="出品ガイド進捗"
         >
-          <div style={{fontSize: 13, fontWeight: 700, color: color.text}}>進捗</div>
+          <div style={{fontSize: font.sm, fontWeight: font.bold, color: color.text}}>進捗</div>
           <div
             style={{
               flex: 1,
@@ -344,6 +388,11 @@ export default function AdminOnboarding() {
               borderRadius: 4,
               overflow: 'hidden',
             }}
+            role="progressbar"
+            aria-valuenow={completedCount}
+            aria-valuemin={0}
+            aria-valuemax={STEPS.length}
+            aria-valuetext={`${STEPS.length} 中 ${completedCount} 完了`}
           >
             <div
               style={{
@@ -354,188 +403,263 @@ export default function AdminOnboarding() {
               }}
             />
           </div>
-          <div style={{fontSize: 13, fontWeight: 700, color: color.cyan, minWidth: 60, textAlign: 'right'}}>
+          <div style={{fontSize: font.sm, fontWeight: font.bold, color: color.cyan, minWidth: 60, textAlign: 'right'}}>
             {completedCount} / {STEPS.length}
           </div>
         </div>
       </div>
 
-      {/* ステップ一覧 */}
+      {/* ステップ一覧 (accordion) */}
       {STEPS.map((step) => {
         const isDone = !!done[step.id];
+        const isOpen = currentOpenId === step.id;
         return (
           <div
             key={step.id}
+            ref={(el) => {
+              stepRefs.current[step.id] = el;
+            }}
             style={{
               ...cardStyle,
-              borderLeft: `4px solid ${isDone ? color.green : color.cyan}`,
-              opacity: isDone ? 0.7 : 1,
+              padding: 0,
+              overflow: 'hidden',
+              borderLeft: `4px solid ${isDone ? color.green : isOpen ? color.cyan : color.border}`,
+              opacity: isDone && !isOpen ? 0.75 : 1,
             }}
           >
-            {/* タイトル + チェックボックス */}
-            <div style={{display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12}}>
-              <button
-                onClick={() => toggle(step.id)}
+            {/* アコーディオンヘッダー (クリックで開閉) */}
+            <button
+              type="button"
+              onClick={() => toggleOpen(step.id)}
+              aria-expanded={isOpen}
+              aria-controls={`${step.id}-body`}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                gap: space[3],
+                padding: `${space[4]} ${space[6]}`,
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontFamily: font.family,
+              }}
+            >
+              {/* 完了トグル — クリックはバブリングさせない */}
+              <span
+                role="checkbox"
+                aria-checked={isDone}
                 aria-label={isDone ? `${step.title} を未完了に戻す` : `${step.title} を完了にする`}
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  toggleDone(step.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    toggleDone(step.id);
+                  }
+                }}
                 style={{
                   flexShrink: 0,
                   width: 28,
                   height: 28,
-                  borderRadius: 6,
+                  borderRadius: radius.sm,
                   border: `2px solid ${isDone ? color.green : color.border}`,
                   background: isDone ? color.green : 'transparent',
                   color: '#000',
                   cursor: 'pointer',
                   fontSize: 18,
                   fontWeight: 900,
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontFamily: font.family,
+                  transition: 'all .15s',
                 }}
               >
                 {isDone ? '✓' : ''}
-              </button>
+              </span>
               <div style={{flex: 1}}>
                 <div
                   style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: color.cyan,
+                    fontSize: font.xs,
+                    fontWeight: font.bold,
+                    color: isDone ? color.green : color.cyan,
                     letterSpacing: 2,
                     marginBottom: 4,
                   }}
                 >
-                  STEP {step.emoji}
+                  STEP {step.emoji}{isDone ? ' 完了' : isOpen ? ' 進行中' : ''}
                 </div>
-                <h3 style={{margin: '0 0 6px', fontSize: 18, fontWeight: 800, color: color.text}}>
+                <h3 style={{margin: 0, fontSize: font.md, fontWeight: 800, color: color.text}}>
                   {step.title}
                 </h3>
-                <p style={{margin: 0, fontSize: 14, color: color.textMuted, lineHeight: 1.6}}>
+                {!isOpen && (
+                  <p style={{margin: `${space[1]} 0 0`, fontSize: font.sm, color: color.textMuted, lineHeight: 1.6}}>
+                    {step.summary}
+                  </p>
+                )}
+              </div>
+              {/* chevron */}
+              <span
+                aria-hidden="true"
+                style={{
+                  flexShrink: 0,
+                  width: 24,
+                  height: 24,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: color.textMuted,
+                  transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  transition: 'transform .2s',
+                }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </span>
+            </button>
+
+            {/* アコーディオン本体 */}
+            {isOpen && (
+              <div
+                id={`${step.id}-body`}
+                style={{
+                  padding: `0 ${space[6]} ${space[5]}`,
+                  borderTop: `1px solid ${color.border}`,
+                  marginTop: 0,
+                }}
+              >
+                {/* 概要 (開いた時に正式表示) */}
+                <p style={{margin: `${space[4]} 0`, fontSize: font.base, color: color.textSecondary, lineHeight: 1.7}}>
                   {step.summary}
                 </p>
-              </div>
-            </div>
 
-            {/* 手順詳細 */}
-            <div style={{marginLeft: 40, marginBottom: 12}}>
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: color.textMuted,
-                  letterSpacing: 1,
-                  marginBottom: 8,
-                }}
-              >
-                手順
-              </div>
-              <ol
-                style={{
-                  margin: 0,
-                  paddingLeft: 20,
-                  fontSize: 13,
-                  color: color.text,
-                  lineHeight: 1.8,
-                }}
-              >
-                {step.detail.map((line, i) => (
-                  <li key={i} style={{marginBottom: 4}}>
-                    {line.replace(/^\d+\.\s*/, '')}
-                  </li>
-                ))}
-              </ol>
-            </div>
+                {/* 手順詳細 */}
+                <div style={{marginBottom: space[4]}}>
+                  <div
+                    style={{
+                      fontSize: font.xs,
+                      fontWeight: font.bold,
+                      color: color.textMuted,
+                      letterSpacing: 1,
+                      marginBottom: space[2],
+                    }}
+                  >
+                    手順
+                  </div>
+                  <ol
+                    style={{
+                      margin: 0,
+                      paddingLeft: space[5],
+                      fontSize: font.sm,
+                      color: color.text,
+                      lineHeight: 1.8,
+                    }}
+                  >
+                    {step.detail.map((line, i) => (
+                      <li key={i} style={{marginBottom: space[1]}}>
+                        {line.replace(/^\d+\.\s*/, '')}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
 
-            {/* 注意事項 */}
-            {step.cautions && step.cautions.length > 0 && (
-              <div
-                style={{
-                  marginLeft: 40,
-                  marginBottom: 12,
-                  padding: '10px 14px',
-                  background: 'rgba(255, 200, 0, 0.06)',
-                  border: '1px solid rgba(255, 200, 0, 0.2)',
-                  borderRadius: 8,
-                }}
-              >
+                {/* 注意事項 */}
+                {step.cautions && step.cautions.length > 0 && (
+                  <div
+                    style={{
+                      marginBottom: space[4],
+                      padding: `${space[3]} ${space[4]}`,
+                      background: 'rgba(255, 200, 0, 0.06)',
+                      border: '1px solid rgba(255, 200, 0, 0.2)',
+                      borderRadius: radius.md,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: font.xs,
+                        fontWeight: font.bold,
+                        color: '#ffb84d',
+                        letterSpacing: 1,
+                        marginBottom: space[2],
+                      }}
+                    >
+                      <span aria-hidden="true">⚠️ </span>注意
+                    </div>
+                    <ul
+                      style={{
+                        margin: 0,
+                        paddingLeft: space[4],
+                        fontSize: font.sm,
+                        color: color.text,
+                        lineHeight: 1.7,
+                      }}
+                    >
+                      {step.cautions.map((c, i) => (
+                        <li key={i} style={{marginBottom: space[1]}}>{c}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* リンクボタン群 */}
                 <div
                   style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: '#ffb84d',
-                    letterSpacing: 1,
-                    marginBottom: 6,
+                    display: 'flex',
+                    gap: space[2],
+                    flexWrap: 'wrap',
                   }}
                 >
-                  ⚠️ 注意
+                  {step.links.map((link, i) => {
+                    if (link.type === 'admin') {
+                      return (
+                        <Button
+                          key={i}
+                          variant="primary"
+                          size="md"
+                          onClick={() => goAdmin(link.target, link.extraQuery)}
+                          title={link.description}
+                        >
+                          → {link.label}
+                        </Button>
+                      );
+                    }
+                    const href = link.type === 'shopify'
+                      ? `${SHOPIFY_ADMIN_BASE}${link.target}`
+                      : `${SITE_BASE}${link.target}`;
+                    const titleText = link.type === 'shopify'
+                      ? 'Shopify 管理画面（別タブ）'
+                      : '本番サイト（別タブ）';
+                    const variant: 'ghost' | 'secondary' = link.type === 'shopify' ? 'ghost' : 'secondary';
+                    return (
+                      <a
+                        key={i}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={titleText}
+                        style={linkButtonStyle(variant)}
+                        onMouseEnter={(e) => {
+                          const hoverBg = variant === 'secondary' ? color.cyanDim : 'rgba(255,255,255,.06)';
+                          (e.currentTarget as HTMLAnchorElement).style.background = hoverBg;
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLAnchorElement).style.background = 'transparent';
+                        }}
+                      >
+                        ↗ {link.label}
+                      </a>
+                    );
+                  })}
                 </div>
-                <ul
-                  style={{
-                    margin: 0,
-                    paddingLeft: 16,
-                    fontSize: 12,
-                    color: color.text,
-                    lineHeight: 1.7,
-                  }}
-                >
-                  {step.cautions.map((c, i) => (
-                    <li key={i}>{c}</li>
-                  ))}
-                </ul>
               </div>
             )}
-
-            {/* リンクボタン群 */}
-            <div
-              style={{
-                marginLeft: 40,
-                display: 'flex',
-                gap: 8,
-                flexWrap: 'wrap',
-              }}
-            >
-              {step.links.map((link, i) => {
-                if (link.type === 'admin') {
-                  return (
-                    <button
-                      key={i}
-                      onClick={() => goAdmin(link.target, link.extraQuery)}
-                      style={buttonPrimary}
-                      title={link.description}
-                    >
-                      → {link.label}
-                    </button>
-                  );
-                }
-                if (link.type === 'shopify') {
-                  return (
-                    <a
-                      key={i}
-                      href={`${SHOPIFY_ADMIN_BASE}${link.target}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={buttonExternal}
-                      title="Shopify 管理画面（別タブ）"
-                    >
-                      ↗ {link.label}
-                    </a>
-                  );
-                }
-                return (
-                  <a
-                    key={i}
-                    href={`${SITE_BASE}${link.target}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={buttonSecondary}
-                    title="本番サイト（別タブ）"
-                  >
-                    ↗ {link.label}
-                  </a>
-                );
-              })}
-            </div>
           </div>
         );
       })}
@@ -546,11 +670,11 @@ export default function AdminOnboarding() {
           ...cardStyle,
           background: color.bg0,
           textAlign: 'center',
-          padding: 16,
+          padding: space[4],
         }}
       >
-        <div style={{fontSize: 13, color: color.textMuted, lineHeight: 1.7}}>
-          困ったら「📍 サイトマップ」サブタブで「どの画面にどの管理画面が対応しているか」を確認できます。
+        <div style={{fontSize: font.sm, color: color.textMuted, lineHeight: 1.7}}>
+          困ったら「<span aria-hidden="true">📍 </span>サイトマップ」サブタブで「どの画面にどの管理画面が対応しているか」を確認できます。
           <br />
           ビジュアル編集（実画面プレビューの上で直接編集）は「ページ編集」→「ビジュアル編集」サブタブから。
         </div>
