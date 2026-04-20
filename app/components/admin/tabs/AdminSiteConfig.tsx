@@ -16,6 +16,8 @@ import { CompactKPI } from '~/components/admin/CompactKPI';
 import { GenericCrudSublist, extractField, type MetaobjectNode, type FieldDef } from '~/components/admin/GenericCrudSublist';
 // patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
+// patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
+import { AdminListSkeleton } from '~/components/admin/ds/InlineListState';
 
 type SubTab =
   | 'site_config'
@@ -516,7 +518,7 @@ export default function AdminSiteConfig() {
         ))}
       </div>
 
-      {loading && <div style={{ color: color.textMuted, fontSize: 14 }}>読み込み中...</div>}
+      {loading && <AdminListSkeleton rows={5} />}
       {error && <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 16 }}>{error}</div>}
 
       {!loading && activeTab === 'site_config' && (

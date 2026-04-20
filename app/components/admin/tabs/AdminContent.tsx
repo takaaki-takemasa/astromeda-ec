@@ -16,6 +16,8 @@ import { T } from '~/lib/astromeda-data';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 // patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
+// patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 // ── Article/SEO 用軽量プレビュー ──
 function ArticlePreview({title, body, excerpt, author, tags, metaDesc}: {
@@ -283,7 +285,7 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
     else onToast(r.error || '削除失敗', 'err');
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const statusColor = (s: string) =>
     s === 'published' ? color.green : s === 'review' ? color.yellow : color.textMuted;
@@ -382,11 +384,12 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       )}
 
       {items.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📝</div>
-          <div style={{ color: color.textMuted, fontSize: 13 }}>記事はまだありません</div>
-          <div style={{ color: color.textDim, fontSize: 11, marginTop: 8 }}>「新規記事」から作成してください</div>
-        </div>
+        <AdminEmptyCard
+          icon="📝"
+          title="記事はまだありません"
+          description="最初の記事を作成してサイトに公開してみましょう。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しい記事を作る</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => (
@@ -520,7 +523,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
     else onToast(r.error || '削除失敗', 'err');
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   // ── プレビュー用: 全items + 編集中itemをform値で上書き / 新規追加中は末尾に合成item追加 ──
   const previewMetaCollabs: MetaCollab[] = items.map((item) => {
@@ -631,10 +634,12 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       )}
 
       {items.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🖼️</div>
-          <div style={{ color: color.textMuted, fontSize: 13 }}>IPバナーが未登録です</div>
-        </div>
+        <AdminEmptyCard
+          icon="🖼️"
+          title="IPバナーが未登録です"
+          description="トップページの IPコラボグリッドに表示するバナーを追加しましょう。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいIPバナーを作る</button>}
+        />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
           {items.map((item) => (
@@ -770,7 +775,7 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
     else onToast(r.error || '削除失敗', 'err');
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const previewPane = editId ? (
     <PreviewFrame device={previewDevice} onDeviceChange={setPreviewDevice}>
@@ -851,10 +856,12 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
       )}
 
       {items.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
-          <div style={{ color: color.textMuted, fontSize: 13 }}>SEO記事はまだありません</div>
-        </div>
+        <AdminEmptyCard
+          icon="🔍"
+          title="SEO記事はまだありません"
+          description="検索流入を増やす SEO 記事を作成しましょう。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいSEO記事を作る</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => (

@@ -15,6 +15,8 @@ import { T, al } from '~/lib/astromeda-data';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 // patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
+// patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 interface ProductSummary {
@@ -186,7 +188,7 @@ function ProductList() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) return <div style={{ color: color.textMuted, fontSize: 14 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
   if (error) return (
     <div style={{ color: '#ff6b6b', fontSize: 14, padding: 16, background: '#3a1515', borderRadius: 8 }}>
       {error}
@@ -632,7 +634,7 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
     }
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const isModalOpen = !!editId;
   const modalTitle = editId === '__new__' ? '新規ティア作成' : 'ティア編集';
@@ -723,9 +725,12 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
 
       {/* Item list */}
       {items.length === 0 ? (
-        <div style={{ color: color.textMuted, textAlign: 'center', padding: 24 }}>
-          PCティアが未登録です。「新規ティア」から作成してください。
-        </div>
+        <AdminEmptyCard
+          icon="🎮"
+          title="PCティアが未登録です"
+          description="価格帯ごとのおすすめPC構成（GAMER/CREATOR/STREAMER等）を作成してください。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいティアを作る</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => (
@@ -876,7 +881,7 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
     }
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   // Star display helper
   const renderStars = (rating: number) => {
@@ -1002,9 +1007,12 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
 
       {/* Item list */}
       {items.length === 0 ? (
-        <div style={{ color: color.textMuted, textAlign: 'center', padding: 24 }}>
-          レビューが未登録です。「新規レビュー」から作成してください。
-        </div>
+        <AdminEmptyCard
+          icon="⭐"
+          title="UGCレビューが未登録です"
+          description="お客様の声を商品ページに表示しましょう。SNSや購入後アンケートから集めたレビューを登録できます。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいレビューを登録</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => (

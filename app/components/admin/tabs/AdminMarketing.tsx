@@ -15,6 +15,8 @@ import { T, al } from '~/lib/astromeda-data';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 // patch 0073 (R2-3): canonical path unification — 非正規タブでの誘導バナー
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
+// patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -552,7 +554,7 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
     else onToast(r.error || '削除失敗', 'err');
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const statusColor = (s: string) =>
     s === 'active' ? color.green : s === 'planned' ? color.cyan : color.textMuted;
@@ -683,11 +685,12 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
       )}
 
       {items.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>📣</div>
-          <div style={{ color: color.textMuted, fontSize: 13 }}>キャンペーンはまだありません</div>
-          <div style={{ color: color.textDim, fontSize: 11, marginTop: 8 }}>「新規キャンペーン」から作成してください</div>
-        </div>
+        <AdminEmptyCard
+          icon="📣"
+          title="キャンペーンはまだありません"
+          description="セール・プロモーション・IPコラボを作ってサイトに告知しましょう。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいキャンペーンを作る</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => {
@@ -830,7 +833,7 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
     else onToast(r.error || '削除失敗', 'err');
   };
 
-  if (loading) return <div style={{ color: color.textMuted, padding: 20 }}>読み込み中...</div>;
+  if (loading) return <AdminListSkeleton rows={5} />;
 
   const isModalOpen = !!editId;
   const modalTitle = editId === '__new__' ? '新規オプション' : 'オプション編集';
@@ -910,10 +913,12 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
       )}
 
       {items.length === 0 ? (
-        <div style={{ ...cardStyle, textAlign: 'center', padding: 40 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🛠️</div>
-          <div style={{ color: color.textMuted, fontSize: 13 }}>カスタムオプションはまだありません</div>
-        </div>
+        <AdminEmptyCard
+          icon="🛠️"
+          title="カスタムオプションはまだありません"
+          description="メモリ増設・延長保証など、商品ページに表示する追加オプションを登録しましょう。"
+          action={<button onClick={startCreate} style={btnPrimary}>＋ 新しいオプションを作る</button>}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {items.map((item) => (

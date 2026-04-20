@@ -16,6 +16,7 @@ import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T, al } from '~/lib/astromeda-data';
 import { UrlPicker } from '~/components/admin/ds/UrlPicker';
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
+import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 interface MetaField {
@@ -297,7 +298,7 @@ export default function AdminHomepageCMS() {
         ))}
       </div>
 
-      {loading && <div style={{ color: color.textMuted, fontSize: 14 }}>読み込み中...</div>}
+      {loading && <AdminListSkeleton rows={5} />}
       {error && <div style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 16 }}>{error}</div>}
 
       {!loading && activeTab === 'collabs' && (
@@ -442,9 +443,11 @@ function CollabList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
     <div>
       <div style={cardStyle}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-            IPコラボ未登録（astromeda-data.tsのフォールバックが使用されます）
-          </div>
+          <AdminEmptyCard
+            icon="🎨"
+            title="IPコラボはまだ登録されていません"
+            description="Shopifyコレクションのハンドル（例: jujutsukaisen-collaboration）でIPコラボを登録すると、トップページのグリッドに表示されます。登録されるまでは astromeda-data.ts のフォールバックが使用されます。"
+          />
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
@@ -652,9 +655,16 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
       </div>
       <div style={cardStyle}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-            バナー未登録（コレクション画像が自動使用されます）
-          </div>
+          <AdminEmptyCard
+            icon="🖼️"
+            title="ヒーローバナーはまだ登録されていません"
+            description="トップページ最上部の大型ヒーローバナーを登録してください。未登録の間はコレクション画像が自動で使用されます。"
+            action={
+              <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>
+                ＋ バナー追加
+              </button>
+            }
+          />
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>
@@ -858,9 +868,16 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
       </div>
       <div style={cardStyle}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-            カラー未登録（astromeda-data.tsのPC_COLORSフォールバックが使用されます）
-          </div>
+          <AdminEmptyCard
+            icon="🎨"
+            title="8色カラーはまだ登録されていません"
+            description="トップページの8色カラーグリッドに表示されるカラー（白・黒・ピンク・紫・水色・赤・緑・オレンジ等）を登録してください。未登録の間は astromeda-data.ts の PC_COLORS フォールバックが使用されます。"
+            action={
+              <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>
+                ＋ カラー追加
+              </button>
+            }
+          />
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{
@@ -1060,9 +1077,16 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
       </div>
       <div style={cardStyle}>
         {sorted.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-            マーキー未登録（astromeda-data.tsのMARQUEE_ITEMSフォールバックが使用されます）
-          </div>
+          <AdminEmptyCard
+            icon="📣"
+            title="マーキーはまだ登録されていません"
+            description="トップページ上部を横に流れるマーキー（ティッカー）のテキストを登録してください。未登録の間は astromeda-data.ts の MARQUEE_ITEMS フォールバックが使用されます。"
+            action={
+              <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>
+                ＋ マーキー追加
+              </button>
+            }
+          />
         ) : sorted.map((item) => (
           <div key={item.id} style={rowStyle}>
             <div style={{ width: 36, fontSize: 13, color: color.textMuted, textAlign: 'center' }}>

@@ -36,6 +36,8 @@ import {
 } from '~/components/admin/DraftPublishBar';
 // patch 0048 (Phase A 適用): window.confirm() 置換用の Stripe 水準確認モーダル
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
+// patch 0074 (R1-2): Stripe/Apple 水準の CTA 付き EmptyState primitive
+import { AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
 // ── Types ──
 export interface MetaobjectNode {
@@ -393,13 +395,34 @@ export function GenericCrudSublist({
       </div>
       <div style={cardStyle}>
         {filtered.length === 0 ? (
-          <div style={{ padding: 32, textAlign: 'center', color: color.textMuted, fontSize: 14 }}>
-            {publishFilter === 'draft'
-              ? `下書きの${unitLabel}はありません`
-              : publishFilter === 'active'
-                ? `公開中の${unitLabel}はありません`
-                : emptyMessage ?? `${unitLabel}未登録（ハードコードフォールバックが使用されます）`}
-          </div>
+          publishFilter === 'draft' ? (
+            <AdminEmptyCard
+              icon="📝"
+              title={`下書きの${unitLabel}はありません`}
+              description="「公開中」タブに切り替えるか、新しく追加してください。"
+              action={allowCreate ? (
+                <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>＋ {unitLabel}を追加</button>
+              ) : undefined}
+            />
+          ) : publishFilter === 'active' ? (
+            <AdminEmptyCard
+              icon="📦"
+              title={`公開中の${unitLabel}はありません`}
+              description="「下書き」タブで編集中のアイテムがあるか確認してください。"
+              action={allowCreate ? (
+                <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>＋ {unitLabel}を追加</button>
+              ) : undefined}
+            />
+          ) : (
+            <AdminEmptyCard
+              icon="📄"
+              title={`${unitLabel}はまだありません`}
+              description={emptyMessage ?? `${unitLabel}は未登録です。右上の「＋ ${unitLabel}を追加」ボタンから最初のアイテムを作成してください。`}
+              action={allowCreate ? (
+                <button style={btnPrimary} onClick={() => { setShowAdd(true); setForm(emptyForm()); }}>＋ {unitLabel}を追加</button>
+              ) : undefined}
+            />
+          )
         ) : filtered.map((item) => {
           const ps = getPublishStatus(item);
           const flat: Record<string, string> = {};
