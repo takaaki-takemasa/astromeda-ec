@@ -351,6 +351,9 @@ export function Layout({children}: {children?: React.ReactNode}) {
         <link rel="stylesheet" href={tailwindCss}></link>
         <link rel="stylesheet" href={resetStyles}></link>
         <link rel="stylesheet" href={appStyles}></link>
+        {/* patch 0063: Oxygen edge の /robots.txt interceptor で Sitemap 宣言が届かない対策。
+            HTML <head> から canonical sitemap を直接 discovery させる。 */}
+        <link rel="sitemap" type="application/xml" href="/sitemap-index.xml" />
         <Meta />
         <Links />
 

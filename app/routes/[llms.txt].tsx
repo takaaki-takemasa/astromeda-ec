@@ -94,5 +94,16 @@ White（ホワイト）、Black（ブラック）、Pink（ピンク）、Red（
 - ブランド: ASTROMEDA（アストロメダ）
 - 事業内容: ゲーミングPC製造・販売、アニメ・ゲームIPコラボレーション商品企画・販売
 - 所在地: 日本
+
+## AIクローラー・サイトマップ
+AIクローラーおよび検索エンジン向けに、機械可読な構造化データを提供しています。
+Shopify Oxygen 基盤の CDN 制約により /robots.txt は自動 Sitemap 宣言を含みませんが、
+下記 URL から直接 sitemap を取得できます。
+
+- Sitemap (index): ${origin}/sitemap-index.xml
+- Sitemap (静的ページ): ${origin}/sitemap-static.xml
+- 全商品・コレクション・ページ等のサブ sitemap: sitemap-index.xml 内 <sitemap> 要素を参照
+- 許可クローラー: GPTBot, ClaudeBot, Google-Extended, PerplexityBot, Applebot-Extended, Bingbot, Googlebot, FacebookBot, Amazonbot 他 30+
+- 更新頻度: 商品追加・IPコラボ公開ごとに随時
 `.trim();
 }
