@@ -13,6 +13,7 @@ import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {UrlPicker} from '~/components/admin/ds/UrlPicker';
+import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type AboutSection,
   type SectionProps,
@@ -347,10 +348,12 @@ function AboutSectionForm({
           <input type="text" value={linkLabel} onChange={(e) => setLinkLabel(e.target.value)} style={inputStyle} placeholder="詳しく見る →" />
         </div>
         <div>
-          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            有効
-          </label>
+          <ToggleSwitch
+            checked={isActive}
+            onChange={setIsActive}
+            label="フロントに表示する"
+            hint="オフにすると下書き扱いになり、お客様にはこのセクションが見えません。"
+          />
         </div>
         <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
           <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>

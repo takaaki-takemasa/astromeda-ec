@@ -20,6 +20,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { Modal } from '~/components/admin/Modal';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
+import { ToggleSwitch } from '~/components/admin/ds/ToggleSwitch';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 
 // ── Types ──
@@ -453,22 +454,12 @@ export default function AdminCustomization() {
           />
         </div>
         <div>
-          <label style={labelStyle}>必須入力</label>
-          <button
-            type="button"
-            onClick={() => setForm({ ...form, isRequired: !form.isRequired })}
-            style={{
-              ...inputStyle,
-              cursor: 'pointer',
-              textAlign: 'left',
-              background: form.isRequired ? color.cyan : color.bg0,
-              color: form.isRequired ? '#000' : color.text,
-              fontWeight: form.isRequired ? 700 : 500,
-              border: `1px solid ${form.isRequired ? color.cyan : color.border}`,
-            }}
-          >
-            {form.isRequired ? '✅ はい (お客様は必ず選択)' : '⬜ いいえ (任意)'}
-          </button>
+          <ToggleSwitch
+            checked={form.isRequired}
+            onChange={(next) => setForm({ ...form, isRequired: next })}
+            label="必須入力にする"
+            hint="オンにすると、お客様はこのプルダウンを必ず選ばないとカートに入れられません。"
+          />
         </div>
       </div>
 

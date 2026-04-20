@@ -22,6 +22,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 import {UrlPicker} from '~/components/admin/ds/UrlPicker';
+import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type SectionProps,
   cardStyle,
@@ -309,10 +310,12 @@ function GamingCrudSection({
               <input type="number" value={fDisplayOrder} onChange={(e) => setFDisplayOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
             </div>
             <div>
-              <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
-                <input type="checkbox" checked={fIsActive} onChange={(e) => setFIsActive(e.target.checked)} />
-                有効
-              </label>
+              <ToggleSwitch
+                checked={fIsActive}
+                onChange={setFIsActive}
+                label="フロントに表示する"
+                hint="オフにすると下書き扱いになり、お客様には見えません。"
+              />
             </div>
             <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
               <button type="button" onClick={closeModal} style={btn()} disabled={saving}>キャンセル</button>
@@ -504,10 +507,12 @@ export function GamingContactSection({pushToast, confirm}: SectionProps) {
           <input type="text" value={fLineHours} onChange={(e) => setFLineHours(e.target.value)} style={inputStyle} placeholder="営業時間：午前9時〜午後6時" />
         </div>
         <div>
-          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
-            <input type="checkbox" checked={fIsActive} onChange={(e) => setFIsActive(e.target.checked)} />
-            有効
-          </label>
+          <ToggleSwitch
+            checked={fIsActive}
+            onChange={setFIsActive}
+            label="フロントに表示する"
+            hint="オフにすると下書き扱いになり、お客様には見えません。"
+          />
         </div>
         <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
           {item && <button type="button" onClick={handleDelete} style={btn(false, true)}>削除</button>}

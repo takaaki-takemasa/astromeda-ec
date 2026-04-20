@@ -13,6 +13,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
+import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type ProductShelf,
   type SectionProps,
@@ -363,10 +364,12 @@ function ProductShelfForm({
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
         </div>
         <div>
-          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            有効
-          </label>
+          <ToggleSwitch
+            checked={isActive}
+            onChange={setIsActive}
+            label="フロントに表示する"
+            hint="オフにすると下書き扱いになり、お客様にはこの商品棚が見えません。"
+          />
         </div>
         <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
           <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>

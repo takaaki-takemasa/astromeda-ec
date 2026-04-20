@@ -15,6 +15,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {T, al, COLLABS} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {CollabGrid} from '~/components/astro/CollabGrid';
+import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type IpBanner,
   type SectionProps,
@@ -406,10 +407,12 @@ function IpBannerForm({
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
         </div>
         <div>
-          <label style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}>
-            <input type="checkbox" checked={featured} onChange={(e) => setFeatured(e.target.checked)} />
-            有効（フロント表示）
-          </label>
+          <ToggleSwitch
+            checked={featured}
+            onChange={setFeatured}
+            label="フロントに表示する"
+            hint="オフにすると下書き扱いになり、お客様にはこのバナーが見えません。"
+          />
         </div>
         <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
           <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>

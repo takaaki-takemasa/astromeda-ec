@@ -11,6 +11,7 @@
 
 import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
+import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type SectionProps,
   Spinner,
@@ -371,16 +372,12 @@ export function UgcReviewsSection({pushToast, confirm}: SectionProps) {
               />
             </div>
             <div>
-              <label
-                style={{...labelStyle, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer'}}
-              >
-                <input
-                  type="checkbox"
-                  checked={fIsActive}
-                  onChange={(e) => setFIsActive(e.target.checked)}
-                />
-                有効
-              </label>
+              <ToggleSwitch
+                checked={fIsActive}
+                onChange={setFIsActive}
+                label="フロントに表示する"
+                hint="オフにすると下書き扱いになり、お客様にはこのレビューが見えません。"
+              />
             </div>
             <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end'}}>
               <button type="button" onClick={closeModal} style={btn()} disabled={saving}>
