@@ -199,6 +199,34 @@ export interface UrlRedirectListItem {
   target: string;
 }
 
+/** Shopify Files ライブラリ一覧アイテム（patch 0067 — 管理画面完結化 P3） */
+export interface ShopifyFileListItem {
+  /** gid://shopify/MediaImage/... or gid://shopify/GenericFile/... or gid://shopify/Video/... */
+  id: string;
+  /** MediaImage | GenericFile | Video */
+  fileStatus: string;
+  /** 代表 URL（画像なら image.url、その他は url） */
+  url: string;
+  /** プレビュー URL（ない場合は空） */
+  previewUrl: string;
+  /** 代替テキスト */
+  alt: string;
+  /** MIME type（推定） */
+  mimeType: string;
+  /** 作成日時 ISO 8601 */
+  createdAt: string;
+  /** 原典のファイル名（取得できる場合） */
+  originalFileName: string;
+  /** 画像幅（MediaImage のみ） */
+  width: number | null;
+  /** 画像高（MediaImage のみ） */
+  height: number | null;
+  /** ファイルサイズ byte（GenericFile のみ） */
+  fileSize: number | null;
+  /** __typename（MediaImage | GenericFile | Video | ...） */
+  typeName: string;
+}
+
 // ── Admin API クライアント ──
 
 export class ShopifyAdminClient {
@@ -1090,6 +1118,184 @@ export class ShopifyAdminClient {
       this.notifyError('deleteUrlRedirect', err);
       throw err;
     }
+  }
+
+  // ── Files ライブラリ管理（patch 0067 — 管理画面完結化 P3）──
+
+  /**
+   * Shopify Files ライブラリを一覧取得
+   * （受容器: 倉庫の在庫を覗き込む）
+   *
+   * @param first 1ページあたりの件数（最大 100）
+   * @param query Shopify Files 検索クエリ（例: `media_type:IMAGE`、`filename:hero*`）
+   * @param after カーソル（次ページ用）
+   */
+  async listFiles(
+    first = 50,
+    query?: string,
+    after?: string,
+  ): Promise<{
+    items: ShopifyFileListItem[];
+    pageInfo: {hasNextPage: boolean; endCursor: string | null};
+  }> {
+    const gql = `
+      query Files($first: Int!, $query: String, $after: String) {
+        files(first: $first, query: $query, after: $after, sortKey: CREATED_AT, reverse: true) {
+          edges {
+            cursor
+            node {
+              __typename
+              id
+              fileStatus
+              alt
+              createdAt
+              preview { image { url } }
+              ... on MediaImage {
+                mimeType
+                originalSource { url fileSize }
+                image { url width height altText }
+              }
+              ... on GenericFile {
+                mimeType
+                url
+                originalFileSize
+                originalFileName: alt
+              }
+              ... on Video {
+                originalSource { url width height }
+              }
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    `;
+
+    try {
+      type FileNode = {
+        __typename: string;
+        id: string;
+        fileStatus: string;
+        alt: string | null;
+        createdAt: string;
+        preview?: {image?: {url: string} | null} | null;
+        mimeType?: string | null;
+        originalSource?: {url?: string; fileSize?: number; width?: number; height?: number} | null;
+        image?: {url: string; width: number | null; height: number | null; altText: string | null} | null;
+        url?: string;
+        originalFileSize?: number | null;
+        originalFileName?: string | null;
+      };
+
+      const res = await this.query<{
+        files: {
+          edges: Array<{cursor: string; node: FileNode}>;
+          pageInfo: {hasNextPage: boolean; endCursor: string | null};
+        };
+      }>(gql, {first, query, after});
+
+      const items: ShopifyFileListItem[] = res.files.edges.map((e) => {
+        const n = e.node;
+        const isImage = n.__typename === 'MediaImage';
+        const isVideo = n.__typename === 'Video';
+        const previewUrl = n.preview?.image?.url || '';
+        const url =
+          (isImage ? n.image?.url : undefined) ||
+          n.url ||
+          n.originalSource?.url ||
+          previewUrl ||
+          '';
+        return {
+          id: n.id,
+          fileStatus: n.fileStatus,
+          url,
+          previewUrl,
+          alt: n.alt || n.image?.altText || '',
+          mimeType: n.mimeType || (isVideo ? 'video/*' : isImage ? 'image/*' : 'application/octet-stream'),
+          createdAt: n.createdAt,
+          originalFileName: n.originalFileName || '',
+          width: isImage ? n.image?.width ?? null : isVideo ? n.originalSource?.width ?? null : null,
+          height: isImage ? n.image?.height ?? null : isVideo ? n.originalSource?.height ?? null : null,
+          fileSize:
+            n.originalFileSize ?? n.originalSource?.fileSize ?? null,
+          typeName: n.__typename,
+        };
+      });
+
+      return {items, pageInfo: res.files.pageInfo};
+    } catch (err) {
+      this.notifyError('listFiles', err);
+      throw err;
+    }
+  }
+
+  /**
+   * Shopify Files ライブラリから複数ファイルを削除（効果器: 倉庫からの撤去）
+   *
+   * Shopify の fileDelete mutation は配列 ID を受けるバッチ削除。
+   * 既に削除済みの ID も冪等に true を返す。
+   *
+   * @param fileIds 削除対象の gid 配列（gid://shopify/MediaImage/... 等）
+   */
+  async deleteFiles(fileIds: string[]): Promise<{deletedFileIds: string[]}> {
+    if (!Array.isArray(fileIds) || fileIds.length === 0) {
+      return {deletedFileIds: []};
+    }
+
+    const gql = `
+      mutation FileDelete($fileIds: [ID!]!) {
+        fileDelete(fileIds: $fileIds) {
+          deletedFileIds
+          userErrors { field message code }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        fileDelete: {
+          deletedFileIds: string[] | null;
+          userErrors: Array<{field: string[]; message: string; code: string}>;
+        };
+      }>(gql, {fileIds});
+
+      const {userErrors, deletedFileIds} = res.fileDelete;
+
+      if (userErrors && userErrors.length > 0) {
+        // 全エラーが「存在しない」系なら冪等成功扱い
+        const allMissing = userErrors.every(
+          (e) =>
+            e.message.toLowerCase().includes('not found') ||
+            e.message.toLowerCase().includes('does not exist') ||
+            (e.code || '').toLowerCase().includes('not_found'),
+        );
+        if (!allMissing) {
+          throw new Error(
+            `ファイル削除失敗: ${userErrors.map((e) => e.message).join(', ')}`,
+          );
+        }
+        log.info(
+          `[deleteFiles] Some files were already removed (${userErrors.length}); idempotent success`,
+        );
+      }
+
+      const deleted = deletedFileIds || [];
+      log.info(
+        `[deleteFiles] Deleted ${deleted.length}/${fileIds.length} files (req: ${fileIds.length})`,
+      );
+      return {deletedFileIds: deleted};
+    } catch (err) {
+      this.notifyError('deleteFiles', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 単一ファイル削除のショートカット（冪等）
+   */
+  async deleteFile(id: string): Promise<boolean> {
+    const {deletedFileIds} = await this.deleteFiles([id]);
+    return deletedFileIds.includes(id) || true; // userErrors=not_found の場合も true
   }
 
   /**

@@ -37,6 +37,7 @@ export type AuditAction =
   | 'url_redirect_create'
   | 'url_redirect_update'
   | 'url_redirect_delete'
+  | 'file_delete'
   | 'approval_decide'
   | 'andon_pull'
   | 'andon_clear'
