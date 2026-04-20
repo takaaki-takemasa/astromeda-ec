@@ -15,6 +15,7 @@ import { HeroSlider, type MetaBanner } from '~/components/astro/HeroSlider';
 import { CollabGrid, type MetaCollab } from '~/components/astro/CollabGrid';
 import { T, al } from '~/lib/astromeda-data';
 import { UrlPicker } from '~/components/admin/ds/UrlPicker';
+import { ImagePicker } from '~/components/admin/ds/ImagePicker';
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 
@@ -850,11 +851,14 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
           <input style={inputStyle} value={form.gradient_color} onChange={(e) => setForm({ ...form, gradient_color: e.target.value })} placeholder="#E8E0FF" />
         </div>
         <div style={{ gridColumn: '1 / -1' }}>
-          <label style={labelStyle}>バナー画像URL（ホームページ 8色カラーで表示）</label>
-          <input style={inputStyle} value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="/images/pc-setup/white.jpg または https://cdn.shopify.com/..." />
-          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 6 }}>
-            ※ PC本体ではなく「PC利用シーン」のライフスタイル画像を推奨。空の場合は /images/pc-setup/{`{slug}`}.jpg が自動使用されます。
-          </div>
+          {/* patch 0083 R1-P1-1: URL 手打ちから ImagePicker(アップロード/ライブラリ/URL) 3モードへ */}
+          <ImagePicker
+            label="バナー画像（ホームページ 8色カラーで表示）"
+            optional
+            value={form.image_url}
+            onChange={(url) => setForm({ ...form, image_url: url })}
+            hint="PC本体ではなく「PC利用シーン」のライフスタイル画像を推奨。空の場合は /images/pc-setup/{slug}.jpg が自動使用されます。"
+          />
         </div>
       </div>
   );

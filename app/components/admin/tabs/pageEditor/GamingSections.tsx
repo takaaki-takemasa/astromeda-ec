@@ -22,6 +22,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 import {UrlPicker} from '~/components/admin/ds/UrlPicker';
+import {ImagePicker} from '~/components/admin/ds/ImagePicker';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {
   type SectionProps,
@@ -280,11 +281,14 @@ function GamingCrudSection({
             </div>
             {config.withImage && (
               <div>
-                <label style={labelStyle}>画像 URL（ロゴ・アイコン画像）</label>
-                <input type="text" value={fImageUrl} onChange={(e) => setFImageUrl(e.target.value)} style={inputStyle} placeholder="https://..." />
-                <div style={{fontSize: 10, color: T.t4, marginTop: 4}}>
-                  ※ Shopify にアップロード済みの画像 URL を貼ってください。/images/... などの相対パスも可。
-                </div>
+                {/* patch 0083 R1-P1-1: URL 手打ちから ImagePicker(アップロード/ライブラリ/URL) 3モードへ */}
+                <ImagePicker
+                  label="画像（ロゴ・アイコン画像）"
+                  optional
+                  value={fImageUrl}
+                  onChange={setFImageUrl}
+                  hint="アップロードすると Shopify CDN に保存されます。"
+                />
               </div>
             )}
             {config.withCategory && config.categoryOptions && (
