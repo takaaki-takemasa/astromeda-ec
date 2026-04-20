@@ -6,6 +6,8 @@ import { useState } from 'react';
 import { color, font, radius, transition } from '~/lib/design-tokens';
 import { Badge, statusToVariant } from './Badge';
 import { ProgressBar } from './ProgressBar';
+// patch 0082 (R0-P0-4): パイプライン status enum を中学生向け日本語に
+import { statusLabel } from '~/lib/admin-utils';
 
 interface Pipeline {
   id: string;
@@ -79,7 +81,8 @@ export function PipelineMonitor({ pipelines }: PipelineMonitorProps) {
                 onMouseLeave={e => { if (!expanded) e.currentTarget.style.background = 'transparent'; }}
               >
                 <Badge variant={statusToVariant(p.status)} dot size="sm">
-                  {p.status}
+                  {/* patch 0082 (R0-P0-4): 生 ENUM → 日本語ラベル (例 running → 実行中) */}
+                  {statusLabel(p.status)}
                 </Badge>
                 <span style={{ fontSize: font.sm, color: color.text, fontWeight: font.medium, flex: 1 }}>
                   {p.name}

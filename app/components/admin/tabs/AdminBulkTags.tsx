@@ -17,6 +17,8 @@ import {useState, useEffect, useCallback} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
+// patch 0082 (R0-P0-4): 生 Shopify ENUM を中学生向け日本語に変換
+import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 
 // ── Types ──
 interface ProductListItem {
@@ -593,27 +595,19 @@ export default function AdminBulkTags() {
                       {p.totalInventory}
                     </td>
                     <td style={{padding: '10px 12px'}}>
+                      {/* patch 0082 (R0-P0-4): 生 ENUM → 中学生向け日本語ラベル */}
                       <span
                         style={{
                           padding: '2px 8px',
                           borderRadius: radius.sm,
                           fontSize: font.xs,
                           fontWeight: 600,
-                          background:
-                            p.status === 'ACTIVE'
-                              ? 'rgba(0,240,160,.15)'
-                              : p.status === 'DRAFT'
-                                ? 'rgba(255,170,0,.15)'
-                                : color.bg0,
-                          color:
-                            p.status === 'ACTIVE'
-                              ? '#00f0a0'
-                              : p.status === 'DRAFT'
-                                ? '#ffaa00'
-                                : color.textMuted,
+                          background: productStatusColor(p.status).bg,
+                          color: productStatusColor(p.status).fg,
                         }}
+                        aria-label={`商品ステータス: ${productStatusLabel(p.status)}`}
                       >
-                        {p.status}
+                        {productStatusLabel(p.status)}
                       </span>
                     </td>
                   </tr>

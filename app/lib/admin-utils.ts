@@ -36,6 +36,48 @@ export function statusLabel(status: string): string {
   }
 }
 
+/**
+ * productStatusLabel — Shopify 商品 status を中学生向けに日本語化
+ *
+ * patch 0082 (2026-04-20) R0-P0-4:
+ * admin で点在していた `{product.status}` 素出しを一箇所に集約。
+ * Shopify の生の ENUM ('ACTIVE'/'DRAFT'/'ARCHIVED') を、販売中の店員が
+ * 見て迷わない日本語（「公開中」「下書き」「アーカイブ」）に変換する。
+ *
+ * 使用例:
+ *   <span>{productStatusLabel(p.status)}</span>  // "公開中"
+ *
+ * また、バッジ色もセットで統一したい場合は `productStatusColor()` を使う。
+ */
+export function productStatusLabel(status: string): string {
+  switch ((status || '').toUpperCase()) {
+    case 'ACTIVE': return '公開中';
+    case 'DRAFT': return '下書き';
+    case 'ARCHIVED': return 'アーカイブ';
+    default: return status || '—';
+  }
+}
+
+/**
+ * productStatusColor — 商品 status と対になるバッジ色
+ *
+ * ACTIVE=緑系（安心）／DRAFT=橙系（注意）／ARCHIVED=灰（非表示）。
+ * `color.green` / `color.yellow` / `color.textMuted` を避けて、ラベルだけ
+ * 見ればわかるよう純粋な hex を返す。
+ */
+export function productStatusColor(status: string): {bg: string; fg: string} {
+  switch ((status || '').toUpperCase()) {
+    case 'ACTIVE':
+      return {bg: 'rgba(0,240,160,.15)', fg: '#00f0a0'};
+    case 'DRAFT':
+      return {bg: 'rgba(255,170,0,.15)', fg: '#ffaa00'};
+    case 'ARCHIVED':
+      return {bg: 'rgba(160,160,160,.15)', fg: color.textMuted};
+    default:
+      return {bg: color.bg0, fg: color.textMuted};
+  }
+}
+
 export function andonColor(status: 'green' | 'yellow' | 'red'): string {
   switch (status) {
     case 'green': return color.green;

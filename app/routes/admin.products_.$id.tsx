@@ -11,6 +11,8 @@ import type {Route} from './+types/admin.products.$id';
 import {T, al, PAGE_WIDTH} from '~/lib/astromeda-data';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
+// patch 0082 (R0-P0-4): status enum を中学生向け日本語に統一
+import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 
 // ── 型定義 ──
 interface ProductDetail {
@@ -340,8 +342,25 @@ export default function AdminProductDetail() {
             <h1 style={{fontSize: 22, fontWeight: 900, margin: '4px 0 0', color: T.tx}}>
               {product.title}
             </h1>
-            <div style={{fontSize: 11, color: T.t4, marginTop: 2}}>
-              {product.handle} · {product.status} · variants: {variants.length} · images: {images.length}
+            <div style={{display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap'}}>
+              {/* patch 0082 (R0-P0-4): 生 ENUM → カラーバッジ */}
+              <span
+                style={{
+                  padding: '2px 8px',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  background: productStatusColor(product.status).bg,
+                  color: productStatusColor(product.status).fg,
+                  letterSpacing: 0.3,
+                }}
+                aria-label={`商品ステータス: ${productStatusLabel(product.status)}`}
+              >
+                ● {productStatusLabel(product.status)}
+              </span>
+              <span style={{fontSize: 11, color: T.t4}}>
+                {product.handle} · バリアント {variants.length}件 · 画像 {images.length}枚
+              </span>
             </div>
           </div>
           {saving && (
@@ -469,14 +488,15 @@ export default function AdminProductDetail() {
             <div style={{overflowX: 'auto'}}>
               <table style={{width: '100%', borderCollapse: 'collapse', fontSize: 12}}>
                 <thead>
+                  {/* patch 0082 (R0-P0-4): 英語ヘッダーを中学生向け日本語に統一 */}
                   <tr style={{textAlign: 'left', color: T.t4, borderBottom: `1px solid ${al(T.tx, 0.1)}`}}>
-                    <th style={{padding: 8}}>Title</th>
-                    <th style={{padding: 8}}>Price</th>
-                    <th style={{padding: 8}}>Compare</th>
-                    <th style={{padding: 8}}>SKU</th>
-                    <th style={{padding: 8}}>Barcode</th>
-                    <th style={{padding: 8}}>Stock</th>
-                    <th style={{padding: 8}}></th>
+                    <th scope="col" style={{padding: 8}}>バリアント名</th>
+                    <th scope="col" style={{padding: 8}}>販売価格</th>
+                    <th scope="col" style={{padding: 8}} title="定価（割引前価格）を入力すると、商品ページで「元値ǃ→ 現在値」が表示される">定価（比較）</th>
+                    <th scope="col" style={{padding: 8}} title="管理用の商品コード。社内で在庫と出荷を管理するための識別番号">SKU</th>
+                    <th scope="col" style={{padding: 8}} title="バーコード（JANコード等）。小売連携用。未使用なら空で OK">バーコード</th>
+                    <th scope="col" style={{padding: 8}}>在庫数</th>
+                    <th scope="col" style={{padding: 8}}>操作</th>
                   </tr>
                 </thead>
                 <tbody>
