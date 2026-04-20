@@ -67,6 +67,7 @@ export function useConfirmDialog() {
     confirmLabel: pending?.options.confirmLabel,
     cancelLabel: pending?.options.cancelLabel,
     destructive: pending?.options.destructive,
+    contextPath: pending?.options.contextPath,
     onConfirm: handleConfirm,
     onCancel: handleCancel,
   };

@@ -414,6 +414,7 @@ export default function AdminDiscounts() {
           : `「${d.code}」(${d.title}) を削除します。この操作は取り消せません。`,
         confirmLabel: '削除する',
         destructive: true,
+        contextPath: ['コマース', '🛍️ 商品・販売', '🎟️ 割引コード'],
       });
       if (!ok) return;
       const res = await apiAction({action: 'delete', id: d.id, confirm: true});

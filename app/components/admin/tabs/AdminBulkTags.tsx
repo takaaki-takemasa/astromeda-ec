@@ -270,6 +270,7 @@ export default function AdminBulkTags() {
         message: `${ids.length} 件の商品に対して、${tags.length} 個のタグ [${tags.join(', ')}] を一括${verb}します。\nShopify に即時反映されます。この操作は取り消せません。`,
         confirmLabel: `一括${verb}を実行`,
         destructive: op === 'remove',
+        contextPath: ['コマース', '🛍️ 商品・販売', '🏷️ タグ一括編集'],
       });
       if (!confirmed) return;
 

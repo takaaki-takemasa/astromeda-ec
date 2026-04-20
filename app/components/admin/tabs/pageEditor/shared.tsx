@@ -341,7 +341,13 @@ export function Modal({
           }}
         >
           <div style={{fontSize: 14, fontWeight: 900, color: T.tx}}>{title}</div>
-          <button type="button" onClick={onClose} style={{...btn(), padding: '4px 10px'}}>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{...btn(), padding: '4px 10px'}}
+            aria-label="モーダルを閉じる"
+            title="閉じる"
+          >
             ×
           </button>
         </div>

@@ -313,7 +313,13 @@ function FieldEditor({
               ))}
             </select>
           </div>
-          <button type="button" style={btnDanger} onClick={() => removeField(i)}>
+          <button
+            type="button"
+            style={btnDanger}
+            onClick={() => removeField(i)}
+            aria-label={`フィールド ${i + 1} を削除`}
+            title="このフィールドを削除"
+          >
             ✕
           </button>
         </div>
@@ -684,6 +690,7 @@ export default function AdminMetaobjectDefinitions() {
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       destructive: true,
+      contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '🧬 CMS 定義'],
     });
     if (!ok) return;
     try {

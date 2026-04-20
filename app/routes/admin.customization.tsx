@@ -142,11 +142,13 @@ export default function AdminCustomization() {
 
   const handleDelete = async (id: string) => {
     // patch 0071 R0-1: window.confirm を Stripe 水準の UX モーダルに置換
+    // patch 0072 R2-1: contextPath でモーダル内でも現在位置を失わない
     const ok = await confirmDialog({
       title: 'オプションを削除しますか？',
       message: 'このカスタマイズオプションを削除します。この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '🛍️ 商品・販売', '🎨 カスタマイズ'],
     });
     if (!ok) return;
     const res = await apiPost('/api/admin/customization', {action: 'delete', metaobjectId: id});

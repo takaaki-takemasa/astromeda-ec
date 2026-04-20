@@ -273,6 +273,7 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', '記事コンテンツ'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_article_content', action: 'delete', id });
@@ -509,6 +510,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', 'IPバナー'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'delete', id });
@@ -758,6 +760,7 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', 'SEO記事'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_seo_article', action: 'delete', id });

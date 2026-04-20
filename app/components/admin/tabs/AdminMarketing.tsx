@@ -542,6 +542,7 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '📣 マーケティング', 'キャンペーン'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_campaign', action: 'delete', id });
@@ -819,6 +820,7 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '📣 マーケティング', 'カスタムオプション'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_custom_option', action: 'delete', id });

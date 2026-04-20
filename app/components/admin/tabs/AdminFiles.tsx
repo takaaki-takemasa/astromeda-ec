@@ -498,6 +498,7 @@ export default function AdminFiles() {
         message: `${f.originalFileName || f.alt || f.id} を削除します。このファイルを参照している商品・メタオブジェクトがある場合は画像が失われます。この操作は取り消せません。`,
         confirmLabel: '削除',
         destructive: true,
+        contextPath: ['コマース', '📝 コンテンツ・ページ', '📁 ファイル'],
       });
       if (!ok) return;
       const res = await apiDelete([f.id]);
@@ -527,6 +528,7 @@ export default function AdminFiles() {
       message: `選択中の ${ids.length} ファイルをまとめて削除します。参照されている画像は失われます。この操作は取り消せません。`,
       confirmLabel: `${ids.length} 件削除`,
       destructive: true,
+      contextPath: ['コマース', '📝 コンテンツ・ページ', '📁 ファイル'],
     });
     if (!ok) return;
     const res = await apiDelete(ids);

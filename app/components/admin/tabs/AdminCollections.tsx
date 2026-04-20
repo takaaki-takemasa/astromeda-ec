@@ -409,6 +409,7 @@ export default function AdminCollections() {
         message: `"${title}" を完全に削除します。この操作は取り消せません。`,
         confirmLabel: '削除',
         destructive: true,
+        contextPath: ['コマース', '🛍️ 商品・販売', '📚 コレクション'],
       });
       if (!ok) return;
       const res = await apiAction({action: 'delete', id});

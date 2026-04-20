@@ -279,6 +279,7 @@ export default function AdminRedirects() {
         message: `${r.path} → ${r.target} を削除します。この操作は取り消せません。`,
         confirmLabel: '削除',
         destructive: true,
+        contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '🔀 リダイレクト'],
       });
       if (!ok) return;
       const res = await apiAction({action: 'delete', id: r.id});

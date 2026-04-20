@@ -618,6 +618,7 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '🛍️ 商品・販売', '📦 商品管理', 'PCティア'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_pc_tier', action: 'delete', id });
@@ -861,6 +862,7 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       message: 'この操作は取り消せません。',
       confirmLabel: '削除する',
       destructive: true,
+      contextPath: ['コマース', '🛍️ 商品・販売', '📦 商品管理', 'UGCレビュー'],
     });
     if (!ok) return;
     const r = await cmsPost({ type: 'astromeda_ugc_review', action: 'delete', id });

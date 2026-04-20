@@ -359,9 +359,35 @@ function FooterConfigForm({
                   placeholder="/policies/terms"
                   style={inputStyle}
                 />
-                <button type="button" onClick={() => moveLink(i, -1)} disabled={i === 0} style={{...btn(), padding: '4px 8px'}}>↑</button>
-                <button type="button" onClick={() => moveLink(i, 1)} disabled={i === links.length - 1} style={{...btn(), padding: '4px 8px'}}>↓</button>
-                <button type="button" onClick={() => removeLink(i)} style={btn(false, true)}>−</button>
+                <button
+                  type="button"
+                  onClick={() => moveLink(i, -1)}
+                  disabled={i === 0}
+                  style={{...btn(), padding: '4px 8px'}}
+                  aria-label={`リンク ${i + 1} を上へ移動`}
+                  title="上へ"
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moveLink(i, 1)}
+                  disabled={i === links.length - 1}
+                  style={{...btn(), padding: '4px 8px'}}
+                  aria-label={`リンク ${i + 1} を下へ移動`}
+                  title="下へ"
+                >
+                  ↓
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeLink(i)}
+                  style={btn(false, true)}
+                  aria-label={`リンク ${i + 1} を削除`}
+                  title="削除"
+                >
+                  −
+                </button>
               </div>
             ))}
             <button type="button" onClick={addLink} style={{...btn(), alignSelf: 'flex-start'}}>＋ リンク追加</button>

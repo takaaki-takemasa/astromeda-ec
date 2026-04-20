@@ -25,6 +25,13 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   /** 破壊的操作か（赤ボタン化） */
   destructive?: boolean;
+  /**
+   * パンくずパス（patch 0071 R2-1）
+   * Modal が開いた瞬間にユーザーが「自分はどこにいるのか」を見失わないよう、
+   * タイトルの上に控えめに current location を表示する。
+   * 例: ['コマース', '🛍️ 商品・販売', '🎨 カスタマイズ']
+   */
+  contextPath?: string[];
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -55,6 +62,22 @@ const titleStyle: CSSProperties = {
   fontWeight: font.bold,
   color: color.text,
   marginBottom: space[2],
+};
+
+/** patch 0071 R2-1: モーダル内パンくず */
+const contextPathStyle: CSSProperties = {
+  fontSize: font.xs,
+  color: 'rgba(255,255,255,0.55)',
+  marginBottom: space[2],
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: '4px',
+  alignItems: 'center',
+  lineHeight: 1.4,
+};
+
+const contextPathSepStyle: CSSProperties = {
+  color: 'rgba(255,255,255,0.35)',
 };
 
 const messageStyle: CSSProperties = {
@@ -101,6 +124,7 @@ export function ConfirmDialog({
   confirmLabel = 'OK',
   cancelLabel = 'キャンセル',
   destructive,
+  contextPath,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -136,6 +160,21 @@ export function ConfirmDialog({
       aria-labelledby="confirm-dialog-title"
     >
       <div style={cardStyle}>
+        {contextPath && contextPath.length > 0 ? (
+          <nav
+            aria-label="現在位置"
+            style={contextPathStyle}
+          >
+            {contextPath.map((crumb, idx) => (
+              <span key={`${idx}-${crumb}`} style={{display: 'inline-flex', alignItems: 'center', gap: 4}}>
+                <span>{crumb}</span>
+                {idx < contextPath.length - 1 ? (
+                  <span aria-hidden="true" style={contextPathSepStyle}>›</span>
+                ) : null}
+              </span>
+            ))}
+          </nav>
+        ) : null}
         <div id="confirm-dialog-title" style={titleStyle}>
           {title}
         </div>
