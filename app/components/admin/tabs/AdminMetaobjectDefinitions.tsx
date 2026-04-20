@@ -856,6 +856,7 @@ export default function AdminMetaobjectDefinitions() {
               style={{...btnOutline, opacity: cursorHistory.length > 1 ? 1 : 0.4}}
               onClick={handlePrev}
               disabled={cursorHistory.length <= 1}
+              aria-label="前のページ"
             >
               ← 前
             </button>
@@ -866,6 +867,7 @@ export default function AdminMetaobjectDefinitions() {
               style={{...btnOutline, opacity: pageInfo.hasNextPage ? 1 : 0.4}}
               onClick={handleNext}
               disabled={!pageInfo.hasNextPage}
+              aria-label="次のページ"
             >
               次 →
             </button>

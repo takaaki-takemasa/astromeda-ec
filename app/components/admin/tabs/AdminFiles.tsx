@@ -705,6 +705,7 @@ export default function AdminFiles() {
             style={{...btnOutline, opacity: pageCount <= 1 ? 0.4 : 1}}
             onClick={prevPage}
             disabled={pageCount <= 1}
+            aria-label="前のページ"
           >
             ← 前のページ
           </button>
@@ -713,6 +714,7 @@ export default function AdminFiles() {
             style={{...btnOutline, opacity: pageInfo.hasNextPage ? 1 : 0.4}}
             onClick={nextPage}
             disabled={!pageInfo.hasNextPage}
+            aria-label="次のページ"
           >
             次のページ →
           </button>

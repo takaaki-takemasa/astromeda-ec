@@ -21,9 +21,12 @@ interface GlobalBarProps {
 }
 
 export function GlobalBar({ andonStatus, pendingApprovals, onAndonClick, onSearchClick, isMobile = false, onMenuClick, trailing }: GlobalBarProps) {
-  const [now, setNow] = useState(new Date());
+  // patch 0077 (2026-04-20): SSR では時刻を null にしておき、クライアントマウント後に埋める。
+  // SSR で new Date() を呼ぶと CSR 初期 render と必ず時刻がズレて React #418 hydration mismatch が発火していた。
+  const [now, setNow] = useState<Date | null>(null);
 
   useEffect(() => {
+    setNow(new Date());
     const t = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(t);
   }, []);
@@ -135,9 +138,12 @@ export function GlobalBar({ andonStatus, pendingApprovals, onAndonClick, onSearc
           </div>
         )}
 
-        {/* 時刻 */}
-        <span style={{ fontSize: font.xs, color: color.textDim, fontFamily: font.mono }}>
-          {now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+        {/* 時刻 — patch 0077: SSR では null → suppressHydrationWarning で placeholder 維持 */}
+        <span
+          style={{ fontSize: font.xs, color: color.textDim, fontFamily: font.mono, minWidth: '40px', display: 'inline-block', textAlign: 'right' }}
+          suppressHydrationWarning
+        >
+          {now ? now.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--'}
         </span>
 
         {/* patch 0049: trailing slot (RoleBadge 等) */}

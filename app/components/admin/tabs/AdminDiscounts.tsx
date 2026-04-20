@@ -691,11 +691,11 @@ export default function AdminDiscounts() {
           marginTop: space[3],
         }}
       >
-        <button type="button" style={btnOutline} disabled={pageCount <= 1} onClick={prevPage}>
+        <button type="button" style={btnOutline} disabled={pageCount <= 1} onClick={prevPage} aria-label="前のページ">
           ← 前へ
         </button>
         <span style={{fontSize: font.sm, color: color.textMuted}}>{pageCount} ページ目</span>
-        <button type="button" style={btnOutline} disabled={!pageInfo.hasNextPage} onClick={nextPage}>
+        <button type="button" style={btnOutline} disabled={!pageInfo.hasNextPage} onClick={nextPage} aria-label="次のページ">
           次へ →
         </button>
       </div>
