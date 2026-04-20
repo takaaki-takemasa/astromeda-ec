@@ -236,6 +236,87 @@ export default function AdminBulkTags() {
     setSelected(new Set());
   }, []);
 
+  // patch 0088 (R2-P2-3): 一括タグの「元に戻す」(Undo) 実行
+  // 成功した商品 ID 集合に対して逆操作（add→remove / remove→add）を同一 tags で適用する。
+  // 第 2 引数の `skipUndo=true` で「Undo 実行時にさらに Undo を連鎖させない」ガードを付ける。
+  const applyBulk = useCallback(
+    async (
+      op: 'add' | 'remove',
+      ids: string[],
+      tags: string[],
+      opts?: {skipUndo?: boolean},
+    ): Promise<boolean> => {
+      if (ids.length === 0 || tags.length === 0) return false;
+      const verb = op === 'add' ? '付与' : '削除';
+      setRunning(true);
+      try {
+        const res = await apiBulkTags(
+          op === 'add' ? 'tags_bulk_add' : 'tags_bulk_remove',
+          ids,
+          tags,
+        );
+        setLastAction(op);
+        setLastTags(tags);
+        if (res.results) setLastResults(res.results);
+
+        // 「次に Undo できる」候補 = このオペレーションで実際に成功した商品 ID
+        const okIds = (res.results || [])
+          .filter((r) => r.success)
+          .map((r) => r.id);
+
+        if (res.success || (res.summary?.ok ?? 0) > 0) {
+          const msg = res.success
+            ? `✓ ${res.summary?.ok ?? ids.length}/${ids.length} 件に${verb}しました`
+            : `一部成功 (成功 ${res.summary?.ok ?? 0} / 失敗 ${res.summary?.failed ?? 0})`;
+
+          // Undo 可能: 成功件数が 1 件以上 かつ 今回が Undo 実行自体ではない
+          const canUndo = !opts?.skipUndo && okIds.length > 0;
+          const inverseOp: 'add' | 'remove' = op === 'add' ? 'remove' : 'add';
+          const inverseVerb = inverseOp === 'add' ? '付与' : '削除';
+
+          pushToast(msg, res.success ? 'success' : 'warning', {
+            durationMs: canUndo ? 30000 : undefined,
+            action: canUndo
+              ? {
+                  label: '↩ 元に戻す',
+                  onClick: async () => {
+                    // 再読込直前に Toast は自動 dismiss される
+                    pushToast(`↩ 元に戻しています…`, 'info', {durationMs: 3000});
+                    const undoOk = await applyBulk(inverseOp, okIds, tags, {
+                      skipUndo: true,
+                    });
+                    if (undoOk) {
+                      pushToast(
+                        `↩ ${okIds.length} 件を${inverseVerb}して元に戻しました`,
+                        'info',
+                      );
+                    }
+                  },
+                }
+              : undefined,
+          });
+          return true;
+        }
+
+        // 全件失敗
+        pushToast(
+          `一括${verb}に失敗しました (成功 0 / 失敗 ${res.summary?.failed ?? ids.length})`,
+          'error',
+        );
+        return false;
+      } catch (e) {
+        pushToast(`エラー: ${e instanceof Error ? e.message : 'Unknown'}`, 'error');
+        return false;
+      } finally {
+        setRunning(false);
+        // 成功後、結果表示のために selected はクリアせず保持する。
+        // 再読込で最新タグ状態を反映。
+        await reload();
+      }
+    },
+    [pushToast, reload],
+  );
+
   // ── 一括実行 ──
   const runBulk = useCallback(
     async (op: 'add' | 'remove') => {
@@ -253,45 +334,17 @@ export default function AdminBulkTags() {
       const verb = op === 'add' ? '付与' : '削除';
       const confirmed = await confirmDialog({
         title: `タグを一括${verb}しますか？`,
-        message: `${ids.length} 件の商品に対して、${tags.length} 個のタグ [${tags.join(', ')}] を一括${verb}します。\nShopify に即時反映されます。この操作は取り消せません。`,
+        message: `${ids.length} 件の商品に対して、${tags.length} 個のタグ [${tags.join(', ')}] を一括${verb}します。\nShopify に即時反映されます。30 秒以内なら通知の「↩ 元に戻す」で取り消し可能です。`,
         confirmLabel: `一括${verb}を実行`,
         destructive: op === 'remove',
         contextPath: ['コマース', '🛍️ 商品・販売', '🏷️ タグ一括編集'],
       });
       if (!confirmed) return;
 
-      setRunning(true);
       setLastResults(null);
-      try {
-        const res = await apiBulkTags(
-          op === 'add' ? 'tags_bulk_add' : 'tags_bulk_remove',
-          ids,
-          tags,
-        );
-        setLastAction(op);
-        setLastTags(tags);
-        if (res.results) setLastResults(res.results);
-        if (res.success) {
-          showToast(
-            `✓ ${res.summary?.ok ?? ids.length}/${ids.length} 件に${verb}しました`,
-            'ok',
-          );
-        } else {
-          showToast(
-            `一部失敗 (成功 ${res.summary?.ok ?? 0} / 失敗 ${res.summary?.failed ?? ids.length})`,
-            'err',
-          );
-        }
-        // 成功後、結果表示のために selected はクリアせず保持する。
-        // 再読込で最新タグ状態を反映。
-        await reload();
-      } catch (e) {
-        showToast(`エラー: ${e instanceof Error ? e.message : 'Unknown'}`, 'err');
-      } finally {
-        setRunning(false);
-      }
+      await applyBulk(op, ids, tags);
     },
-    [tagInput, selected, confirmDialog, showToast, reload],
+    [tagInput, selected, confirmDialog, showToast, applyBulk],
   );
 
   const selectedCount = selected.size;

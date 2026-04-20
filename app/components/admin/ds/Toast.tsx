@@ -40,12 +40,24 @@ export type ToastVariant = 'success' | 'error' | 'warning' | 'info';
 /** 後方互換用。旧タブは 'ok' / 'err' を使っているので自動マップする。 */
 export type ToastVariantInput = ToastVariant | 'ok' | 'err';
 
+/**
+ * patch 0088 (2026-04-21) R2-P2-3:
+ * Toast に任意のアクションボタンを 1 個追加できる。主用途は「元に戻す (Undo)」。
+ * onClick は同期/非同期どちらでも可。押下すると Toast は即 dismiss される。
+ */
+export interface ToastAction {
+  label: string;
+  onClick: () => void | Promise<void>;
+}
+
 export interface ToastState {
   id: number;
   msg: string;
   variant: ToastVariant;
   /** 任意: variant 既定値を上書きしたいときだけ指定 */
   durationMs?: number;
+  /** patch 0088: 任意のアクションボタン（「元に戻す」など） */
+  action?: ToastAction;
 }
 
 /** variant 別のデフォルト自動消失時間（ms） */
@@ -89,11 +101,15 @@ export function useToast() {
   }, []);
 
   const pushToast = useCallback(
-    (msg: string, variantInput: ToastVariantInput = 'success', opts?: {durationMs?: number}) => {
+    (
+      msg: string,
+      variantInput: ToastVariantInput = 'success',
+      opts?: {durationMs?: number; action?: ToastAction},
+    ) => {
       const variant = normalizeVariant(variantInput);
       clearTimer();
       const id = ++idRef.current;
-      setToast({id, msg, variant, durationMs: opts?.durationMs});
+      setToast({id, msg, variant, durationMs: opts?.durationMs, action: opts?.action});
       const duration = opts?.durationMs ?? TOAST_DURATION[variant];
       timerRef.current = setTimeout(() => {
         setToast((cur) => (cur && cur.id === id ? null : cur));
@@ -178,6 +194,38 @@ function ToastView({toast, onDismiss}: ToastViewProps) {
         {variantLabel[toast.variant]}
       </span>
       <span style={{flex: 1}}>{toast.msg}</span>
+      {/* patch 0088: 任意のアクションボタン（例: 「元に戻す」） */}
+      {toast.action && (
+        <button
+          type="button"
+          onClick={async () => {
+            const {onClick} = toast.action!;
+            // 先に dismiss してから実行（ユーザーに即座のフィードバック）
+            onDismiss();
+            try {
+              await onClick();
+            } catch {
+              // アクション側でエラー通知する想定。ここでは握りつぶす。
+            }
+          }}
+          aria-label={toast.action.label}
+          style={{
+            background: 'rgba(0,0,0,.25)',
+            border: `1px solid ${textColor === '#fff' ? 'rgba(255,255,255,.4)' : 'rgba(0,0,0,.25)'}`,
+            color: textColor,
+            cursor: 'pointer',
+            padding: '4px 10px',
+            fontSize: font.xs,
+            fontWeight: font.bold,
+            borderRadius: radius.sm,
+            lineHeight: 1.2,
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         type="button"
         onClick={onDismiss}
