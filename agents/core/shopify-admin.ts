@@ -562,6 +562,48 @@ export class ShopifyAdminClient {
     }
   }
 
+  /**
+   * ストアに登録されている商品タグの一覧（patch 0098）
+   * Shopify Admin の shop.productTags を介して最大 first 件まで取得する。
+   * 失敗時は空配列を返して UI 側のフォールバック動作を許す。
+   */
+  async listProductTags(first = 250): Promise<string[]> {
+    if (!this.isConfigured) return [];
+    const gql = `
+      query ShopProductTags($first: Int!) {
+        shop { productTags(first: $first) { edges { node } } }
+      }
+    `;
+    try {
+      const data = await this.query<{shop: {productTags: {edges: Array<{node: string}>}}}>(gql, {
+        first,
+      });
+      return (data.shop?.productTags?.edges || []).map((e) => e.node).filter(Boolean);
+    } catch (err) {
+      this.notifyError('listProductTags', err);
+      return [];
+    }
+  }
+
+  /**
+   * 指定タグを持つ商品件数を返す（patch 0098）
+   * productsCount は Shopify Admin API 2024-07+ で利用可。正確な件数が得られる。
+   */
+  async countProductsByTag(tag: string): Promise<number> {
+    if (!this.isConfigured || !tag) return 0;
+    const safeTag = tag.replace(/'/g, "\\'");
+    const gql = `query ProductsCountByTag($q: String!) { productsCount(query: $q) { count } }`;
+    try {
+      const data = await this.query<{productsCount: {count: number}}>(gql, {
+        q: `tag:'${safeTag}'`,
+      });
+      return data.productsCount?.count || 0;
+    } catch (err) {
+      this.notifyError('countProductsByTag', err);
+      return 0;
+    }
+  }
+
   // ══════════════════════════════════════════════════════════
   // 書き込みオペレーション（運動神経 — 外界への作用）
   //

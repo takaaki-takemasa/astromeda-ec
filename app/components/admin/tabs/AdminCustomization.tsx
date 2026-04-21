@@ -24,6 +24,8 @@ import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineL
 import { useToast } from '~/components/admin/ds/Toast';
 import { ToggleSwitch } from '~/components/admin/ds/ToggleSwitch';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
+import TagPicker from '~/components/admin/TagPicker';
+import CustomizationMatrix from '~/components/admin/CustomizationMatrix';
 
 // ── Types ──
 interface Choice {
@@ -161,6 +163,13 @@ export default function AdminCustomization() {
   const [error, setError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [initStatus, setInitStatus] = useState<string | null>(null);
+
+  // patch 0098: ビュー切替（一覧 / マトリックス）
+  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
+  const [matrixError, setMatrixError] = useState<string | null>(null);
+
+  // patch 0098: モーダル内ライブ件数（-1 = 全商品適用セマンティクス）
+  const [affectedCount, setAffectedCount] = useState<number>(-1);
 
   // 編集モーダル
   const [editOpen, setEditOpen] = useState(false);
@@ -424,17 +433,35 @@ export default function AdminCustomization() {
         </div>
       </div>
 
-      {/* 対象タグ + 必須トグル */}
+      {/* 対象タグ + 必須トグル (patch 0098: TagPicker + ライブ件数) */}
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 10, marginBottom: 14 }}>
         <div>
-          <label style={labelStyle}>適用する商品タグ（任意・カンマ区切り）</label>
-          <input
-            style={inputStyle}
+          <label style={labelStyle} htmlFor="applies-to-tags-picker">
+            適用する商品タグ <span style={{ color: color.textMuted, fontWeight: 400 }}>（任意）</span>
+          </label>
+          <TagPicker
+            id="applies-to-tags-picker"
             value={form.appliesToTags}
-            onChange={(e) => setForm({ ...form, appliesToTags: e.target.value })}
-            placeholder="例: PC, ガジェット / 空欄で全商品"
-            maxLength={500}
+            onChange={(csv) => setForm({ ...form, appliesToTags: csv })}
+            onAffectedCountChange={setAffectedCount}
+            placeholder="タグを検索して追加（空欄なら全商品に表示）"
           />
+          <div
+            style={{
+              marginTop: 6,
+              fontSize: 11,
+              color: affectedCount === 0 ? '#ffb020' : color.textMuted,
+              lineHeight: 1.5,
+            }}
+          >
+            {affectedCount === -1 ? (
+              <>💡 このプルダウンは <strong>すべての商品</strong> の詳細ページに表示されます</>
+            ) : affectedCount === 0 ? (
+              <>⚠️ 選択したタグに該当する商品は <strong>0 件</strong> です（タグのスペルを確認してください）</>
+            ) : (
+              <>💡 このプルダウンは <strong>約 {affectedCount} 件</strong> の商品詳細ページに表示されます</>
+            )}
+          </div>
         </div>
         <div>
           <ToggleSwitch
@@ -660,6 +687,81 @@ export default function AdminCustomization() {
         作ったプルダウンは「対象商品タグ」に合致する商品だけに表示されます。
       </div>
 
+      {/* patch 0098 R1: ビュー切替サブタブ */}
+      <div
+        role="tablist"
+        aria-label="表示モード切替"
+        style={{
+          display: 'flex',
+          gap: 4,
+          marginBottom: 16,
+          borderBottom: `1px solid ${color.border}`,
+        }}
+      >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === 'list'}
+          onClick={() => setViewMode('list')}
+          style={{
+            padding: '10px 18px',
+            fontSize: font.sm,
+            fontWeight: viewMode === 'list' ? 700 : 500,
+            color: viewMode === 'list' ? color.cyan : color.textMuted,
+            background: 'transparent',
+            border: 'none',
+            borderBottom: `2px solid ${viewMode === 'list' ? color.cyan : 'transparent'}`,
+            marginBottom: -1,
+            cursor: 'pointer',
+            fontFamily: font.family,
+          }}
+        >
+          📋 プルダウン一覧
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === 'matrix'}
+          onClick={() => setViewMode('matrix')}
+          style={{
+            padding: '10px 18px',
+            fontSize: font.sm,
+            fontWeight: viewMode === 'matrix' ? 700 : 500,
+            color: viewMode === 'matrix' ? color.cyan : color.textMuted,
+            background: 'transparent',
+            border: 'none',
+            borderBottom: `2px solid ${viewMode === 'matrix' ? color.cyan : 'transparent'}`,
+            marginBottom: -1,
+            cursor: 'pointer',
+            fontFamily: font.family,
+          }}
+        >
+          🗂️ タグ × プルダウン マトリックス
+        </button>
+      </div>
+
+      {viewMode === 'matrix' && (
+        <>
+          {matrixError && (
+            <div
+              style={{
+                color: '#ff6b6b',
+                fontSize: font.sm,
+                padding: space[4],
+                background: '#3a1515',
+                borderRadius: radius.md,
+                marginBottom: 16,
+              }}
+            >
+              {matrixError}
+            </div>
+          )}
+          <CustomizationMatrix onSaveError={setMatrixError} />
+        </>
+      )}
+
+      {viewMode === 'list' && (
+      <>
       {initStatus && (
         <div style={{
           background: initStatus.includes('エラー') ? '#3a1515' : '#153a1a',
@@ -811,6 +913,9 @@ export default function AdminCustomization() {
             </div>
           ))}
         </div>
+      )}
+
+      </>
       )}
 
       {editOpen && (
