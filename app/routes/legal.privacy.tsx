@@ -2,10 +2,18 @@
  * プライバシーポリシー詳細版
  * 個人情報保護法・GDPR対応の詳細プライバシーポリシー。
  * Shopifyのpolicies.$handleとは別に独立ページとして提供。
+ *
+ * patch 0093: 事業者情報・連絡先を astromeda_legal_info Metaobject 駆動化。
+ * 管理画面 (サイト設定 > 法務) で会社名/メール/電話が変更されたら
+ * 本ページも自動追従する。privacy_text が Metaobject に入っていれば
+ * 9 Section 全体を上書きするリッチモードも提供 (後続 patch 0099 で拡張予定)。
  */
 import type {Route} from './+types/legal.privacy';
+import {useRouteLoaderData} from 'react-router';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import {STORE_URL} from '~/lib/astromeda-data';
+import {mergeLegal} from '~/lib/legal-overlay';
+import type {RootLoader} from '~/root';
 
 export const meta: Route.MetaFunction = () => {
   const title = 'プライバシーポリシー | ASTROMEDA ゲーミングPC';
@@ -46,6 +54,13 @@ function Section({title, children}: {title: string; children: React.ReactNode}) 
 }
 
 export default function PrivacyPolicy() {
+  const rootData = useRouteLoaderData<RootLoader>('root');
+  const legal = mergeLegal(rootData?.metaLegalInfo || null);
+  // patch 0093: 事業者情報+連絡先を Metaobject 駆動化
+  const companyName = legal.company.name;
+  const contactEmail = legal.tokusho.email;
+  const contactTel = legal.tokusho.tel;
+
   return (
     <div style={{
       maxWidth: 800, margin: '0 auto', padding: '60px 20px 80px',
@@ -63,7 +78,7 @@ export default function PrivacyPolicy() {
 
       <Section title="1. 事業者情報">
         <p>
-          株式会社マイニングベース（以下「当社」）は、ASTROMEDA ECサイト（以下「本サービス」）を運営するにあたり、
+          {companyName}（以下「当社」）は、ASTROMEDA ECサイト（以下「本サービス」）を運営するにあたり、
           お客様の個人情報の保護に最大限の注意を払います。
         </p>
       </Section>
@@ -123,7 +138,7 @@ export default function PrivacyPolicy() {
       <Section title="7. お客様の権利">
         <p>
           お客様は自己の個人情報について、開示・訂正・削除・利用停止を請求する権利を有します。
-          ご希望の場合はsupport@mining-base.co.jpまでご連絡ください。
+          ご希望の場合は{contactEmail}までご連絡ください。
         </p>
       </Section>
 
@@ -132,9 +147,9 @@ export default function PrivacyPolicy() {
           個人情報の取り扱いに関するお問い合わせは下記までお願いします。
         </p>
         <p style={{marginTop: 8}}>
-          株式会社マイニングベース 個人情報保護担当<br />
-          メール: support@mining-base.co.jp<br />
-          電話: 03-6265-3740（平日10:00〜18:00）
+          {companyName} 個人情報保護担当<br />
+          メール: {contactEmail}<br />
+          電話: {contactTel}（平日10:00〜18:00）
         </p>
       </Section>
 

@@ -1,10 +1,18 @@
 /**
  * 特定商取引法に基づく表示
  * EC運営に必須の法的ページ。
+ *
+ * patch 0093: astromeda_legal_info Metaobject 駆動化。
+ * 会社・特商法・保証の各フィールドは rootData.metaLegalInfo を優先し、
+ * 未入力または Metaobject 不在時は LEGAL 定数にフォールバック。
+ * これにより管理画面 (サイト設定 > 法務) のみで本ページが編集可能。
  */
 import type {Route} from './+types/legal.tokushoho';
+import {useRouteLoaderData} from 'react-router';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import {STORE_URL} from '~/lib/astromeda-data';
+import {mergeLegal} from '~/lib/legal-overlay';
+import type {RootLoader} from '~/root';
 
 export const meta: Route.MetaFunction = () => {
   const title = '特定商取引法に基づく表示 | ASTROMEDA ゲーミングPC';
@@ -28,23 +36,28 @@ const T = {
   accent: '#00e5ff',
 };
 
-const rows: [string, string][] = [
-  ['販売業者', '株式会社マイニングベース'],
-  ['代表者', '武正 貴昭'],
-  ['所在地', '〒162-0825 東京都新宿区神楽坂3-2-15'],
-  ['電話番号', '03-6265-3740（受付時間：平日10:00〜18:00）'],
-  ['メールアドレス', 'support@mining-base.co.jp'],
-  ['URL', STORE_URL],
-  ['商品代金以外の必要料金', '消費税（税込価格表示）、送料（商品ページに記載）'],
-  ['支払方法', 'クレジットカード（VISA / Mastercard / AMEX / JCB）、Shopify Payments、PayPay、Amazon Pay、あと払い（Paidy）'],
-  ['支払時期', 'クレジットカード：ご注文時に決済。後払い：各サービスの規約に準じます。'],
-  ['商品の引渡時期', 'ご注文確認後、通常5〜14営業日以内に発送。受注生産品は商品ページに記載の期間。'],
-  ['返品・交換について', '商品到着後7日以内にご連絡ください。初期不良の場合は無償交換。お客様都合による返品は未開封・未使用品に限り承ります（送料はお客様負担）。'],
-  ['保証について', 'ゲーミングPC：1年間無償保証。周辺機器・グッズ：初期不良のみ対応。'],
-  ['動作環境', 'ゲーミングPC：商品ページに記載のスペック表をご確認ください。'],
-];
-
 export default function Tokushoho() {
+  const rootData = useRouteLoaderData<RootLoader>('root');
+  const legal = mergeLegal(rootData?.metaLegalInfo || null);
+
+  // patch 0093: 会社情報+特商法+保証+決済サポート+配送情報を Metaobject 駆動で構築。
+  // 既存 UI (13 rows) を保持するため、label と value の配列をそのまま組み立てる。
+  const rows: [string, string][] = [
+    ['販売業者', legal.tokusho.seller],
+    ['代表者', legal.tokusho.resp],
+    ['所在地', legal.tokusho.addr],
+    ['電話番号', `${legal.tokusho.tel}（受付時間：平日10:00〜18:00）`],
+    ['メールアドレス', legal.tokusho.email],
+    ['URL', STORE_URL],
+    ['商品代金以外の必要料金', '消費税（税込価格表示）、送料（商品ページに記載）'],
+    ['支払方法', legal.tokusho.pay],
+    ['支払時期', 'クレジットカード：ご注文時に決済。後払い：各サービスの規約に準じます。'],
+    ['商品の引渡時期', legal.tokusho.shipTime],
+    ['返品・交換について', legal.tokusho.returnP],
+    ['保証について', legal.warranty.base],
+    ['動作環境', 'ゲーミングPC：商品ページに記載のスペック表をご確認ください。'],
+  ];
+
   return (
     <div style={{
       maxWidth: 800, margin: '0 auto', padding: '60px 20px 80px',

@@ -1,63 +1,12 @@
 import {useState} from 'react';
 import {Link, useRouteLoaderData} from 'react-router';
-import {T, al, LEGAL, POLICY_BASE} from '~/lib/astromeda-data';
+import {T, al, POLICY_BASE} from '~/lib/astromeda-data';
 import {NewsletterSignup} from '~/components/astro/NewsletterSignup';
-import type {RootLoader, MetaFooterConfig, MetaLegalInfo} from '~/root';
+import type {RootLoader, MetaFooterConfig} from '~/root';
 // patch 0012: CMS Footer リンクで旧サイト絶対URLが入っていても内部遷移に畳む
 import {toInternalPath, isExternalHref} from '~/lib/cms-url';
-
-/**
- * patch 0018: CMS astromeda_legal_info を LEGAL 定数にオーバーレイ。
- * CMS 側に値があればそれを使い、空文字 / undefined ならハードコード定数を維持する。
- * これにより Go-Live 後も管理画面だけで特商法・保証・会社情報を編集可能にする。
- */
-function pickLegalValue<T extends string>(cmsVal: unknown, fallback: T): T {
-  if (typeof cmsVal === 'string' && cmsVal.trim() !== '') return cmsVal as T;
-  return fallback;
-}
-function mergeLegal(meta: MetaLegalInfo | null) {
-  if (!meta) return LEGAL;
-  const c = meta.company || {};
-  const t = meta.tokusho || {};
-  const w = meta.warranty || {};
-  return {
-    company: {
-      name: pickLegalValue(c.name, LEGAL.company.name),
-      en: pickLegalValue(c.en, LEGAL.company.en),
-      ceo: pickLegalValue(c.ceo, LEGAL.company.ceo),
-      est: pickLegalValue(c.est, LEGAL.company.est),
-      addr: pickLegalValue(c.addr, LEGAL.company.addr),
-      biz: pickLegalValue(c.biz, LEGAL.company.biz),
-      partners: pickLegalValue(c.partners, LEGAL.company.partners),
-    },
-    tokusho: {
-      seller: pickLegalValue(t.seller, LEGAL.tokusho.seller),
-      resp: pickLegalValue(t.resp, LEGAL.tokusho.resp),
-      addr: pickLegalValue(t.addr, LEGAL.tokusho.addr),
-      tel: pickLegalValue(t.tel, LEGAL.tokusho.tel),
-      email: pickLegalValue(t.email, LEGAL.tokusho.email),
-      pay: pickLegalValue(t.pay, LEGAL.tokusho.pay),
-      ship: pickLegalValue(t.ship, LEGAL.tokusho.ship),
-      shipTime: pickLegalValue(t.shipTime, LEGAL.tokusho.shipTime),
-      cancel: pickLegalValue(t.cancel, LEGAL.tokusho.cancel),
-      returnP: pickLegalValue(t.returnP, LEGAL.tokusho.returnP),
-      price: pickLegalValue(t.price, LEGAL.tokusho.price),
-    },
-    warranty: {
-      base: pickLegalValue(w.base, LEGAL.warranty.base),
-      ext: pickLegalValue(w.ext, LEGAL.warranty.ext),
-      extPrice2: pickLegalValue(w.extPrice2, LEGAL.warranty.extPrice2),
-      extPrice3: pickLegalValue(w.extPrice3, LEGAL.warranty.extPrice3),
-      scope: pickLegalValue(w.scope, LEGAL.warranty.scope),
-      exclude: pickLegalValue(w.exclude, LEGAL.warranty.exclude),
-      repair: pickLegalValue(w.repair, LEGAL.warranty.repair),
-      repairCost: pickLegalValue(w.repairCost, LEGAL.warranty.repairCost),
-      support: pickLegalValue(w.support, LEGAL.warranty.support),
-      device: pickLegalValue(w.device ?? '', LEGAL.warranty.device),
-    },
-    privacy: pickLegalValue(meta.privacy, LEGAL.privacy),
-  };
-}
+// patch 0093: AstroFooter と /legal/* ルートで共通使用する Metaobject オーバーレイ
+import {mergeLegal} from '~/lib/legal-overlay';
 
 /* ─── Footer SVG Icons ──────────────────────────────── */
 const iconProps = {width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const, 'aria-hidden': true as const};
