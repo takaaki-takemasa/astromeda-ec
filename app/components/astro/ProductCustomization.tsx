@@ -52,6 +52,29 @@ export interface CustomizationOption {
 }
 
 /**
+ * patch 0095: admin (Metaobject) 由来の customOptions を STANDARD_OPTIONS に
+ * exclusive-OR マージする。name が衝突する base 項目は admin 側で置換され、
+ * 新しい name は末尾に追加される。admin 側が空の場合は base をそのまま返す。
+ *
+ * 例:
+ *   base: [メモリ, SSD, 電源]
+ *   overrides: [メモリ(上書き), GPUクーラー(新規)]
+ *   結果: [SSD, 電源, メモリ(上書き), GPUクーラー(新規)]
+ *
+ * 従来の full-replace (customOptions.length>0 なら全置換) では admin で 1 件
+ * 作っただけで STANDARD_OPTIONS 17 項目が全消失するバグがあった。
+ */
+export function mergeCustomizationOptions(
+  base: CustomizationOption[],
+  overrides: CustomizationOption[] | undefined,
+): CustomizationOption[] {
+  if (!overrides || overrides.length === 0) return base;
+  const overrideNames = new Set(overrides.map((o) => o.name));
+  const preserved = base.filter((s) => !overrideNames.has(s.name));
+  return [...preserved, ...overrides];
+}
+
+/**
  * 標準カスタマイズオプション定義
  * 本番サイト(Customizery)の設定を再現
  */
@@ -266,10 +289,13 @@ function pickOptionSet(
     if (combined.includes(kw)) return null;
   }
 
-  // PC: 管理画面 Metaobject を優先、フォールバックは STANDARD_OPTIONS (17項目)
+  // PC: 管理画面 Metaobject を exclusive-OR マージ、ベースは STANDARD_OPTIONS (17項目)
+  // patch 0095: 従来は full-replace で admin 側に 1 件でも customOption を作ると
+  // STANDARD_OPTIONS 17 項目 (CPU/GPU/メモリ/SSD/ケース/電源/OS 等) が全消失する
+  // 設計バグがあった。name ベースの exclusive-OR で置換/追加を両立。
   const pcKeywords = ['pc', 'デスクトップ', 'gaming', 'ゲーミング', 'rtx', 'gtx', 'ryzen', 'core'];
   if (pcKeywords.some((kw) => combined.includes(kw))) {
-    const opts = customOptions && customOptions.length > 0 ? customOptions : STANDARD_OPTIONS;
+    const opts = mergeCustomizationOptions(STANDARD_OPTIONS, customOptions);
     return {
       heading: 'CUSTOMIZATION',
       subheading: 'パーツカスタマイズ',
@@ -286,7 +312,10 @@ interface ProductCustomizationProps {
   onSelectionsChange: (selections: CustomizationSelection[], surcharge: number) => void;
   /**
    * 管理画面(カスタマイズマトリックス)で設定された Metaobject 由来の動的オプション。
-   * 空配列または未指定の場合は STANDARD_OPTIONS（ハードコードのフォールバック）を使用。
+   * patch 0095: STANDARD_OPTIONS に name ベースで exclusive-OR マージされる。
+   * - 同名がある場合: admin 側で置換（CEO が CPU choices を書き替えられる）
+   * - 同名がない場合: 末尾に追加（新カテゴリ "GPUクーラー" 等）
+   * - 空配列/未指定: STANDARD_OPTIONS 17 項目がそのまま使われる
    * ※ キーボードは KEYBOARD_OPTIONS 固定で customOptions は適用されない。
    */
   customOptions?: CustomizationOption[];
