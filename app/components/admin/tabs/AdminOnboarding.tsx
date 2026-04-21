@@ -22,6 +22,9 @@ import React, {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {color, font, radius, space, transition} from '~/lib/design-tokens';
 import {Button} from '~/components/admin/Button';
+// patch 0101: IPコラボは Metaobject 空時に COLLABS 定数 (23 件) でフォールバック表示される。
+// ダッシュボード上も同じフォールバック件数を注釈付きで示し、「0/0」誤解を防ぐ。
+import {COLLABS} from '~/lib/astromeda-data';
 
 const SHOPIFY_ADMIN_BASE = 'https://admin.shopify.com/store/production-mining-base';
 const SITE_BASE = 'https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev';
@@ -317,9 +320,11 @@ export default function AdminOnboarding() {
   const [, setSearchParams] = useSearchParams();
 
   // 数字カード用ステート
-  const [ipCount, setIpCount] = useState<{total: number; active: number} | null>(null);
-  const [heroCount, setHeroCount] = useState<{total: number; active: number} | null>(null);
-  const [marqueeCount, setMarqueeCount] = useState<{total: number; active: number} | null>(null);
+  // patch 0101: isFallback フィールド追加 — Metaobject が空でも storefront はフォールバック定数で
+  // 表示されているため、ダッシュボードでも 0/0 と書かずに「初期データ」として件数を見せる。
+  const [ipCount, setIpCount] = useState<{total: number; active: number; isFallback?: boolean} | null>(null);
+  const [heroCount, setHeroCount] = useState<{total: number; active: number; isFallback?: boolean} | null>(null);
+  const [marqueeCount, setMarqueeCount] = useState<{total: number; active: number; isFallback?: boolean} | null>(null);
   // patch 0094: count=実総件数 (Shopify productsCount)。hasMore は totalProducts null の fallback 用。
   const [productTotal, setProductTotal] = useState<{count: number; hasMore: boolean; isExact: boolean} | null>(null);
   const [auditEntries, setAuditEntries] = useState<AuditLogEntry[] | null>(null);
@@ -366,9 +371,22 @@ export default function AdminOnboarding() {
     const heroItems = (hero?.items ?? []) as Array<{fields?: unknown}>;
     const marqueeItems = (marquee?.items ?? []) as Array<{fields?: unknown}>;
 
-    setIpCount({total: ipItems.length, active: countActive(ipItems)});
-    setHeroCount({total: heroItems.length, active: countActive(heroItems)});
-    setMarqueeCount({total: marqueeItems.length, active: countActive(marqueeItems)});
+    // patch 0101: Metaobject が空でも storefront は初期データで表示されているため、
+    // ダッシュボードでも「0/0」と誤解されないように COLLABS (23件) を注釈付きで表示する。
+    // CEO の指摘: 「出品ガイドのひーろバーナー数とIPコラボ数が数値を取れていない」
+    if (ipItems.length === 0) {
+      setIpCount({total: COLLABS.length, active: COLLABS.length, isFallback: true});
+    } else {
+      setIpCount({total: ipItems.length, active: countActive(ipItems), isFallback: false});
+    }
+    // ヒーローは Shopify collection 画像を動的に使うため、静的 fallback 件数は存在しない。
+    // ただし「0/0」だと編集場所が無いように見えるため、空時は明示的に isFallback で注釈する。
+    if (heroItems.length === 0) {
+      setHeroCount({total: 0, active: 0, isFallback: true});
+    } else {
+      setHeroCount({total: heroItems.length, active: countActive(heroItems), isFallback: false});
+    }
+    setMarqueeCount({total: marqueeItems.length, active: countActive(marqueeItems), isFallback: false});
 
     // patch 0094: Shopify 実総件数 (productsCount) を優先し、ない場合のみ配列長にフォールバック。
     // これにより 50+ 頭打ちが解消され、500 件でも正しく 500 と表示される。
@@ -475,7 +493,13 @@ export default function AdminOnboarding() {
           emoji="🎨"
           label="IPコラボ"
           value={ipCount ? `${ipCount.active} / ${ipCount.total}` : '—'}
-          sub={ipCount ? '公開中 / 登録済み' : '読み込み中…'}
+          sub={
+            ipCount === null
+              ? '読み込み中…'
+              : ipCount.isFallback
+                ? '初期データを表示中（編集はIPコラボタブから）'
+                : '公開中 / 登録済み'
+          }
           accent={color.cyan}
           loading={ipCount === null}
         />
@@ -497,7 +521,13 @@ export default function AdminOnboarding() {
           emoji="🖼️"
           label="ヒーローバナー"
           value={heroCount ? `${heroCount.active} / ${heroCount.total}` : '—'}
-          sub={heroCount ? '公開中 / 登録済み' : '読み込み中…'}
+          sub={
+            heroCount === null
+              ? '読み込み中…'
+              : heroCount.isFallback
+                ? '未登録（コレクション画像を自動表示中）'
+                : '公開中 / 登録済み'
+          }
           accent="#facc15"
           loading={heroCount === null}
         />
@@ -549,6 +579,15 @@ export default function AdminOnboarding() {
             title="ヒーローバナーを編集"
             detail="トップ最上部の大きな画像を入れ替える"
             onClick={() => goAdmin('pageEditor', {sub: 'hero_banners'})}
+          />
+          {/* patch 0101: CEO から「プルダウン項目の編集がどこなのかわからない」という指摘。
+              商品一覧や商品詳細から「カスタマイズタブへ」と案内されても、タブが16個あるため
+              迷子になる。ここから直接カスタマイズタブへ飛ばせるようにする。 */}
+          <QuickAction
+            emoji="🎛️"
+            title="プルダウンを編集"
+            detail="SSD容量／マザーボード／キーボード配列など選択肢を編集"
+            onClick={() => goAdmin('customization')}
           />
           <QuickAction
             emoji="👁️"

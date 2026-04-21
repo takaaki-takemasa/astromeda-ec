@@ -10,6 +10,8 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
+// patch 0101: バナーから「🎛️ カスタマイズ」タブへの直接ジャンプボタン用
+import { useSearchParams } from 'react-router';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 import { Modal } from '~/components/admin/Modal';
@@ -334,6 +336,9 @@ function NewProductCardPreview({ form }: { form: NewProductForm }) {
 }
 
 function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }) {
+  // patch 0101: バナーの「カスタマイズで編集」ボタン用に searchParams を使う
+  const [, setSearchParams] = useSearchParams();
+
   const [items, setItems] = useState<ProductListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -733,6 +738,9 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       </div>
 
       {/* patch 0100: 部品を隠した件数のお知らせバナー */}
+      {/* patch 0101: 「🎛️ カスタマイズで編集」ボタンを追加。CEO の指摘
+          「プルダウン項目の編集がどこなのかわからない」に対し、バナー右端から
+          直接カスタマイズタブへ 1 クリックで遷移できるようにする。 */}
       {!showComponents && hiddenComponentCount > 0 && !loading && (
         <div
           role="status"
@@ -757,6 +765,19 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             のプルダウン用の部品商品 (SSD / ストレージ容量 / マザーボード 等) を非表示にしています。
             これらは「🎛️ カスタマイズ」タブから編集できます。
           </span>
+          <button
+            type="button"
+            onClick={() => {
+              setSearchParams({ tab: 'customization' });
+              try {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+              } catch { /* ignore */ }
+            }}
+            style={{ ...btnPrimary, fontSize: 11, padding: '6px 12px' }}
+            aria-label="カスタマイズタブへ移動してプルダウンを編集する"
+          >
+            🎛️ カスタマイズで編集
+          </button>
           <button
             type="button"
             onClick={() => setShowComponents(true)}
