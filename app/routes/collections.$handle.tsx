@@ -95,15 +95,16 @@ export default function Collection() {
   const annotated: AnnotatedProduct[] = useMemo(() => {
     return (allProducts as CollectionProduct[]).map((p) => {
       const title: string = p.title;
+      const tags = p.tags ?? [];
       // 製品種類の検出 — PC / ガジェット系 / グッズ系すべて統一的に検出
-      let type = detectProductType(title);
+      // patch 0102: タグ後退判定を有効化 (#パックマス系 42件など title にキーワードが無い PC を救う)
+      let type = detectProductType(title, tags);
       if (!type) {
         // 種類未分類の場合、PC判定
         if (PC_PATTERN.test(title) || PC_GAMING_PATTERN.test(title)) {
           type = 'ゲーミングPC';
         }
       }
-      const tags = p.tags ?? [];
       return {
         ...p,
         _ip: detectIP(title, tags),

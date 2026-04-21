@@ -38,6 +38,10 @@ export const IP_TAG_MAP: Record<string, string[]> = {
   imas:        ['アイドルマスター', 'ミリオンライブ'],
   milpr:       ['ミリプロ'],
   blackdesert: ['黒い砂漠'],
+  // patch 0102: ACTIVE 商品 3軸監査で 244 件の PC に NOEZ FOXX ブランドタグが付いているが
+  // IP_TAG_MAP に不在 → IP 検出ゼロになっていた。ブランド名だけでも IP として扱って
+  // IPフィルタに載せる (専用コラボハンドルが無い場合はトップ「ゲーミングPC」表示のみ)
+  noezfoxx:    ['NOEZ FOXX', 'ノイズフォックス'],
 };
 
 export const PRODUCT_TYPE_KW: Record<string, string[]> = {
@@ -78,9 +82,16 @@ export function detectIP(title: string, tags: string[]): string | null {
   return null;
 }
 
-export function detectProductType(title: string): string | null {
+export function detectProductType(title: string, tags: string[] = []): string | null {
+  // 1) タイトルに明示キーワードがあれば最優先
   for (const [type, kws] of Object.entries(PRODUCT_TYPE_KW)) {
     if (kws.some((kw) => title.includes(kw))) return type;
+  }
+  // 2) patch 0102: タグで後退判定 (#パックマス 系や旧 Shopify の "コラボPC" タグ)
+  //    「#パックマス [キャラ]モデル-」のようにタイトルが PC_PATTERN に一致しないが
+  //    tags に 'コラボPC' 'パックマスPC' 等が付いている 42 件のゲーミングPCを救う。
+  for (const t of tags) {
+    if (t === 'コラボPC' || t === 'パックマスPC' || /PC$/.test(t)) return 'ゲーミングPC';
   }
   return null;
 }

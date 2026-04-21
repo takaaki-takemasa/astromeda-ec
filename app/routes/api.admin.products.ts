@@ -218,10 +218,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       cursor: c,
     }));
 
-    // patch 0100: プルダウン部品 (tags 空 + productType 空) をクライアントに出さない。
+    // patch 0100 + 0102: プルダウン部品 (旧 Globo 由来) をクライアントに出さない。
     // 「部品を含める」トグルが ON のときだけ全件返す。OFF のときは limit 件にトリムする。
-    const isComponentProduct = (p: (typeof products)[number]) =>
-      (p.tags?.length ?? 0) === 0 && (p.productType ?? '').trim() === '';
+    // patch 0102: ACTIVE 商品 1,393件の 3軸監査で、以下 3 パターンの「部品」が混入していた：
+    //   (a) tags=[] && productType=''         … 212件 (旧 Globo 依存の純粋部品 — patch 0100 で検出済み)
+    //   (b) tags に 'globo-product-options'    … 282件 (延長保証/メモリ/CPU/マザボ選択肢など Globo option 系)
+    //   (c) title に '延長保証' を含む          … 77件 (カート line_item_property 用の warranty 部品)
+    // (b)(c) は商品として独立販売しないため admin 一覧でも隠す。合計で ~571 件が既定非表示。
+    const isComponentProduct = (p: (typeof products)[number]) => {
+      const tags = p.tags ?? [];
+      const productType = (p.productType ?? '').trim();
+      const title = p.title ?? '';
+      // (a) 旧 Globo 純粋部品: tags 空 + productType 空
+      if (tags.length === 0 && productType === '') return true;
+      // (b) Globo option タグ持ち部品
+      if (tags.includes('globo-product-options')) return true;
+      // (c) 延長保証 line_item_property
+      if (title.includes('延長保証')) return true;
+      return false;
+    };
     const filteredProducts = showComponents
       ? products
       : products.filter((p) => !isComponentProduct(p));
