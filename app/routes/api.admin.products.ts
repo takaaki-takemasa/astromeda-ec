@@ -170,6 +170,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
 
     const graphqlQuery = buildProductsQuery(limit, cursor, query, status);
     const result = await (client as unknown as { query: <T>(q: string) => Promise<T> }).query<{
+      productsCount: { count: number } | null;
       products: {
         edges: Array<{
           cursor: string;
@@ -211,11 +212,15 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       cursor: c,
     }));
 
+    // patch 0094: Shopify 実総件数 (フィルタ適用後の件数)。Dashboard 50+ 頭打ち解消。
+    const totalProducts = result.productsCount?.count ?? null;
+
     return data({
       success: true,
       products,
       pageInfo: result.products.pageInfo,
       total: products.length,
+      totalProducts,
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
@@ -475,8 +480,11 @@ function buildProductsQuery(limit: number, cursor?: string, query?: string, stat
 
   const afterClause = cursor ? `, after: "${cursor}"` : '';
   const queryClause = filterStr ? `, query: "${filterStr}"` : '';
+  // patch 0094: productsCount({query}) 同一フィルタで総件数取得 (Dashboard 50+ 頭打ち解消)
+  const countQueryClause = filterStr ? `(query: "${filterStr}")` : '';
 
   return `{
+    productsCount${countQueryClause} { count }
     products(first: ${limit}${afterClause}${queryClause}) {
       edges {
         cursor

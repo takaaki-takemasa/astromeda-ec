@@ -11,7 +11,7 @@
  *   GET /api/admin/cms?type=astromeda_ip_banner      → IPコラボ件数・公開件数
  *   GET /api/admin/cms?type=astromeda_hero_banner    → ヒーロー件数・公開件数
  *   GET /api/admin/cms?type=astromeda_marquee_item   → マーキー件数・公開件数
- *   GET /api/admin/products?limit=1                  → 商品総件数（とりあえず取得できた最初の1ページの件数目安）
+ *   GET /api/admin/products?limit=1                  → 商品総件数（patch 0094: productsCount.count を採用。Shopify ストア全体の実総数）
  *   GET /api/admin/audit-log?limit=5                 → 直近 5 件の変更ログ
  *
  * ダッシュボードで完結しない詳しい手順は、末尾の「📘 出品の順番を詳しく見る」
@@ -266,6 +266,8 @@ interface ProductsListResponse {
   success?: boolean;
   products?: Array<unknown>;
   total?: number;
+  /** patch 0094: Shopify 実総件数 (null=取得失敗時) */
+  totalProducts?: number | null;
   pageInfo?: {hasNextPage: boolean};
 }
 
@@ -318,7 +320,8 @@ export default function AdminOnboarding() {
   const [ipCount, setIpCount] = useState<{total: number; active: number} | null>(null);
   const [heroCount, setHeroCount] = useState<{total: number; active: number} | null>(null);
   const [marqueeCount, setMarqueeCount] = useState<{total: number; active: number} | null>(null);
-  const [productTotal, setProductTotal] = useState<{count: number; hasMore: boolean} | null>(null);
+  // patch 0094: count=実総件数 (Shopify productsCount)。hasMore は totalProducts null の fallback 用。
+  const [productTotal, setProductTotal] = useState<{count: number; hasMore: boolean; isExact: boolean} | null>(null);
   const [auditEntries, setAuditEntries] = useState<AuditLogEntry[] | null>(null);
 
   // 折り畳みガイドの完了状態（従来のロジックを維持）
@@ -354,7 +357,8 @@ export default function AdminOnboarding() {
       fetchJson<CmsListResponse>('/api/admin/cms?type=astromeda_ip_banner'),
       fetchJson<CmsListResponse>('/api/admin/cms?type=astromeda_hero_banner'),
       fetchJson<CmsListResponse>('/api/admin/cms?type=astromeda_marquee_item'),
-      fetchJson<ProductsListResponse>('/api/admin/products?limit=50'),
+      // patch 0094: totalProducts だけあれば十分なので limit=1 で API 負荷最小化。
+      fetchJson<ProductsListResponse>('/api/admin/products?limit=1'),
       fetchJson<AuditLogResponse>('/api/admin/audit-log?limit=5'),
     ]);
 
@@ -366,10 +370,15 @@ export default function AdminOnboarding() {
     setHeroCount({total: heroItems.length, active: countActive(heroItems)});
     setMarqueeCount({total: marqueeItems.length, active: countActive(marqueeItems)});
 
+    // patch 0094: Shopify 実総件数 (productsCount) を優先し、ない場合のみ配列長にフォールバック。
+    // これにより 50+ 頭打ちが解消され、500 件でも正しく 500 と表示される。
     const productsArr = prods?.products ?? [];
+    const exactCount = typeof prods?.totalProducts === 'number' ? prods.totalProducts : null;
+    const arrLen = Array.isArray(productsArr) ? productsArr.length : 0;
     setProductTotal({
-      count: Array.isArray(productsArr) ? productsArr.length : 0,
-      hasMore: Boolean(prods?.pageInfo?.hasNextPage),
+      count: exactCount ?? arrLen,
+      hasMore: exactCount == null && Boolean(prods?.pageInfo?.hasNextPage),
+      isExact: exactCount != null,
     });
 
     setAuditEntries(audit?.entries ?? []);
@@ -474,7 +483,13 @@ export default function AdminOnboarding() {
           emoji="📦"
           label="商品"
           value={productTotal ? `${productTotal.count}${productTotal.hasMore ? '+' : ''}` : '—'}
-          sub={productTotal?.hasMore ? '他にもまだあります' : '表示可能な商品'}
+          sub={
+            productTotal?.isExact
+              ? 'ストア全商品'
+              : productTotal?.hasMore
+                ? '他にもまだあります'
+                : '表示可能な商品'
+          }
           accent={color.green}
           loading={productTotal === null}
         />
