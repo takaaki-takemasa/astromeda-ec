@@ -119,42 +119,48 @@ describe('IM-02: Query Allowlist', () => {
 // IM-03: CSRF Token Rotation テスト
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-describe('IM-03: CSRF Middleware', () => {
+describe('IM-03: CSRF Middleware (Origin/Referer ベース — 2026-04-16 移行後)', () => {
+  const env = {} as unknown as Env;
+
   it('GETリクエストはCSRF検証をスキップ', async () => {
     const request = new Request('https://example.com/api/admin/status', {method: 'GET'});
-    const env = {SESSION_SECRET: 'test-secret-1234567890123456'} as unknown as Env;
     const result = await verifyCsrfForAdmin(request, env);
     expect(result).toBeNull();
   });
 
   it('HEADリクエストもCSRF検証をスキップ', async () => {
     const request = new Request('https://example.com/api/admin/status', {method: 'HEAD'});
-    const env = {SESSION_SECRET: 'test-secret-1234567890123456'} as unknown as Env;
     const result = await verifyCsrfForAdmin(request, env);
     expect(result).toBeNull();
   });
 
   it('OPTIONSリクエストもCSRF検証をスキップ', async () => {
     const request = new Request('https://example.com/api/admin/status', {method: 'OPTIONS'});
-    const env = {SESSION_SECRET: 'test-secret-1234567890123456'} as unknown as Env;
     const result = await verifyCsrfForAdmin(request, env);
     expect(result).toBeNull();
   });
 
-  it('SESSION_SECRET未設定で500を返す', async () => {
+  it('Origin/Referer が無いPOSTは 403 を返す', async () => {
     const request = new Request('https://example.com/api/admin', {method: 'POST'});
-    const env = {} as unknown as Env;
     const result = await verifyCsrfForAdmin(request, env);
     expect(result).not.toBeNull();
-    expect(result!.status).toBe(500);
+    expect(result!.status).toBe(403);
   });
 
-  it('CSRFトークン不一致で403を返す', async () => {
+  it('Origin が request origin と一致すれば通過', async () => {
     const request = new Request('https://example.com/api/admin', {
       method: 'POST',
-      headers: {'X-CSRF-Token': 'wrong-token'},
+      headers: {Origin: 'https://example.com'},
     });
-    const env = {SESSION_SECRET: 'test-secret-1234567890123456'} as unknown as Env;
+    const result = await verifyCsrfForAdmin(request, env);
+    expect(result).toBeNull();
+  });
+
+  it('Origin mismatch で 403 を返す', async () => {
+    const request = new Request('https://example.com/api/admin', {
+      method: 'POST',
+      headers: {Origin: 'https://evil.example.com'},
+    });
     const result = await verifyCsrfForAdmin(request, env);
     expect(result).not.toBeNull();
     expect(result!.status).toBe(403);
@@ -170,9 +176,14 @@ describe('IM-05: IP Allowlist', () => {
     resetIPAllowlistCache();
   });
 
-  it('ADMIN_ALLOWED_IPS未設定で全IP許可', () => {
-    expect(isIPAllowed('1.2.3.4', {})).toBe(true);
-    expect(isIPAllowed('192.168.1.1', {ADMIN_ALLOWED_IPS: ''})).toBe(true);
+  it('ADMIN_ALLOWED_IPS未設定で全IP拒否 (Deny by Default / M8-DNA-02)', () => {
+    expect(isIPAllowed('1.2.3.4', {})).toBe(false);
+    expect(isIPAllowed('192.168.1.1', {ADMIN_ALLOWED_IPS: ''})).toBe(false);
+  });
+
+  it('ADMIN_ALLOWED_IPS="*" で全IP許可 (明示的な全開放)', () => {
+    expect(isIPAllowed('1.2.3.4', {ADMIN_ALLOWED_IPS: '*'})).toBe(true);
+    expect(isIPAllowed('203.0.113.50', {ADMIN_ALLOWED_IPS: '*'})).toBe(true);
   });
 
   it('設定されたIPのみ許可', () => {

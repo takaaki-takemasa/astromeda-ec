@@ -20,6 +20,9 @@ describe('Admin Auth', () => {
       mockEnv = {
         ADMIN_PASSWORD: TEST_PASSWORD,
         SESSION_SECRET: TEST_SECRET,
+        // IP allowlist は Deny by Default (M8-DNA-02)。
+        // Basic Auth ロジックだけを隔離テストするため "*" で全許可にする。
+        ADMIN_ALLOWED_IPS: '*',
       } as unknown as Env;
     });
 

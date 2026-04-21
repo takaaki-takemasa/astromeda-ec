@@ -2,7 +2,8 @@
  * IP Allowlist Integration Tests — SC-05 検証
  *
  * checkIPAllowlist が verifyAdminAuth と連携して機能することを検証
- * - ADMIN_ALLOWED_IPS未設定時: 全IP許可
+ * - ADMIN_ALLOWED_IPS="*" 時: 全IP許可（明示的な全開放）
+ * - ADMIN_ALLOWED_IPS未設定時: 全IP拒否（M8-DNA-02 Deny by Default）
  * - IP がアローリストに含まない場合: 403拒否
  * - IP がアローリストに含む場合: null返却（許可）
  */
@@ -16,21 +17,31 @@ describe('IP Allowlist Integration (SC-05)', () => {
   });
 
   describe('checkIPAllowlist', () => {
-    it('should return null when ADMIN_ALLOWED_IPS is not set (allow all)', () => {
+    it('should return 403 when ADMIN_ALLOWED_IPS is not set (Deny by Default / M8-DNA-02)', () => {
       const request = new Request('http://localhost/api/admin', {
         headers: { 'CF-Connecting-IP': '192.168.1.100' },
       });
       const env = {}; // ADMIN_ALLOWED_IPS not set
 
       const result = checkIPAllowlist(request, env);
-      expect(result).toBeNull();
+      expect(result?.status).toBe(403);
     });
 
-    it('should return null when ADMIN_ALLOWED_IPS is empty string (allow all)', () => {
+    it('should return 403 when ADMIN_ALLOWED_IPS is empty string (Deny by Default)', () => {
       const request = new Request('http://localhost/api/admin', {
         headers: { 'CF-Connecting-IP': '10.0.0.1' },
       });
       const env = { ADMIN_ALLOWED_IPS: '' };
+
+      const result = checkIPAllowlist(request, env);
+      expect(result?.status).toBe(403);
+    });
+
+    it('should return null when ADMIN_ALLOWED_IPS is "*" (explicit allow all)', () => {
+      const request = new Request('http://localhost/api/admin', {
+        headers: { 'CF-Connecting-IP': '203.0.113.50' },
+      });
+      const env = { ADMIN_ALLOWED_IPS: '*' };
 
       const result = checkIPAllowlist(request, env);
       expect(result).toBeNull();
@@ -132,9 +143,15 @@ describe('IP Allowlist Integration (SC-05)', () => {
   });
 
   describe('isIPAllowed', () => {
-    it('should return true when ADMIN_ALLOWED_IPS is not set', () => {
+    it('should return false when ADMIN_ALLOWED_IPS is not set (Deny by Default)', () => {
       const env = {};
       const result = isIPAllowed('192.168.1.1', env);
+      expect(result).toBe(false);
+    });
+
+    it('should return true when ADMIN_ALLOWED_IPS is "*" (explicit allow all)', () => {
+      const env = { ADMIN_ALLOWED_IPS: '*' };
+      const result = isIPAllowed('203.0.113.50', env);
       expect(result).toBe(true);
     });
 
