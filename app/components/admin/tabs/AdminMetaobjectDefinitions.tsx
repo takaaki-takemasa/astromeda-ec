@@ -1,14 +1,20 @@
 /**
- * AdminMetaobjectDefinitions Tab — Shopify Metaobject 定義 CRUD (patch 0068)
+ * AdminMetaobjectDefinitions Tab — CMS データ定義 CRUD (patch 0068)
  *
  * CEO 指摘「Shopify admin に行かせず管理画面で完結させたい」の P4。
- * Shopify の Metaobject 定義（CMS のスキーマ／型）を admin から
- * 一覧・新規作成・フィールド追加・削除できるタブ。
+ * Shopify の Metaobject 定義（＝管理画面上では「CMS データ定義」と表示）を admin から
+ * 一覧・新規作成・入力欄追加・削除できるタブ。
  *
- * - 一覧: type / 表示名 / フィールド数 / 実体件数（>=1 の表示）
- * - 詳細: クリックで右ペインに展開、フィールド一覧と「+ フィールド追加」フォーム
- * - 新規作成: type / 表示名 / 説明 / フィールド配列（key/name/type）
- * - 削除: 強い確認ダイアログ（実体 Metaobject ごと削除される旨を明示）
+ * patch 0092 (2026-04-21) で UI 用語を日本語化:
+ *   - 「Metaobject」→「CMS データ」
+ *   - 「type」→「識別子」
+ *   - 「field」→「入力欄」
+ *   中学生でも文字通り読める語彙へ置換。
+ *
+ * - 一覧: 識別子 / 表示名 / 入力欄数 / 登録済み件数
+ * - 詳細: クリックで右ペインに展開、入力欄一覧と「+ 入力欄追加」フォーム
+ * - 新規作成: 識別子 / 表示名 / 説明 / 入力欄配列（キー/表示名/型）
+ * - 削除: 強い確認ダイアログ（登録済みデータごと削除される旨を明示）
  *
  * 効果器: 遺伝子ライブラリ管理 — 幹細胞の DNA 設計図を増減
  */
@@ -250,7 +256,7 @@ function FieldEditor({
             textAlign: 'center',
           }}
         >
-          フィールドがありません。「+ フィールドを追加」を押してください。
+          入力欄がありません。「+ 入力欄を追加」を押してください。
         </div>
       )}
       {fields.map((f, i) => (
@@ -264,7 +270,7 @@ function FieldEditor({
           }}
         >
           <div>
-            <label style={labelStyle}>キー (英小文字+_)</label>
+            <label style={labelStyle}>キー（英小文字と _ のみ）</label>
             <input
               style={inputStyle}
               value={f.key}
@@ -282,7 +288,7 @@ function FieldEditor({
             />
           </div>
           <div>
-            <label style={labelStyle}>型</label>
+            <label style={labelStyle}>入力欄の種類</label>
             <select
               style={inputStyle}
               value={f.type}
@@ -299,15 +305,15 @@ function FieldEditor({
             type="button"
             style={btnDanger}
             onClick={() => removeField(i)}
-            aria-label={`フィールド ${i + 1} を削除`}
-            title="このフィールドを削除"
+            aria-label={`入力欄 ${i + 1} を削除`}
+            title="この入力欄を削除"
           >
             ✕
           </button>
         </div>
       ))}
       <button type="button" style={btnGhost} onClick={addField}>
-        + フィールドを追加
+        + 入力欄を追加
       </button>
     </div>
   );
@@ -347,11 +353,11 @@ function CreateForm({
 
   const handleSave = async () => {
     if (!type || !name) {
-      onToast('type と 表示名 は必須です', 'err');
+      onToast('識別子と表示名は必須です', 'err');
       return;
     }
     if (fields.some((f) => !f.key || !f.name)) {
-      onToast('全フィールドの key と 表示名を入力してください', 'err');
+      onToast('すべての入力欄にキーと表示名を入れてください', 'err');
       return;
     }
     setSaving(true);
@@ -363,14 +369,14 @@ function CreateForm({
         fields: fields.map((f) => ({key: f.key, name: f.name, type: f.type})),
       });
       if (res.success) {
-        onToast(`定義を作成しました: ${res.type}`, 'ok');
+        onToast(`CMS データ定義を作成しました: ${res.type}`, 'ok');
         onSaved();
         onClose();
       } else {
-        onToast(`作成失敗: ${res.error || '不明なエラー'}`, 'err');
+        onToast(`作成に失敗しました: ${res.error || '不明なエラー'}`, 'err');
       }
     } catch (e) {
-      onToast(`作成エラー: ${e instanceof Error ? e.message : String(e)}`, 'err');
+      onToast(`作成時にエラー: ${e instanceof Error ? e.message : String(e)}`, 'err');
     } finally {
       setSaving(false);
     }
@@ -404,7 +410,7 @@ function CreateForm({
         }}
       >
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16}}>
-          <h2 style={{margin: 0, fontSize: font.lg, color: color.text}}>新しい Metaobject 定義を作成</h2>
+          <h2 style={{margin: 0, fontSize: font.lg, color: color.text}}>新しい CMS データ定義を作成</h2>
           <button style={btnOutline} onClick={onClose}>
             閉じる
           </button>
@@ -412,7 +418,7 @@ function CreateForm({
 
         <div style={{display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 16}}>
           <div>
-            <label style={labelStyle}>type（識別子・英小文字+_、後から変更不可）</label>
+            <label style={labelStyle}>識別子（英小文字と _ のみ・作成後は変更不可）</label>
             <input
               style={inputStyle}
               value={type}
@@ -435,12 +441,12 @@ function CreateForm({
               style={inputStyle}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="この Metaobject 定義の用途"
+              placeholder="このデータ定義の用途"
             />
           </div>
         </div>
 
-        <h3 style={{margin: '16px 0 8px', fontSize: font.md, color: color.text}}>フィールド</h3>
+        <h3 style={{margin: '16px 0 8px', fontSize: font.md, color: color.text}}>入力欄</h3>
         <FieldEditor fields={fields} onChange={setFields} />
 
         <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20}}>
@@ -480,17 +486,17 @@ function DetailPanel({
 
   const handleSave = async () => {
     if (draft.length === 0) {
-      onToast('追加するフィールドがありません', 'err');
+      onToast('追加する入力欄がありません', 'err');
       return;
     }
     if (draft.some((f) => !f.key || !f.name)) {
-      onToast('全フィールドの key と 表示名を入力してください', 'err');
+      onToast('全ての入力欄でキーと表示名を入力してください', 'err');
       return;
     }
     const existingKeys = new Set(def.fieldDefinitions.map((f) => f.key));
     const dup = draft.find((f) => existingKeys.has(f.key));
     if (dup) {
-      onToast(`既存フィールドと重複: ${dup.key}`, 'err');
+      onToast(`既存の入力欄と重複: ${dup.key}`, 'err');
       return;
     }
     setSaving(true);
@@ -527,7 +533,7 @@ function DetailPanel({
               {def.type}
             </code>
             <span style={{marginLeft: 8}}>
-              フィールド {def.fieldCount} 件 / 実体 {def.metaobjectsCount > 0 ? '≥1' : '0'} 件
+              入力欄 {def.fieldCount} 件 / 登録データ {def.metaobjectsCount > 0 ? '≥1' : '0'} 件
             </span>
           </div>
           {def.description && (
@@ -541,7 +547,7 @@ function DetailPanel({
         </button>
       </div>
 
-      <h4 style={{margin: '12px 0 8px', fontSize: font.sm, color: color.text}}>既存フィールド</h4>
+      <h4 style={{margin: '12px 0 8px', fontSize: font.sm, color: color.text}}>既存の入力欄</h4>
       <div
         style={{
           background: color.bg0,
@@ -554,7 +560,7 @@ function DetailPanel({
       >
         {def.fieldDefinitions.length === 0 ? (
           <div style={{fontSize: font.xs, color: color.textMuted, textAlign: 'center'}}>
-            フィールドなし
+            入力欄なし
           </div>
         ) : (
           def.fieldDefinitions.map((f) => (
@@ -592,7 +598,7 @@ function DetailPanel({
         )}
       </div>
 
-      <h4 style={{margin: '16px 0 8px', fontSize: font.sm, color: color.text}}>+ フィールドを追加</h4>
+      <h4 style={{margin: '16px 0 8px', fontSize: font.sm, color: color.text}}>+ 入力欄を追加</h4>
       <FieldEditor fields={draft} onChange={setDraft} />
 
       <div style={{display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12}}>
@@ -665,11 +671,11 @@ export default function AdminMetaobjectDefinitions() {
 
   const handleDelete = async (def: MetaobjectDefinition) => {
     const ok = await confirm({
-      title: `定義 "${def.name}" を削除しますか？`,
+      title: `データ定義 "${def.name}" を削除しますか？`,
       message:
         def.metaobjectsCount > 0
-          ? `⚠️ この定義には実体の Metaobject インスタンスがあります（少なくとも 1 件）。削除すると、紐づく全インスタンスも一緒に削除されます。フロントエンドの該当セクションがフォールバックに切り替わります。本当に削除しますか？`
-          : `定義 "${def.type}" を削除します。実体インスタンスはありません。`,
+          ? `⚠️ このデータ定義には登録済みのデータがあります（少なくとも 1 件）。削除すると、登録データも全て一緒に消えます。サイト側の該当セクションは初期表示に戻ります。本当に削除しますか？`
+          : `"${def.type}" を削除します。登録データはまだありません。`,
       confirmLabel: '削除する',
       cancelLabel: 'キャンセル',
       destructive: true,
@@ -703,10 +709,10 @@ export default function AdminMetaobjectDefinitions() {
       >
         <div>
           <h1 style={{margin: 0, fontSize: font.xl, color: color.text}}>
-            🧬 Metaobject 定義
+            🧬 CMS データ定義
           </h1>
           <div style={{fontSize: font.xs, color: color.textMuted, marginTop: 4}}>
-            CMS 用のスキーマ（型）を管理。新しいセクションや項目を追加するには、まず定義を作成します。
+            サイトに登録できる「データの種類」を管理します。新しいセクションや項目を追加したいときは、まずここでデータの型を作ります。
           </div>
         </div>
         <div style={{display: 'flex', gap: 8}}>
@@ -714,7 +720,7 @@ export default function AdminMetaobjectDefinitions() {
             {loading ? '更新中…' : '🔄 更新'}
           </button>
           <button style={btnPrimary} onClick={() => setCreateOpen(true)}>
-            + 新規定義
+            + 新しいデータ定義
           </button>
         </div>
       </div>
@@ -758,10 +764,10 @@ export default function AdminMetaobjectDefinitions() {
               color: color.textMuted,
             }}
           >
-            <div>type</div>
+            <div>識別子</div>
             <div>表示名</div>
-            <div>フィールド</div>
-            <div>実体</div>
+            <div>入力欄</div>
+            <div>登録データ</div>
             <div style={{textAlign: 'right'}}>操作</div>
           </div>
           {loading && list.length === 0 && (
@@ -770,8 +776,8 @@ export default function AdminMetaobjectDefinitions() {
           {list.length === 0 && !loading && (
             <AdminEmptyCard
               icon="🧬"
-              title="Metaobject 定義はまだありません"
-              description="Metaobject 定義は、管理画面の各サブタブでフィールドを持ったカスタムデータ型を作るための骨組みです。「+ 定義を作る」から新規作成できます。"
+              title="CMS データ定義はまだありません"
+              description="CMS データ定義は、管理画面の各サブタブで使う「データの型」を作るためのものです。右上の「+ 新しいデータ定義」から作成できます。"
             />
           )}
           {list.map((d) => {
