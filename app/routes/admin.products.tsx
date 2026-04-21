@@ -20,6 +20,8 @@ import { AppError } from '~/lib/app-error';
 import { PAGE_WIDTH, T } from '~/lib/astromeda-data';
 import { ImageUploader } from '~/components/admin/ImageUploader';
 import type { ImageUploadResult } from '~/components/admin/ImageUploader';
+// patch 0099: タグ入力を TagPicker に統一
+import TagPicker from '~/components/admin/TagPicker';
 import {
   formatPrice,
   getProductStatus,
@@ -334,7 +336,19 @@ function ProductModal({
           <FormField label="商品名 *" value={form.title} onChange={(v) => setForm({ ...form, title: v })} placeholder="例: ASTROMEDA ゲーミングPC" />
           <FormField label="商品タイプ" value={form.productType} onChange={(v) => setForm({ ...form, productType: v })} placeholder="例: ゲーミングPC, キーボード" />
           <FormField label="ベンダー" value={form.vendor} onChange={(v) => setForm({ ...form, vendor: v })} placeholder="例: ASTROMEDA" />
-          <FormField label="タグ (カンマ区切り)" value={form.tags} onChange={(v) => setForm({ ...form, tags: v })} placeholder="例: ゲーミング, PC, Intel" />
+          {/* patch 0099: タグ入力を TagPicker に統一 */}
+          <div>
+            <label style={labelStyle}>タグ</label>
+            <TagPicker
+              id="product-create-tags-picker"
+              value={form.tags}
+              onChange={(csv) => setForm({ ...form, tags: csv })}
+              placeholder="タグを検索して追加（既存タグから選べます）"
+            />
+            <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+              💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
+            </div>
+          </div>
 
           <div>
             <label style={labelStyle}>ステータス</label>

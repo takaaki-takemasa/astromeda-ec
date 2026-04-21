@@ -23,6 +23,8 @@ import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirect
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+// patch 0099: IPタグ入力を TagPicker に統一（既存タグを autocomplete 選択）
+import TagPicker from '~/components/admin/TagPicker';
 
 // ── Types ──
 interface ProductListItem {
@@ -263,17 +265,18 @@ function NewProductCardPreview({ form }: { form: NewProductForm }) {
                   {form.categoryTag}
                 </span>
               )}
-              {form.ipTag && (
-                <span style={{
+              {/* patch 0099: ipTag は CSV。複数チップを描画 */}
+              {form.ipTag.split(',').map((t) => t.trim()).filter(Boolean).map((tagName) => (
+                <span key={tagName} style={{
                   fontSize: 9,
                   padding: '2px 6px',
                   borderRadius: 3,
                   background: al(T.tx, 0.08),
                   color: T.t4,
                 }}>
-                  {form.ipTag}
+                  {tagName}
                 </span>
-              )}
+              ))}
             </div>
           )}
 
@@ -405,7 +408,12 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
     setSaving(true);
     try {
       const tags: string[] = [form.categoryTag];
-      if (form.ipTag.trim()) tags.push(form.ipTag.trim());
+      // patch 0099: ipTag は CSV（複数 IP タグ可）として処理
+      form.ipTag
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean)
+        .forEach((t) => tags.push(t));
       const stockNum = Number(form.stock);
       const body = {
         action: 'create',
@@ -583,17 +591,17 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
         </div>
       </div>
 
-      {/* IPタグ (任意) */}
+      {/* IPタグ (任意) — patch 0099: TagPicker 化 */}
       <div style={{ marginBottom: 14 }}>
         <label style={labelStyle}>IPコラボタグ（任意）</label>
-        <input
-          style={inputStyle}
+        <TagPicker
+          id="admin-products-create-iptag-picker"
           value={form.ipTag}
-          onChange={(e) => setForm({ ...form, ipTag: e.target.value })}
-          placeholder="例: one-piece / jujutsukaisen / naruto-shippuden"
+          onChange={(csv) => setForm({ ...form, ipTag: csv })}
+          placeholder="タグを検索して追加（既存タグから選べます）"
         />
         <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>
-          どのIPコラボに紐づくかを指定します。該当しない商品なら空欄のままで OK です。
+          どのIPコラボに紐づくかを指定します。該当しない商品なら空欄のままで OK です。複数指定も可。
         </div>
       </div>
 

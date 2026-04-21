@@ -13,6 +13,8 @@ import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 // patch 0082 (R0-P0-4): status enum を中学生向け日本語に統一
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
+// patch 0099: タグ入力を TagPicker に統一（既存タグを autocomplete 選択）
+import TagPicker from '~/components/admin/TagPicker';
 
 // ── 型定義 ──
 interface ProductDetail {
@@ -469,13 +471,16 @@ export default function AdminProductDetail() {
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>タグ (カンマ区切り)</label>
-                <input
-                  type="text"
+                <label style={labelStyle}>タグ</label>
+                <TagPicker
+                  id="product-tags-picker"
                   value={basic.tagsCsv}
-                  onChange={(e) => setBasic({...basic, tagsCsv: e.target.value})}
-                  style={inputStyle}
+                  onChange={(csv) => setBasic({...basic, tagsCsv: csv})}
+                  placeholder="タグを検索して追加（既存タグから選べます）"
                 />
+                <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                  💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
+                </div>
               </div>
               <div>
                 <label style={labelStyle}>ステータス</label>

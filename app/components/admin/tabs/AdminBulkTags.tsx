@@ -21,6 +21,8 @@ import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineLis
 import { useToast } from '~/components/admin/ds/Toast';
 // patch 0082 (R0-P0-4): 生 Shopify ENUM を中学生向け日本語に変換
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
+// patch 0099: タグ入力を TagPicker に統一（既存タグ候補から選ぶ→タイポ・UX 根絶）
+import TagPicker from '~/components/admin/TagPicker';
 
 // ── Types ──
 interface ProductListItem {
@@ -373,14 +375,14 @@ export default function AdminBulkTags() {
       <div style={{...cardStyle, display: 'flex', flexDirection: 'column', gap: space[3]}}>
         <div>
           <label style={{fontSize: font.xs, color: color.textMuted, display: 'block', marginBottom: 4, fontWeight: 500}}>
-            タグ（カンマ・改行・タブ区切り / 1 つ以上）
+            付与・削除したいタグ（複数指定可）
           </label>
-          <textarea
+          {/* patch 0099: textarea → TagPicker（既存タグを候補から選ぶ UX に統一） */}
+          <TagPicker
+            id="admin-bulk-tags-picker"
             value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            placeholder="例: new-arrival, 2026-spring, featured"
-            rows={2}
-            style={{...inputStyle, resize: 'vertical', minHeight: 60}}
+            onChange={(csv) => setTagInput(csv)}
+            placeholder="タグを検索して追加（既存タグから選べます）"
           />
           <div style={{marginTop: 6, fontSize: font.xs, color: color.textMuted}}>
             {parsedTags.length > 0 ? (
@@ -388,7 +390,7 @@ export default function AdminBulkTags() {
                 入力済み: <code style={{color: color.cyan}}>[{parsedTags.join(', ')}]</code>
               </>
             ) : (
-              '※ タグを入力してください'
+              '💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。'
             )}
           </div>
         </div>
