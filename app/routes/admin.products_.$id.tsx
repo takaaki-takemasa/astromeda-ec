@@ -394,6 +394,46 @@ export default function AdminProductDetail() {
           )}
         </div>
 
+        {/* patch 0100: プルダウン部品 (Globo 旧データ) のお知らせ。
+            tags 空 + productType 空 = カスタマイズ選択肢として使われている部品商品。
+            中学生が誤って「商品」として編集しないようにガイドする。 */}
+        {(basic.tagsCsv.trim() === '' && basic.productType.trim() === '') && (
+          <div
+            role="note"
+            style={{
+              padding: '12px 14px',
+              background: al(T.c, 0.07),
+              border: `1px solid ${al(T.c, 0.3)}`,
+              borderLeft: `3px solid ${T.c}`,
+              borderRadius: 8,
+              marginBottom: 16,
+              fontSize: 12,
+              color: T.tx,
+              display: 'flex',
+              gap: 10,
+              alignItems: 'flex-start',
+            }}
+          >
+            <span style={{fontSize: 18, lineHeight: 1}}>🧩</span>
+            <div style={{flex: 1, lineHeight: 1.55}}>
+              <strong style={{display: 'block', marginBottom: 4, fontSize: 13}}>
+                これはプルダウンの選択肢として使われている部品商品です
+              </strong>
+              <span style={{color: T.t4}}>
+                お客様には「商品」として見えず、商品ページのプルダウン (例: SSD容量 / マザーボード) の選択肢として読み込まれます。
+                価格・表題・在庫をまとめて管理したいときは
+                <Link
+                  to="/admin?tab=customization"
+                  style={{color: T.c, textDecoration: 'underline', marginLeft: 4, marginRight: 4}}
+                >
+                  🎛️ カスタマイズタブ
+                </Link>
+                から編集するのをおすすめします。
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Tabs */}
         <div style={{display: 'flex', gap: 4, marginBottom: 16, borderBottom: `1px solid ${al(T.tx, 0.1)}`}}>
           {(['basic', 'variants', 'images', 'publish'] as const).map((key) => (

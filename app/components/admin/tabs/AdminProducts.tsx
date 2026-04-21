@@ -51,6 +51,9 @@ interface ProductListResponse {
   products: ProductListItem[];
   pageInfo: { hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null };
   total: number;
+  totalProducts?: number | null;
+  hiddenComponentCount?: number; // patch 0100: 部品 (Globo 旧データ) で隠された件数
+  showComponents?: boolean; // patch 0100: 現在の表示モード
 }
 
 // patch 0079: 新規商品作成フォーム state
@@ -340,6 +343,10 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT'>('ALL');
   const [inputQuery, setInputQuery] = useState('');
+  // patch 0100: プルダウン部品 (Globo 旧データ: tags 空 + productType 空) を既定で隠す。
+  // CEO 指摘「商品一覧をクリックすると製品名の下に大量にプルダウンが羅列する」対応。
+  const [showComponents, setShowComponents] = useState(false);
+  const [hiddenComponentCount, setHiddenComponentCount] = useState(0);
 
   // patch 0079: 新規作成モーダル
   const [createOpen, setCreateOpen] = useState(false);
@@ -358,6 +365,8 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       if (!opts.reset && cursor) params.set('cursor', cursor);
       if (searchQuery.trim()) params.set('query', searchQuery.trim());
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
+      // patch 0100: 「部品を含める」トグルが ON のときだけ Globo 旧プルダウン部品も返してもらう
+      if (showComponents) params.set('showComponents', 'true');
       const res = await fetch(`/api/admin/products?${params.toString()}`);
       if (!res.ok) throw new Error(`${res.status}`);
       const json: ProductListResponse & { error?: string } = await res.json();
@@ -366,6 +375,8 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       setTotal(json.total);
       setHasNext(json.pageInfo.hasNextPage);
       setCursor(json.pageInfo.endCursor);
+      // patch 0100: 隠した部品件数を保持 (reset 時のみ。ページング時は累積しない)
+      if (opts.reset) setHiddenComponentCount(json.hiddenComponentCount ?? 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : '商品データ取得に失敗しました');
     } finally {
@@ -378,7 +389,7 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
     setCursor(null);
     fetchProducts({ reset: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, showComponents]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -709,7 +720,52 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             </button>
           ))}
         </div>
+        {/* patch 0100: 部品 (Globo 旧プルダウン選択肢) を含めて表示するトグル */}
+        <button
+          type="button"
+          onClick={() => setShowComponents((v) => !v)}
+          aria-pressed={showComponents}
+          style={tabStyle(showComponents)}
+          title="プルダウンの選択肢として登録されている部品商品も一覧に表示します"
+        >
+          {showComponents ? '🧩 部品も表示中' : '🧩 部品を表示'}
+        </button>
       </div>
+
+      {/* patch 0100: 部品を隠した件数のお知らせバナー */}
+      {!showComponents && hiddenComponentCount > 0 && !loading && (
+        <div
+          role="status"
+          style={{
+            padding: '10px 14px',
+            background: color.bg1,
+            border: `1px solid ${color.border}`,
+            borderLeft: `3px solid ${color.cyan}`,
+            borderRadius: 8,
+            marginBottom: 12,
+            fontSize: 12,
+            color: color.textMuted,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ fontSize: 16 }}>🧩</span>
+          <span style={{ flex: 1, minWidth: 200 }}>
+            <strong style={{ color: color.text }}>{hiddenComponentCount} 件</strong>
+            のプルダウン用の部品商品 (SSD / ストレージ容量 / マザーボード 等) を非表示にしています。
+            これらは「🎛️ カスタマイズ」タブから編集できます。
+          </span>
+          <button
+            type="button"
+            onClick={() => setShowComponents(true)}
+            style={{ ...btnOutline, fontSize: 11, padding: '6px 10px' }}
+          >
+            部品も表示する
+          </button>
+        </div>
+      )}
 
       {/* エラー表示 */}
       {error && (

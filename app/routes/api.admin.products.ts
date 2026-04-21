@@ -167,8 +167,14 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || PRODUCT_LIST_DEFAULT_LIMIT, 1), PRODUCT_LIST_MAX_LIMIT);
     const query = url.searchParams.get('query') || undefined;
     const status = url.searchParams.get('status') || undefined;
+    // patch 0100: プルダウン部品 (Globo 旧データ: tags 空 + productType 空) を既定で隠す。
+    // CEO 指摘「商品一覧をクリックすると製品名の下に大量にプルダウンが羅列する」対応。
+    // 中学生が商品一覧で「完成商品」と「部品」を混同しないように、明示的に含める指示がない限り除外する。
+    const showComponents = url.searchParams.get('showComponents') === 'true';
 
-    const graphqlQuery = buildProductsQuery(limit, cursor, query, status);
+    // post-filter で 20件確保するため多めに取得。結果 limit 超過分はカーソル継続で対応。
+    const fetchLimit = showComponents ? limit : Math.min(PRODUCT_LIST_MAX_LIMIT, limit * 2);
+    const graphqlQuery = buildProductsQuery(fetchLimit, cursor, query, status);
     const result = await (client as unknown as { query: <T>(q: string) => Promise<T> }).query<{
       productsCount: { count: number } | null;
       products: {
@@ -212,15 +218,29 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       cursor: c,
     }));
 
+    // patch 0100: プルダウン部品 (tags 空 + productType 空) をクライアントに出さない。
+    // 「部品を含める」トグルが ON のときだけ全件返す。OFF のときは limit 件にトリムする。
+    const isComponentProduct = (p: (typeof products)[number]) =>
+      (p.tags?.length ?? 0) === 0 && (p.productType ?? '').trim() === '';
+    const filteredProducts = showComponents
+      ? products
+      : products.filter((p) => !isComponentProduct(p));
+    const visibleProducts = filteredProducts.slice(0, limit);
+    const hiddenComponentCount = showComponents
+      ? 0
+      : products.filter((p) => isComponentProduct(p)).length;
+
     // patch 0094: Shopify 実総件数 (フィルタ適用後の件数)。Dashboard 50+ 頭打ち解消。
     const totalProducts = result.productsCount?.count ?? null;
 
     return data({
       success: true,
-      products,
+      products: visibleProducts,
       pageInfo: result.products.pageInfo,
-      total: products.length,
+      total: visibleProducts.length,
       totalProducts,
+      hiddenComponentCount, // patch 0100: 「部品を含める」トグル用の隠しカウント
+      showComponents, // patch 0100: 現在の表示モードをクライアントに返す
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
