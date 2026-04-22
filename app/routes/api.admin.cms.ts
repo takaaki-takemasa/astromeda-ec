@@ -258,7 +258,7 @@ export async function action({ request, context }: Route.ActionArgs) {
         // S3: GID形式バリデーション
         if (!id.startsWith('gid://shopify/Metaobject/')) {
           return data(
-            { success: false, error: '無効なMetaobject IDです' },
+            { success: false, error: 'IDの形式が正しくありません（保存データのIDではありません）' },
             { status: 400 },
           );
         }
@@ -307,7 +307,7 @@ export async function action({ request, context }: Route.ActionArgs) {
         // S3: GID形式バリデーション
         if (!id.startsWith('gid://shopify/Metaobject/')) {
           return data(
-            { success: false, error: '無効なMetaobject IDです' },
+            { success: false, error: 'IDの形式が正しくありません（保存データのIDではありません）' },
             { status: 400 },
           );
         }

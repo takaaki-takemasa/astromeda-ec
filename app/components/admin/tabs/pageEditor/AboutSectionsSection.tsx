@@ -226,7 +226,7 @@ function AboutSectionForm({
                   fontSize: 11,
                 }}
               >
-                {image ? `(GID: ${image.slice(0, 30)}...)` : '(画像未設定)'}
+                {image ? `(画像ID: ${image.slice(0, 30)}...)` : '(画像未設定)'}
               </div>
             )}
           </div>
@@ -332,7 +332,7 @@ function AboutSectionForm({
           </div>
         </div>
         <div>
-          <label style={labelStyle}>image (Shopify file GID、optional)</label>
+          <label style={labelStyle}>画像（Shopify 画像ID・任意）</label>
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>

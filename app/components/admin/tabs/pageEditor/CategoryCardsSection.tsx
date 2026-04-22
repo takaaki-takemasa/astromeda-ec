@@ -328,7 +328,7 @@ function CategoryCardForm({
           <input type="number" value={priceFrom} onChange={(e) => setPriceFrom(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>image (Shopify file GID、optional)</label>
+          <label style={labelStyle}>画像（Shopify 画像ID・任意）</label>
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>

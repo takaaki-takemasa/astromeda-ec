@@ -391,7 +391,7 @@ function ProductModal({
           {mode === 'create' && (
             <>
               <div style={{ borderTop: `1px solid ${T.bd}`, paddingTop: 16, marginTop: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.t4, marginBottom: 12 }}>初期バリアント（任意）</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.t4, marginBottom: 12 }}>はじめの種類（任意）</div>
               </div>
               <FormField label="価格" value={form.variantPrice} onChange={(v) => setForm({ ...form, variantPrice: v })} placeholder="例: 34980" />
               <FormField label="SKU" value={form.variantSku} onChange={(v) => setForm({ ...form, variantSku: v })} placeholder="例: AST-KB-001" />
@@ -613,7 +613,7 @@ function ProductRow({ product, isExpanded, onToggle, onEdit, onDelete }: Product
         <button
           onClick={onToggle}
           style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }}
-          aria-label="バリアント詳細を表示"
+          aria-label="種類（色・サイズ）の詳細を表示"
         >
           <div
             style={{
@@ -723,7 +723,7 @@ function ProductRow({ product, isExpanded, onToggle, onEdit, onDelete }: Product
       {isExpanded && (
         <div style={{ background: T.t1, padding: '16px', borderTop: `1px solid ${T.bd}` }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: T.t4, letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 12 }}>
-            バリアント情報 ({product.variants?.length || 0})
+            種類（色・サイズ）の情報 ({product.variants?.length || 0})
           </div>
 
           {product.variants && product.variants.length > 0 ? (
@@ -755,7 +755,7 @@ function ProductRow({ product, isExpanded, onToggle, onEdit, onDelete }: Product
               ))}
             </div>
           ) : (
-            <div style={{ color: T.t4, fontSize: 12 }}>バリアントなし</div>
+            <div style={{ color: T.t4, fontSize: 12 }}>種類分けなし（1種類のみ）</div>
           )}
         </div>
       )}
@@ -841,7 +841,7 @@ export default function AdminProductsDashboard() {
             </button>
           </div>
           <p style={{ fontSize: 14, color: T.t4, margin: '0 0 24px 0' }}>
-            全商品のバリアント・在庫・価格情報を管理
+            全商品の種類（色・サイズ）・在庫・価格を管理できます
           </p>
 
           {/* Load Error Banner (patch 0008: graceful fallback 時の案内) */}
@@ -866,7 +866,7 @@ export default function AdminProductsDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
             {[
               { label: '総商品数', value: stats.totalProducts },
-              { label: '総バリアント数', value: stats.totalVariants },
+              { label: '種類の合計数', value: stats.totalVariants },
               { label: '価格範囲', value: stats.priceRange, isText: true },
             ].map((card) => (
               <div key={card.label} style={{ background: T.t1, border: `1px solid ${T.bd}`, borderRadius: 12, padding: '20px' }}>

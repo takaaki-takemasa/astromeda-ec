@@ -67,9 +67,9 @@ const FIELD_TYPE_OPTIONS: Array<{value: string; label: string; group: string}> =
   {value: 'file_reference', label: 'ファイル参照', group: 'URL/メディア'},
   {value: 'product_reference', label: '商品参照', group: '参照'},
   {value: 'collection_reference', label: 'コレクション参照', group: '参照'},
-  {value: 'variant_reference', label: 'バリアント参照', group: '参照'},
+  {value: 'variant_reference', label: '商品の種類を参照', group: '参照'},
   {value: 'page_reference', label: 'ページ参照', group: '参照'},
-  {value: 'metaobject_reference', label: 'メタオブジェクト参照', group: '参照'},
+  {value: 'metaobject_reference', label: '別の登録データを参照', group: '参照'},
   {value: 'mixed_reference', label: '汎用参照', group: '参照'},
   {value: 'json', label: 'JSON', group: 'その他'},
   {value: 'money', label: '金額', group: 'その他'},
@@ -79,8 +79,8 @@ const FIELD_TYPE_OPTIONS: Array<{value: string; label: string; group: string}> =
   {value: 'list.file_reference', label: 'ファイル参照（リスト）', group: 'リスト'},
   {value: 'list.product_reference', label: '商品参照（リスト）', group: 'リスト'},
   {value: 'list.collection_reference', label: 'コレクション参照（リスト）', group: 'リスト'},
-  {value: 'list.variant_reference', label: 'バリアント参照（リスト）', group: 'リスト'},
-  {value: 'list.metaobject_reference', label: 'メタオブジェクト参照（リスト）', group: 'リスト'},
+  {value: 'list.variant_reference', label: '商品の種類を参照（リスト）', group: 'リスト'},
+  {value: 'list.metaobject_reference', label: '別の登録データを参照（リスト）', group: 'リスト'},
 ];
 
 // ━━━ Styles ━━━

@@ -203,7 +203,7 @@ export default function AdminSiteMap() {
       nodes: [
         {
           label: '商品情報',
-          desc: 'タイトル/価格/バリアント/画像/公開',
+          desc: 'タイトル/価格/種類（色・サイズ）/画像/公開',
           target: 'external',
           url: '/admin/products',
           metaCount: null,

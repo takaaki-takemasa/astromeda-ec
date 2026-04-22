@@ -436,7 +436,7 @@ export default function AdminBulkTags() {
       <div style={{marginBottom: space[3], display: 'flex', gap: 8, alignItems: 'center'}}>
         <input
           type="search"
-          placeholder="タイトル / handle / vendor / tag で検索（例: vendor:Astromeda, tag:featured）"
+          placeholder="商品名 / URL末尾 / メーカー名 / タグ で検索（例: vendor:Astromeda, tag:featured）"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{...inputStyle, maxWidth: 500}}
@@ -508,7 +508,7 @@ export default function AdminBulkTags() {
                 </th>
                 <th style={{padding: '10px 12px', width: 48}}>画像</th>
                 <th style={{padding: '10px 12px'}}>タイトル</th>
-                <th style={{padding: '10px 12px'}}>handle</th>
+                <th style={{padding: '10px 12px'}}>URL末尾</th>
                 <th style={{padding: '10px 12px'}}>現在のタグ</th>
                 <th style={{padding: '10px 12px', width: 80}}>在庫</th>
                 <th style={{padding: '10px 12px', width: 90}}>状態</th>

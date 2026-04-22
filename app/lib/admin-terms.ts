@@ -24,6 +24,8 @@
  * | コレクションハンドル | 商品グループ URL | このカテゴリ／IP に紐づく Shopify コレクションの URL 末尾 |
  * | 商品ハンドル | 商品 URL 末尾 | 個別商品の URL の末尾 |
  * | Metaobject | カスタム項目 / 登録データ | （エンプティ状態で使う） |
+ * | メタオブジェクト | 初期設定 / 登録データ | 「メタオブジェクト定義」→「初期設定」 |
+ * | バリアント / Variant | 種類（色・サイズなど） | 「同じ商品の中の種類違い」 |
  * | GID | ID | 内部の一意識別子 |
  * | GraphQL (ユーザ向け文脈) | 非表示 | 技術用語のため UI に出さない |
  *
@@ -90,6 +92,28 @@ export const ADMIN_TERMS = {
     placeholder: '#ffffff',
     hint: 'カラーコードです（例: #ffffff は真っ白）。左の □ を押すと色を選べます。',
   } as AdminTerm,
+
+  /** バリアント (Shopify 用語) — 色違い・サイズ違いなど「同じ商品の種類違い」 */
+  variant: {
+    label: '種類（色・サイズなど）',
+    placeholder: '例: ホワイト / Lサイズ',
+    hint: '同じ商品の中の「色違い」「サイズ違い」など、種類のことです。',
+  } as AdminTerm,
+} as const;
+
+/**
+ * 単語単位の置換辞書（短い文字列の機械的な置換に使う）。
+ * UI に出てしまう技術用語を中学生向けの自然日本語に直す。
+ */
+export const ADMIN_WORD_REPLACEMENTS = {
+  バリアント: '種類',
+  Variant: '種類',
+  variant: '種類',
+  メタオブジェクト: '初期設定',
+  Metaobject: '初期設定',
+  ハンドル: 'URL 末尾',
+  Handle: 'URL 末尾',
+  GID: 'ID',
 } as const;
 
 /**

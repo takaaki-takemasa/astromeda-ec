@@ -523,7 +523,7 @@ export async function action({ request, context }: Route.ActionArgs) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     return data(
-      { success: false, error: `Metaobject setup失敗: ${msg}` },
+      { success: false, error: `初期設定の作成に失敗しました: ${msg}` },
       { status: 500 },
     );
   }

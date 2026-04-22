@@ -217,7 +217,7 @@ export default function AdminCustomization() {
       });
       const json = await res.json();
       if (res.ok && (json.success ?? true)) {
-        setInitStatus('メタオブジェクト定義を作成しました');
+        setInitStatus('初期設定を作成しました');
         fetchData();
       } else {
         setInitStatus(`エラー: ${json.error || '初期化失敗'}`);
@@ -691,9 +691,9 @@ export default function AdminCustomization() {
               cursor: 'pointer',
               fontFamily: font.family,
             }}
-            title="メタオブジェクト定義が未作成の場合のみ使用"
+            title="初期設定がまだ作られていない時だけ使ってください"
           >
-            定義を初期化
+            初期設定をつくる
           </button>
           {/* patch 0106: PC 17 オプション一括登録 (idempotent) */}
           <button
@@ -837,7 +837,7 @@ export default function AdminCustomization() {
         <div style={{ color: '#ff6b6b', fontSize: font.sm, padding: space[4], background: '#3a1515', borderRadius: radius.md, marginBottom: 16 }}>
           {error}
           <div style={{ marginTop: 8, fontSize: font.xs, color: color.textMuted }}>
-            メタオブジェクト定義が未作成の場合は「定義を初期化」ボタンを押してください。
+            初期設定がまだ作られていない場合は「初期設定をつくる」ボタンを押してください。
           </div>
         </div>
       )}

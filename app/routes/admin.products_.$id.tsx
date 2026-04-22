@@ -386,7 +386,7 @@ export default function AdminProductDetail() {
                 ● {productStatusLabel(product.status)}
               </span>
               <span style={{fontSize: 11, color: T.t4}}>
-                {product.handle} · バリアント {variants.length}件 · 画像 {images.length}枚
+                {product.handle} · 種類 {variants.length}件 · 画像 {images.length}枚
               </span>
             </div>
           </div>
@@ -455,7 +455,7 @@ export default function AdminProductDetail() {
                 cursor: 'pointer',
               }}
             >
-              {key === 'basic' ? '基本情報' : key === 'variants' ? 'バリアント' : key === 'images' ? '画像' : '公開'}
+              {key === 'basic' ? '基本情報' : key === 'variants' ? '種類（色・サイズ）' : key === 'images' ? '画像' : '公開'}
             </button>
           ))}
         </div>
@@ -567,7 +567,7 @@ export default function AdminProductDetail() {
                 <thead>
                   {/* patch 0082 (R0-P0-4): 英語ヘッダーを中学生向け日本語に統一 */}
                   <tr style={{textAlign: 'left', color: T.t4, borderBottom: `1px solid ${al(T.tx, 0.1)}`}}>
-                    <th scope="col" style={{padding: 8}}>バリアント名</th>
+                    <th scope="col" style={{padding: 8}}>種類の名前</th>
                     <th scope="col" style={{padding: 8}}>販売価格</th>
                     <th scope="col" style={{padding: 8}} title="定価（割引前価格）を入力すると、商品ページで「元値ǃ→ 現在値」が表示される">定価（比較）</th>
                     <th scope="col" style={{padding: 8}} title="管理用の商品コード。社内で在庫と出荷を管理するための識別番号">SKU</th>

@@ -342,7 +342,7 @@ function ProductShelfForm({
           </div>
         </div>
         <div>
-          <label style={labelStyle}>商品 GID 一覧 ({productIds.length} 件)</label>
+          <label style={labelStyle}>商品ID 一覧（{productIds.length} 件・開発者向け）</label>
           <div style={{display: 'grid', gap: 6}}>
             {productIds.map((pid, i) => (
               <div key={i} style={{display: 'flex', gap: 6}}>

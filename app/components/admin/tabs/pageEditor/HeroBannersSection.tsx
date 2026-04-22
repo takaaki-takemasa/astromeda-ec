@@ -343,7 +343,7 @@ function HeroBannerForm({
           <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>画像 (URL または Shopify file GID)</label>
+          <label style={labelStyle}>画像（画像URL または Shopify 画像ID）</label>
           <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
         </div>
         <div>

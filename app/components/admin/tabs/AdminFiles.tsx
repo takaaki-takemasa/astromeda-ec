@@ -344,10 +344,11 @@ function FileCard({
           <button
             type="button"
             style={btnGhost}
-            onClick={() => onCopy(f.id, 'GID')}
-            title="Shopify GID をコピー（開発者向け）"
+            onClick={() => onCopy(f.id, '画像ID')}
+            title="画像ID をコピー（開発者向け）"
+            aria-label="画像IDをコピー（開発者向け）"
           >
-            🆔 GID
+            🆔 画像ID
           </button>
           <button type="button" style={btnDanger} onClick={onDelete}>
             削除
@@ -480,7 +481,7 @@ export default function AdminFiles() {
     async (f: ShopifyFile) => {
       const ok = await confirmDialog({
         title: 'ファイルを削除しますか？',
-        message: `${f.originalFileName || f.alt || f.id} を削除します。このファイルを参照している商品・メタオブジェクトがある場合は画像が失われます。この操作は取り消せません。`,
+        message: `${f.originalFileName || f.alt || f.id} を削除します。このファイルを使っている商品やページがある場合は、その画像が表示されなくなります。この操作は取り消せません。`,
         confirmLabel: '削除',
         destructive: true,
         contextPath: ['コマース', '📝 コンテンツ・ページ', '📁 ファイル'],
