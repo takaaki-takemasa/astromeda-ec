@@ -52,6 +52,9 @@ const AdminSiteMap = lazy(() => import('~/components/admin/tabs/AdminSiteMap'));
 const AdminSiteConfig = lazy(() => import('~/components/admin/tabs/AdminSiteConfig'));
 // patch 0059: 非エンジニア向け 出品ガイド（新IPコラボ→新製品→販売 全工程ナビ）
 const AdminOnboarding = lazy(() => import('~/components/admin/tabs/AdminOnboarding'));
+// 2026-04-22: CEO「中学生・高校生にわかる管理画面か」を受けたタスク中心ホーム
+// 22 タブを破壊せず、上に「業務語の 6 カード」を被せる（既存ロジック・テスト・データを壊さない）
+import { SimpleHome } from '~/components/admin/SimpleHome';
 
 // Type imports
 import type {
@@ -272,7 +275,8 @@ export const meta = () => [
 
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
-type SubTab = 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+// 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -310,8 +314,11 @@ const COMMERCE_TAB_TO_GROUP: Partial<Record<SubTab, CommerceGroup>> = (() => {
 })();
 
 const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
-  // patch 0059: home セクションの既定を出品ガイドに。CEO が admin を開いたら最初に見る場所
-  home: { tabs: ['onboarding', 'siteMap', 'summary'], default: 'onboarding' },
+  // patch 0059: home セクションの既定を出品ガイドに
+  // 2026-04-22: CEO「中学生・高校生にわかる管理画面か」を受けた構造修正
+  // home セクションの既定を simpleHome（業務語タスク中心 6 カード）に変更
+  // 既存の onboarding / summary / siteMap は破壊せず、上に被せる形で統合
+  home: { tabs: ['simpleHome', 'onboarding', 'siteMap', 'summary'], default: 'simpleHome' },
   // patch 0069: commerce に discounts タブを追加（marketing の手前に置く）
   // patch 0070: menus タブ追加（redirects の直後、ナビゲーション系をまとめる）
   // patch 0071 R0-2: commerce 全タブ（deep link 逆引き用）。実 UI 描画は COMMERCE_GROUPS 側で行う
@@ -322,39 +329,44 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
 };
 
 // patch 0071 R0-3: 絵文字ルール統一（Apple HIG: 揃えるか揃えないかの二択 → 全タブ揃える）
-// CEO が見て一瞬で識別できるよう、各タブに意味論的な絵文字を付与
+// 2026-04-22: CEO「中学生・高校生にわかるラベルか」指摘を受けた業務語化
+// 専門用語（カスタマイズ / コレクション / メニュー / リダイレクト / CMS 定義 等）を
+// 中学生でも理解できる業務語に置換。括弧書きで旧名を併記し移行コストを下げる。
 const SUB_TAB_LABELS: Record<SubTab, string> = {
-  onboarding: '🚀 出品ガイド',
-  siteMap: '🗺️ サイトマップ',
-  summary: '📊 経営サマリー',
-  content: '📄 記事・CMS',
-  products: '📦 商品管理',
-  collections: '📚 コレクション',
-  bulkTags: '🏷️ タグ一括編集',
-  redirects: '🔀 リダイレクト',
-  files: '📁 ファイル',
-  metaobjectDefs: '🧬 CMS 定義',
-  discounts: '🎟️ 割引コード',
-  menus: '🧭 メニュー',
-  customization: '🎨 カスタマイズ',
-  homepage: '🏠 ホームページ',
-  pageEditor: '✏️ ページ編集',
-  siteConfig: '⚙️ サイト設定',
-  marketing: '📣 マーケティング',
-  analytics: '📈 データ分析',
-  agents: '🤖 AI運用',
-  pipelines: '⚡ 自動化',
-  control: '🚨 緊急対応',
-  update: '🔧 設定',
+  simpleHome: '🏠 はじめに（やりたいことを選ぶ）',
+  onboarding: '🚀 出品ガイド（次にやることを案内）',
+  siteMap: '🗺️ サイトマップ（お店の全体像）',
+  summary: '📊 売上ダッシュボード',
+  content: '📄 記事・お知らせ',
+  products: '📦 商品を作る・直す',
+  collections: '📚 商品をジャンルでまとめる',
+  bulkTags: '🏷️ 商品にラベルを一気に付ける',
+  redirects: '🔀 ページの引っ越し転送',
+  files: '📁 写真・動画の保管箱',
+  metaobjectDefs: '🧬 データの設計図（上級者）',
+  discounts: '🎟️ セール価格を決める',
+  menus: '🧭 お客様向けの道案内（メニュー）',
+  customization: '🎨 お客様が選べる選択肢',
+  homepage: '🏠 ホームページ（古いタブ）',
+  pageEditor: '✏️ お店の見た目を変える',
+  siteConfig: '⚙️ お店の基本情報',
+  marketing: '📣 キャンペーン効果を見る',
+  analytics: '📈 詳しいデータ分析（上級者）',
+  agents: '🤖 AI スタッフが今やっている事',
+  pipelines: '⚡ 自動化（上級者）',
+  control: '🚨 困ったときの緊急停止',
+  update: '🔧 バージョン・更新（上級者）',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
+// 2026-04-22: CEO 指摘「中学生・高校生にわかるか」を受けた業務語化
+// Sidebar の NAV_ITEMS と完全一致させて Breadcrumbs の整合性を確保
 const SECTION_LABELS: Record<SectionId, string> = {
   home: 'ホーム',
-  commerce: 'コマース',
-  ai: 'AI運用',
-  operations: 'オペレーション',
-  settings: '設定',
+  commerce: 'お店の運営',
+  ai: 'AI スタッフ',
+  operations: '困ったとき',
+  settings: '上級者設定',
 };
 
 // ── Main Component ──
@@ -364,7 +376,8 @@ export default function AdminDashboard() {
 
   const [section, setSection] = useState<SectionId>('home');
   // patch 0059: home の既定タブを onboarding に
-  const [subTab, setSubTab] = useState<SubTab>('onboarding');
+  // 2026-04-22: CEO 構造修正で simpleHome（業務語タスク中心 6 カード）を既定化
+  const [subTab, setSubTab] = useState<SubTab>('simpleHome');
   // patch 0071 R0-2: commerce セクションの現在グループ（商品/コンテンツ/ナビ&マーケ）
   const [commerceGroup, setCommerceGroup] = useState<CommerceGroup>('catalog');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -696,6 +709,13 @@ export default function AdminDashboard() {
         )}
 
         <main style={{ flex: 1, padding: '24px 32px', overflow: 'auto' }}>
+          {/* 2026-04-22: CEO「中学生・高校生にわかる管理画面か」を受けた構造修正
+              業務語タスク中心 6 カード（商品を売る / お店の見た目を変える / 売上を見る /
+              AI スタッフ / 困ったとき / 上級者モード）。各カードから既存 22 タブへ deep link。
+              既存タブは破壊せず上に被せる形で「迷子にならない入り口」を提供する。 */}
+          {subTab === 'simpleHome' && (
+            <SimpleHome onNavigateTab={(t) => handleTabChange(t as SubTab)} />
+          )}
           {subTab === 'onboarding' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminOnboarding />
