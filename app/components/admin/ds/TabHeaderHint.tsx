@@ -4,6 +4,11 @@
  * 2026-04-22: CEO 指摘「中学生、高校生にわかるような管理画面なのか」を受けた
  * 「このタブで何ができるか」を業務語で 1 行で示す統一プリミティブ。
  *
+ * patch 0120 (2026-04-23): CEO 指摘「タブ内の戻る画面がない」「遷移先からの戻り方
+ * がわからない」を受けて relatedTabs を React Router <Link> 化。
+ * onNavigateTab prop を一切渡さなくても `/admin?tab=<name>` への soft navigation
+ * で自動遷移する（22 タブ全てにプロップ配線をする手間を省きながら相互ジャンプ機能を実現）。
+ *
  * 各 admin タブは内部用語（CMS 定義 / リダイレクト / カスタマイズ など）を
  * タブ名に持つが、開いた瞬間に「これは○○するための場所」と業務語で説明する。
  *
@@ -30,6 +35,7 @@
  * ```
  */
 
+import { Link } from 'react-router';
 import { color, font, radius } from '~/lib/design-tokens';
 
 interface RelatedTab {
@@ -44,7 +50,11 @@ interface TabHeaderHintProps {
   description: string;
   /** 関連するタブへの導線 */
   relatedTabs?: RelatedTab[];
-  /** クリック時に親 admin の handleTabChange を呼ぶ */
+  /**
+   * 親 admin の handleTabChange (互換用)。
+   * patch 0120 以降は省略可。指定しなければ Link で `/admin?tab=<name>` に soft nav。
+   * 既存 SimpleHome 等の特殊な遷移ロジックが必要な呼び出し元のために残す。
+   */
   onNavigateTab?: (tab: string) => void;
 }
 
@@ -97,29 +107,50 @@ export function TabHeaderHint({
             flexWrap: 'wrap',
             fontSize: 11,
             color: color.textMuted,
+            alignItems: 'center',
           }}
         >
-          <span>関連:</span>
-          {relatedTabs.map((rt) => (
-            <button
-              key={rt.tab}
-              type="button"
-              onClick={() => onNavigateTab?.(rt.tab)}
-              disabled={!onNavigateTab}
-              style={{
-                padding: '2px 8px',
-                background: 'transparent',
-                border: `1px solid ${color.border}`,
-                borderRadius: radius.sm,
-                color: onNavigateTab ? color.cyan : color.textMuted,
-                fontSize: 11,
-                cursor: onNavigateTab ? 'pointer' : 'default',
-                fontFamily: font.family,
-              }}
-            >
-              {rt.label}
-            </button>
-          ))}
+          <span>関連タブ →</span>
+          {relatedTabs.map((rt) => {
+            const baseStyle: React.CSSProperties = {
+              display: 'inline-block',
+              padding: '3px 10px',
+              background: 'transparent',
+              border: `1px solid ${color.border}`,
+              borderRadius: radius.sm,
+              color: color.cyan,
+              fontSize: 11,
+              cursor: 'pointer',
+              fontFamily: font.family,
+              textDecoration: 'none',
+              lineHeight: 1.4,
+            };
+            // 互換用 onNavigateTab が渡された場合は button + handler でそれを優先
+            if (onNavigateTab) {
+              return (
+                <button
+                  key={rt.tab}
+                  type="button"
+                  onClick={() => onNavigateTab(rt.tab)}
+                  style={baseStyle}
+                  aria-label={`${rt.label} タブを開く`}
+                >
+                  {rt.label}
+                </button>
+              );
+            }
+            // patch 0120: prop なしでも自動でタブ遷移できる
+            return (
+              <Link
+                key={rt.tab}
+                to={`/admin?tab=${encodeURIComponent(rt.tab)}`}
+                style={baseStyle}
+                aria-label={`${rt.label} タブを開く`}
+              >
+                {rt.label}
+              </Link>
+            );
+          })}
         </div>
       )}
     </aside>

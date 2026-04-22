@@ -123,6 +123,30 @@ export default function AdminProductDetail() {
   const [variants, setVariants] = useState(product.variants);
   const [images, setImages] = useState(product.images);
 
+  // patch 0120 (CEO P0 2026-04-23): 基本情報タブに「販売価格（代表）」を追加。
+  // CEO 指摘「製品の価格をいれるところがない」への対処。
+  // 多くの商品はバリアント1つ＝価格1つの単純構成のため、基本タブから直接編集
+  // できないと「価格をどこで入れるのか分からない」状態が発生していた。
+  // - variants[0] の price を「代表価格」として basic タブに露出する。
+  // - 複数バリアントがある場合は範囲を表示しつつ「種類タブで個別編集」と案内。
+  // - 保存ボタン押下時に variant_update も併発させる（差分があるときのみ）。
+  const initialPrimaryPrice = useMemo(() => {
+    return product.variants[0]?.price ?? '';
+  }, [product.variants]);
+  const [primaryPrice, setPrimaryPrice] = useState<string>(initialPrimaryPrice);
+  const isPrimaryPriceDirty = primaryPrice !== initialPrimaryPrice;
+  const isMultiVariant = product.variants.length > 1;
+  const priceRangeText = useMemo(() => {
+    const nums = product.variants
+      .map((v) => parseFloat(v.price))
+      .filter((n) => Number.isFinite(n));
+    if (nums.length === 0) return '価格未設定';
+    const min = Math.min(...nums);
+    const max = Math.max(...nums);
+    if (min === max) return `¥${Math.round(min).toLocaleString('ja-JP')}`;
+    return `¥${Math.round(min).toLocaleString('ja-JP')} 〜 ¥${Math.round(max).toLocaleString('ja-JP')}`;
+  }, [product.variants]);
+
   // ── patch 0110 (CEO P0): プルダウン項目選択 ──
   // 製品 tag 内の `pulldown:<name>` / `pulldown:none` を見て手動指定状態を組み立てる。
   // チェックボックス UI で更新したら basic.tagsCsv に sync して保存ボタンで Shopify 反映。
@@ -223,9 +247,13 @@ export default function AdminProductDetail() {
   }, [fetcher.state, fetcher.data, pushToast]);
 
   // ── Dirty 判定 + beforeunload ──
+  // patch 0120: 代表価格 (primaryPrice) の変更も dirty として扱う。
   const isDirty = useMemo(() => {
-    return JSON.stringify(basic) !== JSON.stringify(initialBasic);
-  }, [basic, initialBasic]);
+    return (
+      JSON.stringify(basic) !== JSON.stringify(initialBasic) ||
+      isPrimaryPriceDirty
+    );
+  }, [basic, initialBasic, isPrimaryPriceDirty]);
 
   useEffect(() => {
     if (!isDirty) return undefined;
@@ -273,6 +301,26 @@ export default function AdminProductDetail() {
       tagsAdd,
       tagsRemove,
     });
+    // patch 0120: 代表価格が変わっていたら variant_update も別 submit で続発。
+    // バリアント側が単一なら基本タブの保存だけで価格反映が完結する。
+    // 複数バリアントの場合も「種類タブ」の variants[0] と表記が同期する。
+    if (isPrimaryPriceDirty && variants[0]) {
+      const trimmed = primaryPrice.trim();
+      if (/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+        submit({
+          action: 'variant_update',
+          productId: product.id,
+          variantId: variants[0].id,
+          fields: {price: trimmed},
+        });
+        // 楽観的に種類タブの表示も同期
+        setVariants((prev) =>
+          prev.map((v, i) => (i === 0 ? {...v, price: trimmed} : v)),
+        );
+      } else {
+        pushToast('販売価格は数字で入れてください（例: 189800）', 'error');
+      }
+    }
   };
 
   const saveVariant = (idx: number) => {
@@ -458,15 +506,35 @@ export default function AdminProductDetail() {
   return (
     <div style={{background: T.bg, minHeight: '100vh', color: T.tx, paddingBottom: 80}}>
       <div style={{...PAGE_WIDTH, padding: '24px 20px'}}>
+        {/* patch 0120 (CEO P0 2026-04-23): 戻るボタンを「タブ内に戻る」明示・ボタンスタイルに昇格。
+            旧: /admin/products （独立ルート）への text link → admin タブ context が消える
+            新: /admin?tab=products （admin タブ内 soft nav）へ button-style Link
+            CEO 指摘「タブ内の戻る画面がない」「遷移先からの戻り方がわからない」への対処。 */}
+        <div style={{marginBottom: 14}}>
+          <Link
+            to="/admin?tab=products"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '8px 14px',
+              background: al(T.tx, 0.06),
+              border: `1px solid ${al(T.tx, 0.18)}`,
+              borderRadius: 8,
+              color: T.tx,
+              fontSize: 12,
+              fontWeight: 700,
+              textDecoration: 'none',
+            }}
+            aria-label="商品管理タブに戻る"
+          >
+            <span aria-hidden="true">←</span>
+            <span>商品管理タブに戻る</span>
+          </Link>
+        </div>
         {/* Header */}
         <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap'}}>
           <div>
-            <Link
-              to="/admin/products"
-              style={{color: T.t4, fontSize: 12, textDecoration: 'none'}}
-            >
-              ← 商品一覧
-            </Link>
             <h1 style={{fontSize: 22, fontWeight: 900, margin: '4px 0 0', color: T.tx}}>
               {product.title}
             </h1>
@@ -677,6 +745,86 @@ export default function AdminProductDetail() {
                 <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
                   💡 「下書き」で保存すれば、お客様には見えません。準備が整ったら「公開中」に変えましょう。
                 </div>
+              </div>
+
+              {/* patch 0120 (CEO P0 2026-04-23): 販売価格を基本タブから直接編集可能に。
+                  CEO 指摘「製品の価格をいれるところがない」への構造的対処。
+                  - 単一バリアント商品: そのまま代表価格を編集して保存ボタンで Shopify に反映
+                  - 複数バリアント商品: 範囲表示 + 「種類タブで個別に編集」の導線案内
+                  入力値は数字のみ（半角・小数2桁まで）。保存時に正規表現でガード。 */}
+              <div>
+                <label style={labelStyle} htmlFor="prod-primary-price-input">
+                  販売価格（税込・円）
+                </label>
+                {!isMultiVariant ? (
+                  <>
+                    <div style={{display: 'flex', alignItems: 'center', gap: 8}}>
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: T.t4,
+                          minWidth: 16,
+                          textAlign: 'right',
+                        }}
+                      >
+                        ¥
+                      </span>
+                      <input
+                        id="prod-primary-price-input"
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        step="1"
+                        value={primaryPrice}
+                        onChange={(e) => setPrimaryPrice(e.target.value)}
+                        placeholder="例: 189800"
+                        aria-describedby="prod-primary-price-hint"
+                        style={{...inputStyle, fontFamily: 'inherit'}}
+                      />
+                      {isPrimaryPriceDirty && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            color: T.c,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          ● 未保存
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      id="prod-primary-price-hint"
+                      style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}
+                    >
+                      💡 半角数字で入力します（例: 189800 → ¥189,800）。
+                      保存ボタンを押すと Shopify の商品ページにそのまま反映されます。
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    style={{
+                      padding: '12px 14px',
+                      background: al(T.tx, 0.04),
+                      border: `1px solid ${al(T.tx, 0.14)}`,
+                      borderRadius: 8,
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                      color: T.tx,
+                    }}
+                  >
+                    <div style={{fontWeight: 700, marginBottom: 4}}>
+                      現在の価格：{priceRangeText}（{product.variants.length} 種類）
+                    </div>
+                    <div style={{fontSize: 11, color: T.t4}}>
+                      💡 この商品はバリアント（種類）が複数あります。
+                      各バリアントの価格は上のタブから「🧬 種類（バリアント）」を開いて個別に編集してください。
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* patch 0110 (CEO P0): プルダウン項目を「製品編集ページから直接プルダウン選択できる」UI。

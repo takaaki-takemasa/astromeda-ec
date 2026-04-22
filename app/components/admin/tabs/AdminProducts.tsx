@@ -11,7 +11,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 // patch 0101: バナーから「🎛️ カスタマイズ」タブへの直接ジャンプボタン用
-import { useSearchParams } from 'react-router';
+// patch 0120 (CEO P0 2026-04-23): 商品編集への <a href> を <Link> に変えて
+// soft navigation にし、タブ state を保持・戻る導線も成立させる
+import { useSearchParams, Link } from 'react-router';
 import { color, font, radius, space } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 import { Modal } from '~/components/admin/Modal';
@@ -855,17 +857,20 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
                 ¥{Number(p.priceRange?.minVariantPrice?.amount || 0).toLocaleString('ja-JP')}
               </div>
               <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                <a
-                  href={`/admin/products/${encodeURIComponent(p.id)}`}
+                {/* patch 0120: <a href> → <Link> に変更。admin タブ state を保ちつつ
+                    戻り先 /admin?tab=products が React Router 内部で成立する。 */}
+                <Link
+                  to={`/admin/products/${encodeURIComponent(p.id)}`}
                   style={{
                     ...btnOutline,
                     display: 'inline-flex',
                     alignItems: 'center',
                     textDecoration: 'none',
                   }}
+                  aria-label={`${p.title} を編集`}
                 >
                   編集
-                </a>
+                </Link>
                 <button onClick={() => handleDelete(p)} style={btnDanger}>削除</button>
               </div>
             </div>
