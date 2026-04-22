@@ -69,6 +69,20 @@ export interface AuditEntry {
   ip?: string;
   /** 成功/失敗 */
   success: boolean;
+  /**
+   * patch 0116 (P2-6): 変更前の値（部分オブジェクト・null = 新規作成）
+   * computeFieldDiff() の結果を spread して渡す。機密フィールドは自動マスク済み。
+   */
+  before?: Record<string, unknown> | null;
+  /**
+   * patch 0116 (P2-6): 変更後の値（部分オブジェクト・null = 削除）
+   */
+  after?: Record<string, unknown> | null;
+  /**
+   * patch 0116 (P2-6): 変更されたフィールドのキー一覧
+   * before/after で値が異なるキーのみ含まれる。
+   */
+  changedFields?: string[];
 }
 
 // ━━━ インメモリバッファ（Phase 1） ━━━
@@ -107,8 +121,13 @@ export function auditLog(entry: Omit<AuditEntry, 'timestamp'>): void {
   // コンソール出力（構造化ログ）
   const level = entry.success ? 'info' : 'warn';
   const prefix = entry.success ? '✓' : '✗';
+  // patch 0116 (P2-6): changedFields があれば追記
+  const changedSuffix =
+    entry.changedFields && entry.changedFields.length > 0
+      ? ` | changed=[${entry.changedFields.join(',')}]`
+      : '';
   console[level](
-    `[AUDIT] ${prefix} ${entry.action} | role=${entry.role ?? 'anonymous'} | resource=${entry.resource}${entry.detail ? ` | ${entry.detail}` : ''}`,
+    `[AUDIT] ${prefix} ${entry.action} | role=${entry.role ?? 'anonymous'} | resource=${entry.resource}${entry.detail ? ` | ${entry.detail}` : ''}${changedSuffix}`,
   );
 }
 

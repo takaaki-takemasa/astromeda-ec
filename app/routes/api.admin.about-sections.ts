@@ -20,6 +20,7 @@ import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { normalizeFileReferenceField } from '~/lib/image-resolver';
 import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
+import { computeFieldDiff, computeMetaobjectDiff } from '~/lib/audit-snapshot';
 
 const METAOBJECT_TYPE = 'astromeda_about_section';
 
@@ -171,16 +172,20 @@ export async function action({ request, context }: Route.ActionArgs) {
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title);
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: `about_section_create${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true });
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeMetaobjectDiff(undefined, fields);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: `about_section_create${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true, ...diff });
         return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
 
-        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
+        // 両方で current を共有 (Shopify API call を1回に集約)
+        const current = await client.getMetaobjectById(v.metaobjectId);
+
         if (v.expectedUpdatedAt) {
-          const current = await client.getMetaobjectById(v.metaobjectId);
           const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'about_section_update_cas_conflict', success: false });
@@ -199,14 +204,19 @@ export async function action({ request, context }: Route.ActionArgs) {
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.title || 'about_section');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: `about_section_update${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true });
+        // patch 0116: P2-6 — before/after snapshot
+        const diff = computeMetaobjectDiff(current?.fields, fields);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: `about_section_update${imgNotes.length ? '; ' + imgNotes.join('; ') : ''}`, success: true, ...diff });
         return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getMetaobjectById(v.metaobjectId).catch(() => null);
         const result = await client.deleteMetaobject(v.metaobjectId);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'about_section_delete', success: result });
+        const diff = computeMetaobjectDiff(current?.fields, undefined);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'about_section_delete', success: result, ...diff });
         return data({ success: result });
       }
 

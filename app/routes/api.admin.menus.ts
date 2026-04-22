@@ -27,6 +27,7 @@ import {auditLog} from '~/lib/audit-log';
 import {AppSession} from '~/lib/session';
 import {verifyCsrfForAdmin} from '~/lib/csrf-middleware';
 import {expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse} from '~/lib/expected-updated-at';
+import {computeFieldDiff} from '~/lib/audit-snapshot';
 import type {ShopifyMenuItem, ShopifyMenuItemType} from '../../agents/core/shopify-admin.js';
 
 // ━━━ Zod スキーマ ━━━
@@ -302,12 +303,19 @@ export async function action({request, context}: Route.ActionArgs) {
           handle: body.handle,
           items: (body.items ?? []) as ShopifyMenuItem[],
         });
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeFieldDiff(null, {
+          title: body.title,
+          handle: body.handle,
+          itemCount: (body.items ?? []).length,
+        });
         auditLog({
           action: 'menu_create',
           role,
           resource: `api/admin/menus [${result.handle}]`,
           success: true,
           detail: `id=${result.id} title=${result.title}`,
+          ...diff,
         });
         return data({success: true, id: result.id, handle: result.handle, title: result.title});
       }
@@ -352,12 +360,29 @@ export async function action({request, context}: Route.ActionArgs) {
           ? `kept=${result.diff.kept} added=${result.diff.added} removed=${result.diff.removed} renamed=${result.diff.renamed} (current=${result.diff.totalCurrent} incoming=${result.diff.totalIncoming})`
           : `items=${body.items.length} (no diff baseline)`;
 
+        // patch 0116: P2-6 — before/after snapshot
+        // メニュー本体 + items 集計の3軸 (title/handle/itemCount) を diff として記録
+        const beforeSnap = currentMenuFull
+          ? {
+              title: currentMenuFull.title,
+              handle: currentMenuFull.handle,
+              itemCount: (currentItems ?? []).length,
+            }
+          : null;
+        const afterSnap = {
+          title: body.title,
+          handle: body.handle,
+          itemCount: body.items.length,
+        };
+        const auditDiff = computeFieldDiff(beforeSnap, afterSnap);
+
         auditLog({
           action: 'menu_update',
           role,
           resource: `api/admin/menus [${result.handle}]`,
           success: true,
           detail: `id=${body.id} ${diffStr}`,
+          ...auditDiff,
         });
         return data({
           success: true,
@@ -368,13 +393,26 @@ export async function action({request, context}: Route.ActionArgs) {
         });
       }
       case 'delete': {
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getMenu(body.id).catch(() => null);
         const result = await client.deleteMenu(body.id);
+        const diff = computeFieldDiff(
+          current
+            ? {
+                title: current.title,
+                handle: current.handle,
+                itemCount: (current.items ?? []).length,
+              }
+            : null,
+          null,
+        );
         auditLog({
           action: 'menu_delete',
           role,
           resource: `api/admin/menus [${body.id}]`,
           success: true,
           detail: result.notFound ? 'not-found (idempotent)' : 'deleted',
+          ...diff,
         });
         return data({success: true, id: body.id, notFound: result.notFound});
       }

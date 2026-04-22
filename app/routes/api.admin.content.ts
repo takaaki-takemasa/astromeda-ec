@@ -19,6 +19,7 @@ import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { normalizeFileReferenceField } from '~/lib/image-resolver';
 import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
+import { computeMetaobjectDiff } from '~/lib/audit-snapshot';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const METAOBJECT_TYPE = 'astromeda_article_content';
@@ -246,16 +247,20 @@ export async function action({ request, context }: Route.ActionArgs) {
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'featured_image', v.title);
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
-        auditLog({ action: 'content_create', role, resource: `metaobject/${result.id}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true });
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeMetaobjectDiff(undefined, fields);
+        auditLog({ action: 'content_create', role, resource: `metaobject/${result.id}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true, ...diff });
         return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
 
-        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
+        // 両方で current を共有 (Shopify API call を1回に集約)
+        const current = await client.getMetaobjectById(v.metaobjectId);
+
         if (v.expectedUpdatedAt) {
-          const current = await client.getMetaobjectById(v.metaobjectId);
           const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({ action: 'content_edit', role, resource: `metaobject/${v.metaobjectId}`, detail: 'content_update_cas_conflict', success: false });
@@ -275,14 +280,19 @@ export async function action({ request, context }: Route.ActionArgs) {
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'featured_image', v.title || 'article_content');
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'content_update', role, resource: `metaobject/${v.metaobjectId}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true });
+        // patch 0116: P2-6 — before/after snapshot
+        const diff = computeMetaobjectDiff(current?.fields, fields);
+        auditLog({ action: 'content_update', role, resource: `metaobject/${v.metaobjectId}`, detail: imgNotes.length ? imgNotes.join('; ') : undefined, success: true, ...diff });
         return data({ success: true, metaobject: result, imageNotes: imgNotes });
       }
 
       case 'delete': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getMetaobjectById(v.metaobjectId).catch(() => null);
         const result = await client.deleteMetaobject(v.metaobjectId);
-        auditLog({ action: 'content_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
+        const diff = computeMetaobjectDiff(current?.fields, undefined);
+        auditLog({ action: 'content_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result, ...diff });
         return data({ success: result });
       }
 
@@ -294,13 +304,17 @@ export async function action({ request, context }: Route.ActionArgs) {
           { key: 'is_published', value: String(isPub) },
         ];
         if (isPub) fields.push({ key: 'published_at', value: new Date().toISOString() });
+        // patch 0116: P2-6 — publish/unpublish も before/after を記録 (current を取得)
+        const current = await client.getMetaobjectById(v.metaobjectId).catch(() => null);
         const result = await client.updateMetaobject(v.metaobjectId, fields);
+        const diff = computeMetaobjectDiff(current?.fields, fields);
         auditLog({
           action: 'content_edit',
           role,
           resource: `metaobject/${v.metaobjectId}`,
           detail: `is_published=${isPub}`,
           success: true,
+          ...diff,
         });
         return data({ success: true, metaobject: result });
       }

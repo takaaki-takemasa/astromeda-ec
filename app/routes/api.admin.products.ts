@@ -23,6 +23,7 @@ import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { isPulldownComponent } from '~/lib/pulldown-classifier';
 import { validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
+import { computeFieldDiff } from '~/lib/audit-snapshot';
 
 // ── 設定定数 ──
 const PRODUCT_LIST_DEFAULT_LIMIT = 20;
@@ -450,11 +451,14 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'create': {
         const role = requirePermission(session, 'products.edit');
         const result = await client.createProduct(validated.product);
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeFieldDiff(null, validated.product as unknown as Record<string, unknown>);
         auditLog({
           action: 'product_create',
           role,
           resource: `product/${result.id}`,
           success: true,
+          ...diff,
         });
         return data({ success: true, product: result });
       }
@@ -462,11 +466,12 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'update': {
         const role = requirePermission(session, 'products.edit');
 
-        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
-        // 別ユーザーが同じ商品を編集中なら 409 Conflict + 最新値を返す。送信任意・後方互換。
+        // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
+        // 両方で current を共有 (Shopify API call を1回に集約)
+        const current = await client.getProductDetail(validated.productId);
+
         const expectedUpdatedAt = (validated as { expectedUpdatedAt?: string }).expectedUpdatedAt;
         if (expectedUpdatedAt) {
-          const current = await client.getProductDetail(validated.productId);
           const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({
@@ -485,6 +490,20 @@ export async function action({ request, context }: Route.ActionArgs) {
         // tagsAdd / tagsRemove で差分送信 (Shopify tagsAdd / tagsRemove mutation は冪等で他タグを保持)。
         const result = await client.updateProduct(validated.productId, validated.product);
 
+        // patch 0116: P2-6 — productUpdate の before/after snapshot
+        // current から validated.product のキーだけを抽出して diff 対象にする
+        const updateKeys = Object.keys(validated.product as object);
+        const beforeSubset: Record<string, unknown> = {};
+        if (current && typeof current === 'object') {
+          for (const k of updateKeys) {
+            beforeSubset[k] = (current as Record<string, unknown>)[k];
+          }
+        }
+        const productDiff = computeFieldDiff(
+          current ? beforeSubset : null,
+          validated.product as unknown as Record<string, unknown>,
+        );
+
         // タグ追加 (差分のみ)
         const tagsAddArr = (validated as { tagsAdd?: string[] }).tagsAdd ?? [];
         const tagsRemoveArr = (validated as { tagsRemove?: string[] }).tagsRemove ?? [];
@@ -494,24 +513,36 @@ export async function action({ request, context }: Route.ActionArgs) {
           const r = await client.bulkAddTagsToProducts([validated.productId], tagsAddArr);
           const ok = r.filter((x) => x.success).length;
           tagsAddResult = { ok, failed: r.length - ok };
+          // patch 0116: P2-6 — タグ追加も diff 構造化 (before=空配列, after=追加されたタグ)
+          const tagsAddDiff = computeFieldDiff(
+            { addedTags: [] as string[] },
+            { addedTags: tagsAddArr },
+          );
           auditLog({
             action: 'product_bulk_tag',
             role,
             resource: `product/${validated.productId}`,
             detail: `add tags=[${tagsAddArr.join(', ')}] ok=${ok} failed=${r.length - ok}`,
             success: tagsAddResult.failed === 0,
+            ...tagsAddDiff,
           });
         }
         if (tagsRemoveArr.length > 0) {
           const r = await client.bulkRemoveTagsFromProducts([validated.productId], tagsRemoveArr);
           const ok = r.filter((x) => x.success).length;
           tagsRemoveResult = { ok, failed: r.length - ok };
+          // patch 0116: P2-6 — タグ削除も diff 構造化 (before=削除対象, after=空配列)
+          const tagsRemoveDiff = computeFieldDiff(
+            { removedTags: tagsRemoveArr },
+            { removedTags: [] as string[] },
+          );
           auditLog({
             action: 'product_bulk_tag',
             role,
             resource: `product/${validated.productId}`,
             detail: `remove tags=[${tagsRemoveArr.join(', ')}] ok=${ok} failed=${r.length - ok}`,
             success: tagsRemoveResult.failed === 0,
+            ...tagsRemoveDiff,
           });
         }
 
@@ -521,6 +552,7 @@ export async function action({ request, context }: Route.ActionArgs) {
           resource: `product/${validated.productId}`,
           detail: `tags +${tagsAddArr.length}/-${tagsRemoveArr.length}`,
           success: true,
+          ...productDiff,
         });
         return data({
           success: true,
@@ -532,12 +564,19 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'delete': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getProductDetail(validated.productId).catch(() => null);
         const result = await client.deleteProduct(validated.productId);
+        const diff = computeFieldDiff(
+          current ? (current as unknown as Record<string, unknown>) : null,
+          null,
+        );
         auditLog({
           action: 'product_delete',
           role,
           resource: `product/${validated.productId}`,
           success: result,
+          ...diff,
         });
         return data({ success: result });
       }

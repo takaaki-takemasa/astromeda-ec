@@ -21,6 +21,7 @@ import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { validateAndSanitizeFields, validateHandle } from '~/lib/cms-field-validator';
 import { normalizeFileReferenceFieldsByType } from '~/lib/image-resolver';
 import { validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
+import { computeMetaobjectDiff } from '~/lib/audit-snapshot';
 
 // 管理可能な Metaobject タイプ一覧
 const ALLOWED_TYPES = [
@@ -236,12 +237,15 @@ export async function action({ request, context }: Route.ActionArgs) {
         );
 
         const created = await client.createMetaobject(type, handle, validation.sanitizedFields);
+        // patch 0116 (P2-6): AuditLog before/after snapshot
+        const diff = computeMetaobjectDiff(undefined, validation.sanitizedFields);
         auditLog({
           action: 'content_create',
           role: authResult.role,
           resource: `cms/${type}/${handle}`,
           detail: imgNotes.length ? imgNotes.join('; ') : undefined,
           success: true,
+          ...diff,
         });
         return data({ success: true, id: created.id, handle, imageNotes: imgNotes });
       }
@@ -277,8 +281,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         }
 
         // patch 0115: P2-5 楽観的ロック CAS — 別ユーザーの上書きを 409 で防ぐ
+        // patch 0116 (P2-6): current は CAS と AuditLog before snapshot で共有 (Shopify API 1回)
+        const current = await client
+          .getMetaobjectById(id)
+          .catch(() => null as Awaited<ReturnType<typeof client.getMetaobjectById>> | null);
         if (expectedUpdatedAt) {
-          const current = await client.getMetaobjectById(id);
           const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({
@@ -315,12 +322,15 @@ export async function action({ request, context }: Route.ActionArgs) {
         );
 
         const updated = await client.updateMetaobject(id, validation.sanitizedFields);
+        // patch 0116 (P2-6): AuditLog before/after snapshot
+        const diff = computeMetaobjectDiff(current?.fields, validation.sanitizedFields);
         auditLog({
           action: 'content_update',
           role: authResult.role,
           resource: `cms/${type}/${id}`,
           detail: imgNotes.length ? imgNotes.join('; ') : undefined,
           success: true,
+          ...diff,
         });
         return data({ success: true, id: updated.id, imageNotes: imgNotes });
       }
@@ -351,12 +361,18 @@ export async function action({ request, context }: Route.ActionArgs) {
           );
         }
 
+        // patch 0116 (P2-6): 削除前に before snapshot を取る (失敗しても続行)
+        const currentBeforeDelete = await client
+          .getMetaobjectById(id)
+          .catch(() => null as Awaited<ReturnType<typeof client.getMetaobjectById>> | null);
         const deleted = await client.deleteMetaobject(id);
+        const diff = computeMetaobjectDiff(currentBeforeDelete?.fields, undefined);
         auditLog({
           action: 'content_delete',
           role: authResult.role,
           resource: `cms/${type}/${id}`,
           success: true,
+          ...diff,
         });
         return data({ success: true, deletedId: deleted.deletedId });
       }

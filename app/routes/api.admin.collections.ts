@@ -24,6 +24,7 @@ import {auditLog} from '~/lib/audit-log';
 import {AppSession} from '~/lib/session';
 import {verifyCsrfForAdmin} from '~/lib/csrf-middleware';
 import {expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse} from '~/lib/expected-updated-at';
+import {computeFieldDiff} from '~/lib/audit-snapshot';
 
 // ── Zod スキーマ ──
 
@@ -295,21 +296,26 @@ export async function action({request, context}: Route.ActionArgs) {
         const {action: _ignored, ...input} = body;
         // image.id が MediaImage GID 以外の場合は src のみ送る（Shopify 側仕様に合わせる）
         const result = await client.createCollection(input);
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeFieldDiff(null, input as unknown as Record<string, unknown>);
         auditLog({
           action: 'collection_create',
           role,
           resource: `api/admin/collections [${result.handle}]`,
           success: true,
           detail: `id=${result.id} title=${body.title}`,
+          ...diff,
         });
         return data({success: true, id: result.id, handle: result.handle});
       }
       case 'update': {
         const {action: _ignored, id, expectedUpdatedAt, ...fields} = body;
 
-        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
+        // 両方で current を共有 (Shopify API call を1回に集約)
+        const current = await client.getCollectionDetail(id);
+
         if (expectedUpdatedAt) {
-          const current = await client.getCollectionDetail(id);
           const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({
@@ -328,23 +334,44 @@ export async function action({request, context}: Route.ActionArgs) {
           Object.entries(fields).filter(([, v]) => v !== null && v !== undefined),
         ) as Parameters<typeof client.updateCollection>[1];
         const result = await client.updateCollection(id, cleaned);
+        // patch 0116: P2-6 — before/after snapshot
+        // current には before に相当する値が入っているが、updateCollection の入力項目だけを diff 対象にする
+        const beforeSubset: Record<string, unknown> = {};
+        if (current && typeof current === 'object') {
+          const currentRec = current as unknown as Record<string, unknown>;
+          for (const k of Object.keys(cleaned)) {
+            beforeSubset[k] = currentRec[k];
+          }
+        }
+        const diff = computeFieldDiff(
+          current ? beforeSubset : null,
+          cleaned as unknown as Record<string, unknown>,
+        );
         auditLog({
           action: 'collection_update',
           role,
           resource: `api/admin/collections [${result.handle}]`,
           success: true,
           detail: `id=${id} fields=${Object.keys(cleaned).join(',')}`,
+          ...diff,
         });
         return data({success: true, id: result.id, handle: result.handle});
       }
       case 'delete': {
         const {id} = body;
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getCollectionDetail(id).catch(() => null);
         await client.deleteCollection(id);
+        const diff = computeFieldDiff(
+          current ? (current as unknown as Record<string, unknown>) : null,
+          null,
+        );
         auditLog({
           action: 'collection_delete',
           role,
           resource: `api/admin/collections [${id}]`,
           success: true,
+          ...diff,
         });
         return data({success: true, id});
       }

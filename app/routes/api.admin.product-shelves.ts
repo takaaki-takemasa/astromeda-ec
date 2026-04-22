@@ -18,6 +18,7 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
+import { computeMetaobjectDiff } from '~/lib/audit-snapshot';
 
 const METAOBJECT_TYPE = 'astromeda_product_shelf';
 
@@ -183,16 +184,20 @@ export async function action({ request, context }: Route.ActionArgs) {
         ];
 
         const result = await client.createMetaobject(METAOBJECT_TYPE, v.handle, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: 'product_shelf_create', success: true });
+        // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
+        const diff = computeMetaobjectDiff(undefined, fields);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${result.id}`, detail: 'product_shelf_create', success: true, ...diff });
         return data({ success: true, metaobject: result });
       }
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
 
-        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
+        // 両方で current を共有 (Shopify API call を1回に集約)
+        const current = await client.getMetaobjectById(v.metaobjectId);
+
         if (v.expectedUpdatedAt) {
-          const current = await client.getMetaobjectById(v.metaobjectId);
           const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
           if (!cas.ok) {
             auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'product_shelf_update_cas_conflict', success: false });
@@ -210,14 +215,19 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.isActive !== undefined) fields.push({ key: 'is_active', value: String(v.isActive) });
 
         const result = await client.updateMetaobject(v.metaobjectId, fields);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'product_shelf_update', success: true });
+        // patch 0116: P2-6 — before/after snapshot
+        const diff = computeMetaobjectDiff(current?.fields, fields);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'product_shelf_update', success: true, ...diff });
         return data({ success: true, metaobject: result });
       }
 
       case 'delete': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
+        const current = await client.getMetaobjectById(v.metaobjectId).catch(() => null);
         const result = await client.deleteMetaobject(v.metaobjectId);
-        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'product_shelf_delete', success: result });
+        const diff = computeMetaobjectDiff(current?.fields, undefined);
+        auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'product_shelf_delete', success: result, ...diff });
         return data({ success: result });
       }
 
