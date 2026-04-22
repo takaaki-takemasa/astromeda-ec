@@ -178,6 +178,12 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         ua: b.ua,
         eventCount: b.events.length,
       }));
+      // patch 0124-fu: events を flatten し path を各 event に注入
+      // （storage 層は { event, path } wrapper を返すが、UI 層は flat UxrEvent + path? を期待）
+      const flatEvents = result.events.map(({ event, path: eventPath }) => ({
+        ...event,
+        path: eventPath,
+      }));
       auditLog({
         action: 'api_access',
         role: authResult.role,
@@ -190,7 +196,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         batchCount: result.batches.length,
         eventCount: result.events.length,
         batches: batchMeta,
-        events: result.events,
+        events: flatEvents,
       });
     }
 
