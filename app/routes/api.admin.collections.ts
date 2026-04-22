@@ -23,6 +23,7 @@ import {requirePermission} from '~/lib/rbac';
 import {auditLog} from '~/lib/audit-log';
 import {AppSession} from '~/lib/session';
 import {verifyCsrfForAdmin} from '~/lib/csrf-middleware';
+import {expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse} from '~/lib/expected-updated-at';
 
 // ── Zod スキーマ ──
 
@@ -134,6 +135,8 @@ const UpdateSchema = z
       .optional(),
     sortOrder: CreateSchema.shape.sortOrder,
     templateSuffix: z.string().max(255).optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   })
   .strict();
 
@@ -302,7 +305,24 @@ export async function action({request, context}: Route.ActionArgs) {
         return data({success: true, id: result.id, handle: result.handle});
       }
       case 'update': {
-        const {action: _ignored, id, ...fields} = body;
+        const {action: _ignored, id, expectedUpdatedAt, ...fields} = body;
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (expectedUpdatedAt) {
+          const current = await client.getCollectionDetail(id);
+          const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({
+              action: 'collection_update',
+              role,
+              resource: `api/admin/collections [${id}]`,
+              detail: 'collection_update_cas_conflict',
+              success: false,
+            });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         // null を明示的に渡したいケース（image/ruleSet 削除）は現状未対応 — Shopify は undefined 無視
         const cleaned = Object.fromEntries(
           Object.entries(fields).filter(([, v]) => v !== null && v !== undefined),

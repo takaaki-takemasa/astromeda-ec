@@ -26,6 +26,7 @@ import {requirePermission} from '~/lib/rbac';
 import {auditLog} from '~/lib/audit-log';
 import {AppSession} from '~/lib/session';
 import {verifyCsrfForAdmin} from '~/lib/csrf-middleware';
+import {expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse} from '~/lib/expected-updated-at';
 import type {ShopifyMenuItem, ShopifyMenuItemType} from '../../agents/core/shopify-admin.js';
 
 // ━━━ Zod スキーマ ━━━
@@ -142,6 +143,8 @@ const UpdateSchema = z
     title: TitleSchema,
     handle: HandleSchema,
     items: MenuItemsSchema,
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   })
   .strict();
 
@@ -314,11 +317,28 @@ export async function action({request, context}: Route.ActionArgs) {
         // updateMenu に渡し、kept/added/removed/renamed の diff を計算する。
         // 失敗 (権限不足/idなし等) は致命ではないので catch して silent fallback。
         let currentItems: ShopifyMenuItem[] | undefined;
+        let currentMenuFull: Awaited<ReturnType<typeof client.getMenu>> | undefined;
         try {
-          const currentMenu = await client.getMenu(body.id);
-          currentItems = currentMenu?.items;
+          currentMenuFull = await client.getMenu(body.id);
+          currentItems = currentMenuFull?.items;
         } catch {
           currentItems = undefined;
+          currentMenuFull = undefined;
+        }
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (body.expectedUpdatedAt) {
+          const cas = validateExpectedUpdatedAt(currentMenuFull, body.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({
+              action: 'menu_update',
+              role,
+              resource: `api/admin/menus [${body.id}]`,
+              detail: 'menu_update_cas_conflict',
+              success: false,
+            });
+            return casConflictResponse(currentMenuFull ?? null, cas.currentUpdatedAt);
+          }
         }
 
         const result = await client.updateMenu(body.id, {

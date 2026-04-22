@@ -18,6 +18,7 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { normalizeFileReferenceField } from '~/lib/image-resolver';
+import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const METAOBJECT_TYPE = 'astromeda_article_content';
@@ -58,6 +59,8 @@ const ContentActionSchema = z.discriminatedUnion('action', [
     featured_image: safeString(2048).optional(),
     published_at: safeString(50).optional(),
     is_published: z.boolean().optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),
@@ -81,6 +84,8 @@ const ContentActionSchema = z.discriminatedUnion('action', [
 interface ContentItem {
   id: string;
   handle: string;
+  // patch 0115: P2-5 楽観的ロック CAS の比較対象（agent_draft は空文字）
+  updatedAt: string;
   title: string;
   slug: string;
   body_html: string;
@@ -114,7 +119,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const client = getAdminClient();
 
     const metaobjects = await client.getMetaobjects(METAOBJECT_TYPE, 100).catch(
-      () => [] as Array<{ id: string; handle: string; fields: Array<{ key: string; value: string }> }>,
+      () => [] as Array<{ id: string; handle: string; updatedAt: string; fields: Array<{ key: string; value: string }> }>,
     );
 
     const contents: ContentItem[] = metaobjects.map((mo) => {
@@ -122,6 +127,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: mo.id,
         handle: mo.handle,
+        updatedAt: mo.updatedAt,
         title: f['title'] || '(無題)',
         slug: f['slug'] || '',
         body_html: f['body_html'] || '',
@@ -148,6 +154,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
           contents.push({
             id: draftId,
             handle: draftId,
+            updatedAt: '',
             title: String(output.title || '(無題)'),
             slug: String(output.slug || draftId),
             body_html: String(output.body || ''),
@@ -245,6 +252,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (v.expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(v.metaobjectId);
+          const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({ action: 'content_edit', role, resource: `metaobject/${v.metaobjectId}`, detail: 'content_update_cas_conflict', success: false });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         const fields: Array<{ key: string; value: string }> = [];
         if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
         if (v.slug !== undefined) fields.push({ key: 'slug', value: v.slug });

@@ -20,6 +20,7 @@ import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { validateAndSanitizeFields, validateHandle } from '~/lib/cms-field-validator';
 import { normalizeFileReferenceFieldsByType } from '~/lib/image-resolver';
+import { validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 // 管理可能な Metaobject タイプ一覧
 const ALLOWED_TYPES = [
@@ -254,6 +255,11 @@ export async function action({ request, context }: Route.ActionArgs) {
         const clearFields = Array.isArray(payload.clearFields)
           ? (payload.clearFields as string[]).filter((k) => typeof k === 'string')
           : undefined;
+        // patch 0115 (P2-5, 全保存パターン監査 2026-04-22):
+        // 楽観的ロック (CAS) — expectedUpdatedAt 送信時のみ発火。送信任意・後方互換。
+        const expectedUpdatedAt = typeof payload.expectedUpdatedAt === 'string'
+          ? (payload.expectedUpdatedAt as string)
+          : undefined;
 
         if (!id || !fields || !Array.isArray(fields)) {
           return data(
@@ -268,6 +274,22 @@ export async function action({ request, context }: Route.ActionArgs) {
             { success: false, error: 'IDの形式が正しくありません（保存データのIDではありません）' },
             { status: 400 },
           );
+        }
+
+        // patch 0115: P2-5 楽観的ロック CAS — 別ユーザーの上書きを 409 で防ぐ
+        if (expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(id);
+          const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({
+              action: 'content_update',
+              role: authResult.role,
+              resource: `cms/${type}/${id}`,
+              detail: 'content_update_cas_conflict',
+              success: false,
+            });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
         }
 
         // S3: フィールドバリデーション＆サニタイズ

@@ -22,6 +22,7 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { isPulldownComponent } from '~/lib/pulldown-classifier';
+import { validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 // ── 設定定数 ──
 const PRODUCT_LIST_DEFAULT_LIMIT = 20;
@@ -460,6 +461,25 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        // 別ユーザーが同じ商品を編集中なら 409 Conflict + 最新値を返す。送信任意・後方互換。
+        const expectedUpdatedAt = (validated as { expectedUpdatedAt?: string }).expectedUpdatedAt;
+        if (expectedUpdatedAt) {
+          const current = await client.getProductDetail(validated.productId);
+          const cas = validateExpectedUpdatedAt(current, expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({
+              action: 'product_update',
+              role,
+              resource: `product/${validated.productId}`,
+              detail: 'product_update_cas_conflict',
+              success: false,
+            });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         // patch 0111 (P0-1, 全保存パターン監査 2026-04-22):
         // tags は productUpdate に渡さない (Shopify 仕様で全置換になり patch 0110 の手動 pulldown が消える)。
         // tagsAdd / tagsRemove で差分送信 (Shopify tagsAdd / tagsRemove mutation は冪等で他タグを保持)。

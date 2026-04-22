@@ -19,6 +19,7 @@ import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
 import { normalizeFileReferenceField } from '~/lib/image-resolver';
+import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 const METAOBJECT_TYPE = 'astromeda_about_section';
 
@@ -55,6 +56,8 @@ const AboutSectionActionSchema = z.discriminatedUnion('action', [
     linkUrl: safeString(2048).optional(),
     linkLabel: safeString(100).optional(),
     isActive: z.boolean().optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),
@@ -93,6 +96,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: mo.id,
         handle: mo.handle,
+        // patch 0115: P2-5 楽観的ロック CAS の比較対象（client は edit modal load 時に保持）
+        updatedAt: mo.updatedAt,
         title: f['title'] || '',
         bodyHtml: f['body_html'] || '',
         image: f['image'] || null,
@@ -172,6 +177,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (v.expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(v.metaobjectId);
+          const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'about_section_update_cas_conflict', success: false });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         const fields: Array<{ key: string; value: string }> = [];
         if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
         if (v.bodyHtml !== undefined) fields.push({ key: 'body_html', value: v.bodyHtml });

@@ -12,6 +12,7 @@
  */
 
 import { z } from 'zod';
+import { expectedUpdatedAtField } from './expected-updated-at';
 
 // ═══ 共通パーツ ═══
 
@@ -266,6 +267,8 @@ export const ProductActionSchema = z.discriminatedUnion('action', [
     // 旧 product.tags フィールドは廃止。クライアントは initial vs current を diff してこれに詰める。
     tagsAdd: ProductTagDiffArray,
     tagsRemove: ProductTagDiffArray,
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),

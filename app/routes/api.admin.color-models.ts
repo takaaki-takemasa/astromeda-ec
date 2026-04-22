@@ -17,6 +17,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const METAOBJECT_TYPE = 'astromeda_pc_color';
@@ -50,6 +51,10 @@ const ColorModelActionSchema = z.discriminatedUnion('action', [
     colorCode: hexColor.optional(),
     sortOrder: z.number().int().min(0).max(999).optional(),
     isActive: z.boolean().optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — クライアントが initial GET 時の updatedAt を送ると、
+    // mutation 直前に最新値と比較して別ユーザーの上書きを検出する。
+    // 未送信なら CAS スキップ（後方互換）。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),
@@ -93,6 +98,9 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: mo.id,
         handle: mo.handle,
+        // patch 0115: P2-5 楽観的ロック CAS の比較対象。client は edit modal load 時にこれを保持し
+        // 保存時に expectedUpdatedAt として送る。サーバ側で最新値と比較し不一致なら 409 を返す。
+        updatedAt: mo.updatedAt,
         name: f['name'] || '',
         slug: f['slug'] || '',
         image: f['image_url'] || f['image'] || null,
@@ -174,6 +182,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (v.expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(v.metaobjectId);
+          const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'color_model_update_cas_conflict', success: false });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         const fields: Array<{ key: string; value: string }> = [];
         if (v.name !== undefined) fields.push({ key: 'name', value: v.name });
         if (v.slug !== undefined) fields.push({ key: 'slug', value: v.slug });

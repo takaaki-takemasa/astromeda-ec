@@ -18,6 +18,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 // ── Metaobject 型名（metaobject-setup.ts と整合） ──
 const METAOBJECT_TYPE = 'astromeda_campaign';
@@ -53,6 +54,8 @@ const CampaignActionSchema = z.discriminatedUnion('action', [
     endAt: safeString(50).optional(),
     targetTags: safeString(500).optional(),
     status: z.enum(['active', 'planned', 'completed']).optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),
@@ -112,7 +115,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     const statusFilter = url.searchParams.get('status') || 'all';
 
     const metaobjects = await client.getMetaobjects(METAOBJECT_TYPE, 100).catch(
-      () => [] as Array<{ id: string; handle: string; fields: Array<{ key: string; value: string }> }>,
+      () => [] as Array<{ id: string; handle: string; updatedAt: string; fields: Array<{ key: string; value: string }> }>,
     );
 
     let campaigns = metaobjects.map((mo) => {
@@ -120,6 +123,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: mo.id,
         handle: mo.handle,
+        // patch 0115: P2-5 楽観的ロック CAS の比較対象（client は edit modal load 時に保持）
+        updatedAt: mo.updatedAt,
         title: f['title'] || '',
         description: f['description'] || '',
         discountCode: f['discount_code'] || '',
@@ -242,6 +247,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (v.expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(v.metaobjectId);
+          const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({ action: 'campaign_update', role, resource: `metaobject/${v.metaobjectId}`, detail: 'campaign_update_cas_conflict', success: false });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         const fields: Array<{ key: string; value: string }> = [];
         if (v.title !== undefined) fields.push({ key: 'title', value: v.title });
         if (v.description !== undefined) fields.push({ key: 'description', value: v.description });

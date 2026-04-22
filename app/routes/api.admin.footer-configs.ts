@@ -17,6 +17,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { expectedUpdatedAtField, validateExpectedUpdatedAt, casConflictResponse } from '~/lib/expected-updated-at';
 
 const METAOBJECT_TYPE = 'astromeda_footer_config';
 
@@ -47,6 +48,8 @@ const FooterConfigActionSchema = z.discriminatedUnion('action', [
     links: z.array(linkItem).min(1).max(30).optional(),
     sortOrder: z.number().int().min(0).max(999).optional(),
     isActive: z.boolean().optional(),
+    // patch 0115: P2-5 楽観的ロック (CAS) — 別ユーザーの上書きを 409 で防ぐ。送信任意・後方互換。
+    expectedUpdatedAt: expectedUpdatedAtField,
   }).strict(),
   z.object({
     action: z.literal('delete'),
@@ -100,6 +103,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return {
         id: mo.id,
         handle: mo.handle,
+        // patch 0115: P2-5 楽観的ロック CAS の比較対象（client は edit modal load 時に保持）
+        updatedAt: mo.updatedAt,
         sectionTitle: f['section_title'] || '',
         links,
         sortOrder: parseInt(f['display_order'] || '0', 10),
@@ -173,6 +178,17 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+
+        // patch 0115: P2-5 楽観的ロック CAS — expectedUpdatedAt 送信時のみ発火
+        if (v.expectedUpdatedAt) {
+          const current = await client.getMetaobjectById(v.metaobjectId);
+          const cas = validateExpectedUpdatedAt(current, v.expectedUpdatedAt);
+          if (!cas.ok) {
+            auditLog({ action: 'settings_change', role, resource: `metaobject/${v.metaobjectId}`, detail: 'footer_config_update_cas_conflict', success: false });
+            return casConflictResponse(current, cas.currentUpdatedAt);
+          }
+        }
+
         const fields: Array<{ key: string; value: string }> = [];
         if (v.sectionTitle !== undefined) fields.push({ key: 'section_title', value: v.sectionTitle });
         if (v.links !== undefined) fields.push({ key: 'links_json', value: JSON.stringify(v.links) });

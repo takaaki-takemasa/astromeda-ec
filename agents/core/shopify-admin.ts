@@ -301,6 +301,8 @@ export interface ShopifyMenuSummary {
   itemsCount: number;
   /** Shopify の既定 (main-menu / footer) かどうか (削除不可) */
   isDefault: boolean;
+  /** patch 0115 (P2-5): 楽観的ロック CAS 用の更新時刻 (ISO8601) */
+  updatedAt?: string;
 }
 
 /** メニュー項目（再帰的ツリー） */
@@ -2043,14 +2045,18 @@ export class ShopifyAdminClient {
 
   /**
    * メタオブジェクトを一覧取得（指定typeの全件）
+   *
+   * patch 0115: updatedAt を取得対象に追加（楽観的ロック CAS で使用）。
+   * GET /api/admin/* がレスポンスに updatedAt を含められるようにするため。
    */
-  async getMetaobjects(type: string, first = 50): Promise<Array<{id: string; handle: string; fields: MetaobjectField[]}>> {
+  async getMetaobjects(type: string, first = 50): Promise<Array<{id: string; handle: string; updatedAt: string; fields: MetaobjectField[]}>> {
     const gql = `
       query getMetaobjects($type: String!, $first: Int!) {
         metaobjects(type: $type, first: $first) {
           nodes {
             id
             handle
+            updatedAt
             fields { key value }
           }
         }
@@ -2060,7 +2066,7 @@ export class ShopifyAdminClient {
     try {
       const res = await this.query<{
         metaobjects: {
-          nodes: Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>;
+          nodes: Array<{id: string; handle: string; updatedAt: string; fields: Array<{key: string; value: string}>}>;
         };
       }>(gql, {type, first});
 
@@ -2068,6 +2074,36 @@ export class ShopifyAdminClient {
     } catch (err) {
       this.notifyError('getMetaobjects', err);
       return [];
+    }
+  }
+
+  /**
+   * メタオブジェクトを ID 単体取得（CAS 用）— patch 0115 (P2-5)
+   *
+   * 楽観的ロックのために mutation 直前に最新 updatedAt を取得する。
+   * 削除済み (null 返却) の場合も CAS 衝突として扱える。
+   */
+  async getMetaobjectById(id: string): Promise<{id: string; handle: string; updatedAt: string; fields: MetaobjectField[]} | null> {
+    const gql = `
+      query getMetaobjectById($id: ID!) {
+        metaobject(id: $id) {
+          id
+          handle
+          updatedAt
+          fields { key value }
+        }
+      }
+    `;
+
+    try {
+      const res = await this.query<{
+        metaobject: {id: string; handle: string; updatedAt: string; fields: Array<{key: string; value: string}>} | null;
+      }>(gql, {id});
+
+      return res.metaobject || null;
+    } catch (err) {
+      this.notifyError('getMetaobjectById', err);
+      return null;
     }
   }
 
@@ -2443,6 +2479,7 @@ export class ShopifyAdminClient {
     vendor: string;
     tags: string[];
     publishedAt: string | null;
+    updatedAt: string;
     variants: Array<{
       id: string;
       title: string;
@@ -2468,6 +2505,7 @@ export class ShopifyAdminClient {
           vendor
           tags
           publishedAt
+          updatedAt
           variants(first: 100) {
             edges {
               node {
@@ -2510,6 +2548,7 @@ export class ShopifyAdminClient {
           vendor: string;
           tags: string[];
           publishedAt: string | null;
+          updatedAt: string;
           variants: {
             edges: Array<{
               node: {
@@ -2549,6 +2588,7 @@ export class ShopifyAdminClient {
         vendor: p.vendor || '',
         tags: p.tags || [],
         publishedAt: p.publishedAt,
+        updatedAt: p.updatedAt || '',
         variants: p.variants.edges.map((e) => ({
           id: e.node.id,
           title: e.node.title,
@@ -3102,6 +3142,7 @@ export class ShopifyAdminClient {
               title
               itemsCount { count precision }
               isDefault
+              updatedAt
             }
           }
           pageInfo { hasNextPage hasPreviousPage endCursor }
@@ -3120,6 +3161,7 @@ export class ShopifyAdminClient {
               title: string;
               itemsCount: {count: number; precision: string} | number | null;
               isDefault: boolean;
+              updatedAt?: string;
             };
           }>;
           pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
@@ -3140,6 +3182,7 @@ export class ShopifyAdminClient {
           title: e.node.title,
           itemsCount: count,
           isDefault: e.node.isDefault,
+          updatedAt: e.node.updatedAt,
         };
       });
 
@@ -3173,6 +3216,7 @@ export class ShopifyAdminClient {
           title
           itemsCount { count precision }
           isDefault
+          updatedAt
           items {
             ${itemFragment}
             items {
@@ -3194,6 +3238,7 @@ export class ShopifyAdminClient {
           title: string;
           itemsCount: {count: number; precision: string} | number | null;
           isDefault: boolean;
+          updatedAt?: string;
           items: ShopifyMenuItemRaw[];
         } | null;
       }>(gql, {id});
@@ -3218,6 +3263,7 @@ export class ShopifyAdminClient {
         title: res.menu.title,
         itemsCount: count,
         isDefault: res.menu.isDefault,
+        updatedAt: res.menu.updatedAt,
         items,
       };
     } catch (err) {

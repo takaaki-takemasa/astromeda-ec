@@ -75,6 +75,9 @@ const UpdateSchema = z
     id: GidUrlRedirect,
     path: PathSchema,
     target: TargetSchema,
+    // patch 0115 (P2-5) note: Shopify UrlRedirect は updatedAt を露出しないため、
+    // 楽観的ロック CAS は対象外。フィールドが path/target の 2 個のみで上書きしても
+    // ユーザーが直接観察可能なため、last-write-wins を許容する。
   })
   .strict();
 
