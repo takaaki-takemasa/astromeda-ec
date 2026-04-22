@@ -131,11 +131,21 @@ export default function AdminProductDetail() {
     csv.split(',').map((t) => t.trim()).filter(Boolean),
   []);
   const currentTags = useMemo(() => parseCsvTags(basic.tagsCsv), [basic.tagsCsv, parseCsvTags]);
-  const pulldownMode: PulldownMode = useMemo(() => {
+  /**
+   * patch 0110 follow-up: pulldownMode は「UI 状態」として local state で持つ。
+   * - tags から「派生」させると、手動モードでチェックを 0 にした瞬間に
+   *   pulldown:* タグが消えて pulldownMode が 'auto' に bounce してしまい、
+   *   ユーザーは手動モードのチェックボックス UI に到達できない。
+   * - 初回マウント時のみ tags から推定し、以後は segmented control の
+   *   onClick で setPulldownMode + writePulldownTags を独立に呼ぶ。
+   */
+  const initialPulldownMode: PulldownMode = useMemo(() => {
     if (hasPulldownNoneTag(currentTags)) return 'none';
     if (extractPulldownNamesFromTags(currentTags).length > 0) return 'manual';
     return 'auto';
-  }, [currentTags]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const [pulldownMode, setPulldownMode] = useState<PulldownMode>(initialPulldownMode);
   const selectedPulldownNames = useMemo(
     () => new Set(extractPulldownNamesFromTags(currentTags)),
     [currentTags],
@@ -707,7 +717,10 @@ export default function AdminProductDetail() {
                         role="radio"
                         aria-checked={active}
                         title={opt.hint}
-                        onClick={() => writePulldownTags(opt.key)}
+                        onClick={() => {
+                          setPulldownMode(opt.key);
+                          writePulldownTags(opt.key);
+                        }}
                         style={{
                           padding: '6px 14px',
                           fontSize: 12,
