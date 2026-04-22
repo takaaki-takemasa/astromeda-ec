@@ -276,23 +276,41 @@ function sanitizeMultiLine(value: string): string {
  * @param type Metaobject タイプ名（例: 'astromeda_ip_banner'）
  * @param fields POST されたフィールド配列
  * @param action 'create' | 'update' — create 時は required チェックを厳格化
+ * @param clearFields update 時に「明示的に空にする」フィールドキーの配列。
+ *                   patch 0112 (P0-2): update 時に空文字を渡しても黙ってクリアしないよう、
+ *                   クリア意図はこの配列で明示する必要がある。空文字 + clearFields 未指定 → 該当フィールドは
+ *                   sanitizedFields に含めず、Shopify 側の値を preserve する。
+ *                   セントネル値 '__CLEAR__' を rawValue に入れても明示クリアとして扱う。
  * @returns バリデーション結果（sanitizedFields にサニタイズ済みフィールドを格納）
  */
 export function validateAndSanitizeFields(
   type: string,
   fields: Array<{ key: string; value: string }>,
   action: 'create' | 'update' = 'create',
+  clearFields?: string[],
 ): ValidationResult {
   const schema = FIELD_SCHEMAS[type];
   const errors: ValidationError[] = [];
   const sanitizedFields: Array<{ key: string; value: string }> = [];
+  const clearSet = new Set(clearFields ?? []);
 
   // スキーマが未定義のタイプ → フィールドは通すがサニタイズだけ実施
   if (!schema) {
     for (const field of fields) {
+      const rawValue = String(field.value ?? '');
+      // patch 0112: スキーマレス時も update + 空値 + 明示クリアなし → skip
+      // (rawValue が空/null/undefined 文字列の時点で '__CLEAR__' とは別物なので clearSet チェックのみで充分)
+      if (
+        action === 'update' &&
+        (rawValue === '' || rawValue === 'null' || rawValue === 'undefined') &&
+        !clearSet.has(field.key)
+      ) {
+        continue;
+      }
+      const isExplicitClear = rawValue === '__CLEAR__' || clearSet.has(field.key);
       sanitizedFields.push({
         key: field.key,
-        value: sanitizeSingleLine(String(field.value ?? '')),
+        value: isExplicitClear ? '' : sanitizeSingleLine(rawValue),
       });
     }
     return { valid: true, errors: [], sanitizedFields };
@@ -319,8 +337,27 @@ export function validateAndSanitizeFields(
       continue;
     }
 
-    // 空値は許可（required チェックは上で済み）
-    if (rawValue === '' || rawValue === 'null' || rawValue === 'undefined') {
+    // patch 0112 (P0-2, 全保存パターン監査 2026-04-22):
+    // update 時に空値を渡しても、明示クリア指定がない限り「未送信」として扱い preserve する。
+    // 旧実装: 空値 → sanitizedFields に '' を push → metaobjectUpdate 経由で field を実際にクリア
+    //         (例: IPバナーで「タイトルだけ修正」したら image_url が空欄保存で画像消失)
+    // 新実装: action='update' で rawValue===''/null/undefined かつ clearFields にも __CLEAR__ にも含まれない
+    //         → 配列に push しない → Shopify 側で field 値が preserve される (metaobjectUpdate は partial-safe)
+    const isEmpty = rawValue === '' || rawValue === 'null' || rawValue === 'undefined';
+    const isExplicitClear = rawValue === '__CLEAR__' || clearSet.has(field.key);
+
+    if (isEmpty && !isExplicitClear) {
+      if (action === 'update') {
+        // 空値 + 明示クリアなし → 触らない (preserve)
+        continue;
+      }
+      // create の場合は既存挙動: required は上で弾き済み・任意フィールドの空文字は push して空フィールド作成
+      sanitizedFields.push({ key: field.key, value: '' });
+      continue;
+    }
+
+    if (isExplicitClear) {
+      // 明示クリア: rawValue が '__CLEAR__' でも clearFields 指定でも、空文字を push してフィールドをクリア
       sanitizedFields.push({ key: field.key, value: '' });
       continue;
     }

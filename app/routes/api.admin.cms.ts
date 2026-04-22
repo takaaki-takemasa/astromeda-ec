@@ -248,6 +248,13 @@ export async function action({ request, context }: Route.ActionArgs) {
       case 'update': {
         const id = String(payload.id || '');
         const fields = payload.fields as Array<{ key: string; value: string }>;
+        // patch 0112 (P0-2, 全保存パターン監査 2026-04-22):
+        // 空文字フィールドは update 時に「未送信」扱い (preserve)。明示クリアは clearFields に
+        // フィールドキーを列挙するか、value に '__CLEAR__' を入れて指示する。
+        const clearFields = Array.isArray(payload.clearFields)
+          ? (payload.clearFields as string[]).filter((k) => typeof k === 'string')
+          : undefined;
+
         if (!id || !fields || !Array.isArray(fields)) {
           return data(
             { success: false, error: 'id and fields[] are required for update' },
@@ -264,7 +271,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         }
 
         // S3: フィールドバリデーション＆サニタイズ
-        const validation = validateAndSanitizeFields(type, fields, 'update');
+        // patch 0112: clearFields を 4 番目に渡す (空文字 preserve / 明示クリア対応)
+        const validation = validateAndSanitizeFields(type, fields, 'update', clearFields);
         if (!validation.valid) {
           return data(
             {
