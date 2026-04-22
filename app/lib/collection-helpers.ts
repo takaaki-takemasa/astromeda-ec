@@ -549,6 +549,7 @@ const PRODUCT_ITEM_FRAGMENT = `#graphql
     handle
     title
     tags
+    productType
     featuredImage { id altText url width height }
     priceRange { minVariantPrice { amount currencyCode } }
     variants(first: 1) { nodes { availableForSale selectedOptions { name value } } }

@@ -21,6 +21,7 @@ import {
   PC_PATTERN,
   PC_GAMING_PATTERN,
 } from '~/lib/collection-helpers';
+import {isPulldownComponent} from '~/lib/pulldown-classifier';
 import {AstroProductItem, type CollectionProduct} from '~/components/collection/AstroProductItem';
 
 export const meta: Route.MetaFunction = ({data}) => {
@@ -125,14 +126,24 @@ export default function Collection() {
   // 内部パーツ・仮登録商品を除外 + ガジェット・グッズコレクションではPC本体を除外
   // + IPコレクションでは別IPの商品を除外（Storefront API公開設定の差異対策）
   const baseProducts = useMemo(() => {
-    // まず全コレクション共通：OPTIONパーツと価格0円商品を除外
+    // patch 0103: canonical isPulldownComponent ヘルパーで「プルダウン項目」を最優先除外。
+    // CEO 指示「プルダウン項目を製品 UI に出さない」への対応。
+    // PARTS_KW regex は title ベースの旧来補助フィルタとして残置（pulldown 以外の OPTION 行）
     const PARTS_KW = /Wireless LAN|Wi-Fi|Bluetooth|SSD|HDD|NVMe|DDR[45]|^RAM |^CPU |^GPU |OPTION|PCIe|M\.2|USB Hub|Fan |Power Supply|PSU|Cooler|AIO/i;
     const cleaned = annotated.filter((p) => {
       const t: string = p.title;
+      // patch 0103: canonical プルダウン項目除外 (tag/heuristic 統合判定)
+      if (isPulldownComponent({title: t, tags: p.tags ?? [], productType: (p as {productType?: string}).productType})) return false;
       if (/【OPTION\s*\d*\s*】/.test(t) || t.includes('【OPTION')) return false;
       const minPrice = parseFloat(p.priceRange?.minVariantPrice?.amount ?? '0');
       if (minPrice === 0) return false;
       if (PARTS_KW.test(t)) return false;
+      // patch 0103: 在庫切れ商品も storefront から除外 (CEO 指示「在庫停止商品は含めない」)
+      // Storefront API は variants(first:1) で availableForSale を返すのでそれをチェック
+      const variantNodes = (p as {variants?: {nodes?: Array<{availableForSale?: boolean}>}}).variants?.nodes;
+      if (variantNodes && variantNodes.length > 0 && variantNodes.every((v) => v.availableForSale === false)) {
+        return false;
+      }
       return true;
     });
 
@@ -580,11 +591,16 @@ export default function Collection() {
             {({node: product, index}: {node: CollectionProduct; index: number}) => {
               // 内部パーツ・仮登録商品を非表示
               const title: string = product.title ?? '';
+              // patch 0103: canonical プルダウン項目除外 (tag/heuristic 統合判定)
+              if (isPulldownComponent({title, tags: product.tags ?? [], productType: (product as {productType?: string}).productType})) return null;
               if (/【OPTION\s*\d*\s*】/.test(title) || title.includes('【OPTION')) return null;
               const minPrice = parseFloat(product.priceRange?.minVariantPrice?.amount ?? '0');
               if (minPrice === 0) return null;
               const PARTS_KW_INLINE = /Wireless LAN|Wi-Fi|Bluetooth|SSD|HDD|NVMe|DDR[45]|^RAM |^CPU |^GPU |OPTION|PCIe|M\.2|USB Hub|Fan |Power Supply|PSU|Cooler|AIO/i;
               if (PARTS_KW_INLINE.test(title)) return null;
+              // patch 0103: 在庫切れ商品も storefront grid から除外
+              const variantNodes = (product as {variants?: {nodes?: Array<{availableForSale?: boolean}>}}).variants?.nodes;
+              if (variantNodes && variantNodes.length > 0 && variantNodes.every((v) => v.availableForSale === false)) return null;
               // IPコレクション: 別IPの商品が混入していたら非表示
               if (expectedIP) {
                 const detectedIP = detectIP(title, product.tags ?? []);

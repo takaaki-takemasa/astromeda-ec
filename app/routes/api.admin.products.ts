@@ -21,6 +21,7 @@ import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
 import { verifyCsrfForAdmin } from '~/lib/csrf-middleware';
+import { isPulldownComponent } from '~/lib/pulldown-classifier';
 
 // ── 設定定数 ──
 const PRODUCT_LIST_DEFAULT_LIMIT = 20;
@@ -218,32 +219,17 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       cursor: c,
     }));
 
-    // patch 0100 + 0102: プルダウン部品 (旧 Globo 由来) をクライアントに出さない。
+    // patch 0103: pulldown-classifier.ts に canonical 化。
+    // 旧 patch 0100/0102 のヒューリスティクス (tags=[] / globo-product-options / 延長保証)
+    // に加えて 'pulldown-component' canonical タグも検出。
     // 「部品を含める」トグルが ON のときだけ全件返す。OFF のときは limit 件にトリムする。
-    // patch 0102: ACTIVE 商品 1,393件の 3軸監査で、以下 3 パターンの「部品」が混入していた：
-    //   (a) tags=[] && productType=''         … 212件 (旧 Globo 依存の純粋部品 — patch 0100 で検出済み)
-    //   (b) tags に 'globo-product-options'    … 282件 (延長保証/メモリ/CPU/マザボ選択肢など Globo option 系)
-    //   (c) title に '延長保証' を含む          … 77件 (カート line_item_property 用の warranty 部品)
-    // (b)(c) は商品として独立販売しないため admin 一覧でも隠す。合計で ~571 件が既定非表示。
-    const isComponentProduct = (p: (typeof products)[number]) => {
-      const tags = p.tags ?? [];
-      const productType = (p.productType ?? '').trim();
-      const title = p.title ?? '';
-      // (a) 旧 Globo 純粋部品: tags 空 + productType 空
-      if (tags.length === 0 && productType === '') return true;
-      // (b) Globo option タグ持ち部品
-      if (tags.includes('globo-product-options')) return true;
-      // (c) 延長保証 line_item_property
-      if (title.includes('延長保証')) return true;
-      return false;
-    };
     const filteredProducts = showComponents
       ? products
-      : products.filter((p) => !isComponentProduct(p));
+      : products.filter((p) => !isPulldownComponent(p));
     const visibleProducts = filteredProducts.slice(0, limit);
     const hiddenComponentCount = showComponents
       ? 0
-      : products.filter((p) => isComponentProduct(p)).length;
+      : products.filter((p) => isPulldownComponent(p)).length;
 
     // patch 0094: Shopify 実総件数 (フィルタ適用後の件数)。Dashboard 50+ 頭打ち解消。
     const totalProducts = result.productsCount?.count ?? null;

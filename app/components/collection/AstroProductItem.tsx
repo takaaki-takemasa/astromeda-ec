@@ -14,6 +14,7 @@ export type CollectionProduct = {
   handle: string;
   title: string;
   tags?: string[];
+  productType?: string; // patch 0103: プルダウン項目判定に必要
   featuredImage?: {id: string; altText?: string; url: string; width?: number; height?: number};
   priceRange?: {minVariantPrice?: {amount?: string; currencyCode?: string}};
   variants?: {nodes?: Array<{availableForSale: boolean; selectedOptions?: Array<{name: string; value: string}>}>};
