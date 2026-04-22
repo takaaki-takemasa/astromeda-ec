@@ -737,6 +737,8 @@ export default function AdminDashboard() {
               revenue30d={revenue30d}
               revenue365d={revenue365d}
               pendingApprovals={pendingApprovals}
+              // patch 0122 follow-up: 「今日やることTop3」CTA から関連タブへ遷移
+              onNavigate={(s) => handleTabChange(s as SubTab)}
             />
           )}
           {subTab === 'content' && (
