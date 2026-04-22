@@ -26,6 +26,8 @@ import { AdminHome } from '~/components/admin/tabs';
 const AdminContent = lazy(() => import('~/components/admin/tabs/AdminContent'));
 const AdminMarketing = lazy(() => import('~/components/admin/tabs/AdminMarketing'));
 const AdminAnalytics = lazy(() => import('~/components/admin/tabs/AdminAnalytics'));
+// patch 0123 Phase A: お客様の動きを見る（クリックヒートマップ MVP）
+const AdminUxr = lazy(() => import('~/components/admin/tabs/AdminUxr'));
 const AdminAgents = lazy(() => import('~/components/admin/tabs/AdminAgents'));
 const AdminPipelines = lazy(() => import('~/components/admin/tabs/AdminPipelines'));
 const AdminControl = lazy(() => import('~/components/admin/tabs/AdminControl'));
@@ -276,7 +278,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'agents' | 'pipelines' | 'control' | 'update';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -299,7 +301,8 @@ const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; def
   },
   navmarketing: {
     label: '🧭 ナビ・マーケ・分析',
-    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'metaobjectDefs'],
+    // patch 0123 Phase A: 分析の隣に「お客様の動き（uxr）」を配置
+    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'uxr', 'metaobjectDefs'],
     default: 'marketing',
   },
 };
@@ -326,7 +329,8 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0069: commerce に discounts タブを追加（marketing の手前に置く）
   // patch 0070: menus タブ追加（redirects の直後、ナビゲーション系をまとめる）
   // patch 0071 R0-2: commerce 全タブ（deep link 逆引き用）。実 UI 描画は COMMERCE_GROUPS 側で行う
-  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics'], default: 'products' },
+  // patch 0123 Phase A: uxr (お客様の動きを見る) を analytics の隣に追加
+  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics', 'uxr'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -356,6 +360,8 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   siteConfig: '⚙️ お店の基本情報',
   marketing: '📣 キャンペーン効果を見る',
   analytics: '📈 詳しいデータ分析（上級者）',
+  // patch 0123 Phase A: お客様クリックヒートマップ MVP
+  uxr: '🎬 お客様の動きを見る（ヒートマップ）',
   agents: '🤖 AI スタッフが今やっている事',
   pipelines: '⚡ 自動化（上級者）',
   control: '🚨 困ったときの緊急停止',
@@ -819,6 +825,12 @@ export default function AdminDashboard() {
           {subTab === 'analytics' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminAnalytics />
+            </Suspense>
+          )}
+          {/* patch 0123 Phase A: お客様の動きを見る（クリックヒートマップ MVP） */}
+          {subTab === 'uxr' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminUxr />
             </Suspense>
           )}
           {subTab === 'agents' && (

@@ -582,6 +582,170 @@ fbq('track','PageView');`,
             `,
           }}
         />
+        {/*
+          patch 0123 Phase A: お客様の動きトラッカー（クリックヒートマップ MVP）
+          - storefront 専用（/admin, /api, /cdn は client 側で skip）
+          - sendBeacon で軽量送信、5秒ごと flush + beforeunload で flush
+          - DNT 尊重、x/y は viewport 比 0-1 で送る
+        */}
+        <script
+          nonce={nonce}
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function(){
+                try{
+                  if(typeof window==='undefined')return;
+                  var p=location.pathname||'/';
+                  // admin / api / cdn は計測しない（管理画面と内部経路）
+                  if(p.indexOf('/admin')===0||p.indexOf('/api/')===0||p.indexOf('/cdn/')===0)return;
+                  // DNT を尊重
+                  if(navigator.doNotTrack==='1'||window.doNotTrack==='1')return;
+                  var SID_KEY='_uxr_sid';
+                  var sid=null;
+                  try{sid=sessionStorage.getItem(SID_KEY);}catch(e){}
+                  if(!sid){
+                    sid=Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+                    try{sessionStorage.setItem(SID_KEY,sid);}catch(e){}
+                  }
+                  var queue=[];
+                  var maxScroll=0;
+                  var clickStamps=[]; // for rage detection
+                  var endpoint='/api/uxr';
+                  var flushing=false;
+
+                  function vw(){return window.innerWidth||document.documentElement.clientWidth||0;}
+                  function vh(){return window.innerHeight||document.documentElement.clientHeight||0;}
+
+                  function selOf(t){
+                    if(!t||t.nodeType!==1)return '';
+                    try{
+                      var s=t.tagName?t.tagName.toLowerCase():'';
+                      if(t.id)s+='#'+String(t.id).slice(0,30);
+                      else if(t.className&&typeof t.className==='string'){
+                        var cls=t.className.trim().split(/\\s+/).slice(0,2).join('.');
+                        if(cls)s+='.'+cls;
+                      }
+                      // role / data-action があれば加味
+                      var r=t.getAttribute&&t.getAttribute('role');
+                      if(r)s+='[role='+r+']';
+                      return s.slice(0,80);
+                    }catch(e){return '';}
+                  }
+                  function txtOf(t){
+                    try{
+                      var s=(t.innerText||t.textContent||'').trim();
+                      return s.slice(0,40);
+                    }catch(e){return '';}
+                  }
+
+                  function pushEvent(ev){
+                    queue.push(ev);
+                    if(queue.length>=80) flush();
+                  }
+
+                  function buildBatch(){
+                    return JSON.stringify({
+                      sid: sid,
+                      path: p,
+                      ua: (navigator.userAgent||'').slice(0,80),
+                      events: queue.splice(0,queue.length)
+                    });
+                  }
+
+                  function flush(){
+                    if(flushing||queue.length===0)return;
+                    flushing=true;
+                    try{
+                      var body=buildBatch();
+                      // 50KB 上限を意識
+                      if(body.length>49000){
+                        // overflow分は破棄（次サイクルへ持ち越さない）
+                      }
+                      var sent=false;
+                      if(navigator.sendBeacon){
+                        try{
+                          var blob=new Blob([body],{type:'text/plain;charset=utf-8'});
+                          sent=navigator.sendBeacon(endpoint,blob);
+                        }catch(e){sent=false;}
+                      }
+                      if(!sent){
+                        try{
+                          fetch(endpoint,{method:'POST',body:body,keepalive:true,headers:{'Content-Type':'text/plain'}}).catch(function(){});
+                        }catch(e){}
+                      }
+                    }catch(e){}
+                    flushing=false;
+                  }
+
+                  // pageview
+                  pushEvent({
+                    t:'pv',
+                    ts:Date.now(),
+                    vw:vw(),
+                    vh:vh(),
+                    r:(document.referrer||'').replace(/^https?:\\/\\//,'').slice(0,80),
+                    u:(new URLSearchParams(location.search).get('utm_source')||'').slice(0,40)
+                  });
+
+                  // click
+                  document.addEventListener('click',function(ev){
+                    try{
+                      var w=vw(),h=vh();
+                      if(w<1||h<1)return;
+                      var x=Math.max(0,Math.min(1,(ev.clientX||0)/w));
+                      var y=Math.max(0,Math.min(1,(ev.clientY||0)/h));
+                      var t=ev.target;
+                      pushEvent({t:'click',ts:Date.now(),x:x,y:y,vw:w,vh:h,sel:selOf(t),txt:txtOf(t)});
+                      // rage 判定: 1.2秒以内に同領域 (50px) で 3 回以上
+                      var now=Date.now();
+                      var px=ev.clientX||0,py=ev.clientY||0;
+                      clickStamps=clickStamps.filter(function(c){return now-c.ts<1200;});
+                      clickStamps.push({ts:now,px:px,py:py});
+                      var near=clickStamps.filter(function(c){
+                        return Math.abs(c.px-px)<50&&Math.abs(c.py-py)<50;
+                      });
+                      if(near.length>=3){
+                        pushEvent({t:'rage',ts:now,x:x,y:y,c:near.length});
+                        clickStamps=[]; // reset
+                      }
+                    }catch(e){}
+                  },{capture:true,passive:true});
+
+                  // scroll depth (max %)
+                  function onScroll(){
+                    try{
+                      var doc=document.documentElement;
+                      var scrollTop=window.pageYOffset||doc.scrollTop||0;
+                      var docH=Math.max(doc.scrollHeight,doc.offsetHeight,document.body.scrollHeight,document.body.offsetHeight)||1;
+                      var winH=vh();
+                      var depth=Math.min(100,Math.round(((scrollTop+winH)/docH)*100));
+                      if(depth>maxScroll)maxScroll=depth;
+                    }catch(e){}
+                  }
+                  window.addEventListener('scroll',onScroll,{passive:true});
+
+                  // 5秒ごとに flush + scroll depth を埋める
+                  setInterval(function(){
+                    if(maxScroll>0){
+                      pushEvent({t:'scroll',ts:Date.now(),d:maxScroll});
+                    }
+                    flush();
+                  },5000);
+
+                  // 退出時の最後 flush
+                  window.addEventListener('beforeunload',function(){
+                    if(maxScroll>0)pushEvent({t:'scroll',ts:Date.now(),d:maxScroll});
+                    flush();
+                  });
+                  window.addEventListener('pagehide',function(){
+                    if(maxScroll>0)pushEvent({t:'scroll',ts:Date.now(),d:maxScroll});
+                    flush();
+                  });
+                }catch(e){/* tracker は決して画面を壊さない */}
+              })();
+            `,
+          }}
+        />
       </body>
     </html>
   );
