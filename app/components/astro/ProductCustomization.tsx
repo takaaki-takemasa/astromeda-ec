@@ -256,21 +256,84 @@ interface OptionSet {
 }
 
 /**
- * 製品タイトル／タグ・管理画面オプションから適切なオプションセットを判定。
- * 該当なし（= ガジェット/グッズ本体カラーのみ等）は null。
+ * patch 0110 (CEO P0 訂正): プルダウン項目をタグで明示指定する canonical 仕様
  *
- * 優先順位:
- *   1. キーボード → KEYBOARD_OPTIONS (固定: 配列)
- *   2. ガジェット/グッズ(キーボード以外) → null (native variantのみ)
- *   3. PC + 管理画面 customOptions → customOptions (Metaobject由来)
- *   4. PC のみ → STANDARD_OPTIONS (ハードコードフォールバック)
- *   5. その他 → null
+ * 商品編集ページから「この商品にどのプルダウンを表示するか」を直接選べるよう、
+ * 製品 tag に以下のマーカーを付ける運用に統一する：
+ *
+ *   - `pulldown:<name>`  この name のプルダウンを表示
+ *     例: `pulldown:メモリ`, `pulldown:SSD(1つ目)`, `pulldown:配列`
+ *   - `pulldown:none`    プルダウンを一切表示しない（明示的なオプトアウト）
+ *
+ * 手動指定（`pulldown:*` タグが 1 件でもある）が最優先。
+ * 何も付いていない商品だけ、従来の auto-detect (商品名キーワード) で
+ * 後方互換に判定する。
+ */
+export const PULLDOWN_TAG_PREFIX = 'pulldown:';
+export const PULLDOWN_NONE_TAG = 'pulldown:none';
+
+/**
+ * tags から `pulldown:<name>` を抜き出し name 配列に変換。
+ * `pulldown:none` 自身は除外（none 判定は別途 hasPulldownNoneTag で）。
+ */
+export function extractPulldownNamesFromTags(tags: string[]): string[] {
+  const out: string[] = [];
+  for (const t of tags) {
+    if (typeof t !== 'string') continue;
+    if (t === PULLDOWN_NONE_TAG) continue;
+    if (t.startsWith(PULLDOWN_TAG_PREFIX)) {
+      const name = t.slice(PULLDOWN_TAG_PREFIX.length).trim();
+      if (name) out.push(name);
+    }
+  }
+  return out;
+}
+
+export function hasPulldownNoneTag(tags: string[]): boolean {
+  return tags.some((t) => t === PULLDOWN_NONE_TAG);
+}
+
+/**
+ * 製品タイトル／タグ・管理画面オプションから適切なオプションセットを判定。
+ *
+ * 優先順位 (patch 0110 で「手動指定」を最優先に格上げ):
+ *   1. tag に `pulldown:none` → null（CEO が明示的に「表示しない」）
+ *   2. tag に `pulldown:<name>` が 1 件以上 → そのリストだけ表示（手動指定）
+ *   3. キーボード（商品名に「キーボード」含む）→ KEYBOARD_OPTIONS (auto-detect)
+ *   4. ガジェット/グッズ → null (auto-detect, native variant のみ)
+ *   5. PC キーワード → STANDARD_OPTIONS + customOptions マージ (auto-detect)
+ *   6. その他 → null
  */
 function pickOptionSet(
   title: string,
   tags: string[],
   customOptions: CustomizationOption[] | undefined,
 ): OptionSet | null {
+  // ── (1)(2) 手動指定 (pulldown:* tag) を最優先 ──
+  if (hasPulldownNoneTag(tags)) {
+    // CEO が「この商品にはプルダウンを出さない」と明示
+    return null;
+  }
+  const manualNames = extractPulldownNamesFromTags(tags);
+  if (manualNames.length > 0) {
+    // 全候補プールから name で絞り込み（STANDARD + KEYBOARD + 管理画面 custom）
+    const pool = mergeCustomizationOptions(
+      [...STANDARD_OPTIONS, ...KEYBOARD_OPTIONS],
+      customOptions,
+    );
+    const wanted = new Set(manualNames);
+    const picked = pool.filter((o) => wanted.has(o.name));
+    if (picked.length === 0) return null;
+    // CSS の見出しは内容で動的に決める：キーボード配列だけなら「キー配列を選択」
+    const isKeyboardOnly = picked.every((o) => KEYBOARD_OPTIONS.some((k) => k.name === o.name));
+    return {
+      heading: isKeyboardOnly ? 'OPTIONS' : 'CUSTOMIZATION',
+      subheading: isKeyboardOnly ? 'キー配列を選択' : 'パーツカスタマイズ',
+      options: picked,
+    };
+  }
+
+  // ── (3)〜(6) auto-detect（manual tag 無し商品の後方互換）──
   const combined = `${title} ${tags.join(' ')}`.toLowerCase();
 
   // キーボードは Globo の 配列 line_item_property を踏襲

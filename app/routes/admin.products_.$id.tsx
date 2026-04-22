@@ -18,6 +18,15 @@ import TagPicker from '~/components/admin/TagPicker';
 // patch 0107 (CEO P0-α): 商品説明の生 HTML 編集を、中学生でも触れる
 // WYSIWYG + プレビュー + 上級者向け HTML の 3 モード切替に置換
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
+// patch 0110 (CEO P0): プルダウン項目選択の canonical 仕様＋全候補プール
+import {
+  STANDARD_OPTIONS,
+  KEYBOARD_OPTIONS,
+  PULLDOWN_TAG_PREFIX,
+  PULLDOWN_NONE_TAG,
+  extractPulldownNamesFromTags,
+  hasPulldownNoneTag,
+} from '~/components/astro/ProductCustomization';
 
 // ── 型定義 ──
 interface ProductDetail {
@@ -113,6 +122,75 @@ export default function AdminProductDetail() {
   const [basic, setBasic] = useState<BasicInfo>(initialBasic);
   const [variants, setVariants] = useState(product.variants);
   const [images, setImages] = useState(product.images);
+
+  // ── patch 0110 (CEO P0): プルダウン項目選択 ──
+  // 製品 tag 内の `pulldown:<name>` / `pulldown:none` を見て手動指定状態を組み立てる。
+  // チェックボックス UI で更新したら basic.tagsCsv に sync して保存ボタンで Shopify 反映。
+  type PulldownMode = 'auto' | 'manual' | 'none';
+  const parseCsvTags = useCallback((csv: string): string[] =>
+    csv.split(',').map((t) => t.trim()).filter(Boolean),
+  []);
+  const currentTags = useMemo(() => parseCsvTags(basic.tagsCsv), [basic.tagsCsv, parseCsvTags]);
+  const pulldownMode: PulldownMode = useMemo(() => {
+    if (hasPulldownNoneTag(currentTags)) return 'none';
+    if (extractPulldownNamesFromTags(currentTags).length > 0) return 'manual';
+    return 'auto';
+  }, [currentTags]);
+  const selectedPulldownNames = useMemo(
+    () => new Set(extractPulldownNamesFromTags(currentTags)),
+    [currentTags],
+  );
+  /**
+   * 全プルダウン候補プール。STANDARD_OPTIONS (PC 17項目) + KEYBOARD_OPTIONS (1項目) をカテゴリ分け。
+   * 将来 Metaobject 由来 customOption が増えた場合は loader で取得して push できるよう設計。
+   */
+  const pulldownCatalog = useMemo(() => {
+    return {
+      pc: STANDARD_OPTIONS.map((o) => o.name),
+      keyboard: KEYBOARD_OPTIONS.map((o) => o.name),
+    };
+  }, []);
+  /**
+   * basic.tagsCsv の中の `pulldown:*` 系を一旦すべて取り除き、新しい構成で置き換える。
+   * mode='auto'  → pulldown:* タグを全消去
+   * mode='none'  → pulldown:none のみ
+   * mode='manual'→ 渡された names 配列ぶん pulldown:<name> を付与
+   */
+  const writePulldownTags = useCallback((mode: PulldownMode, names?: string[]) => {
+    setBasic((prev) => {
+      const tags = parseCsvTags(prev.tagsCsv).filter(
+        (t) => t !== PULLDOWN_NONE_TAG && !t.startsWith(PULLDOWN_TAG_PREFIX),
+      );
+      if (mode === 'none') {
+        tags.push(PULLDOWN_NONE_TAG);
+      } else if (mode === 'manual' && names && names.length > 0) {
+        for (const n of names) tags.push(`${PULLDOWN_TAG_PREFIX}${n}`);
+      }
+      return {...prev, tagsCsv: tags.join(', ')};
+    });
+  }, [parseCsvTags]);
+  const togglePulldownName = useCallback((name: string) => {
+    setBasic((prev) => {
+      const tags = parseCsvTags(prev.tagsCsv);
+      const noneFiltered = tags.filter((t) => t !== PULLDOWN_NONE_TAG);
+      const tagForName = `${PULLDOWN_TAG_PREFIX}${name}`;
+      const isOn = noneFiltered.includes(tagForName);
+      const next = isOn
+        ? noneFiltered.filter((t) => t !== tagForName)
+        : [...noneFiltered, tagForName];
+      return {...prev, tagsCsv: next.join(', ')};
+    });
+  }, [parseCsvTags]);
+  const setPulldownAllInCategory = useCallback((category: 'pc' | 'keyboard', enable: boolean) => {
+    setBasic((prev) => {
+      const tags = parseCsvTags(prev.tagsCsv).filter((t) => t !== PULLDOWN_NONE_TAG);
+      const targetNames = pulldownCatalog[category];
+      const targetTags = new Set(targetNames.map((n) => `${PULLDOWN_TAG_PREFIX}${n}`));
+      const stripped = tags.filter((t) => !targetTags.has(t));
+      const next = enable ? [...stripped, ...Array.from(targetTags)] : stripped;
+      return {...prev, tagsCsv: next.join(', ')};
+    });
+  }, [parseCsvTags, pulldownCatalog]);
 
   // ── Toasts ──
   type Toast = {id: number; message: string; type: 'success' | 'error'};
@@ -577,37 +655,236 @@ export default function AdminProductDetail() {
                 </div>
               </div>
 
-              {/* patch 0109 (CEO P0): プルダウン（カスタマイズ選択肢）の自動接続を中学生向けに説明。
-                  「どうすれば自分の商品にプルダウンが付くのか」が直感的にわかるようにする。 */}
+              {/* patch 0110 (CEO P0): プルダウン項目を「製品編集ページから直接プルダウン選択できる」UI。
+                  patch 0109 の「ルール説明カード」を CEO 訂正で実選択 UI に置換。
+                  - 自動 / 手動 / 表示しない の 3 モードを segmented control で切替
+                  - 手動モードでは PC 17項目 + キーボード 1項目を多段チェックボックスで個別 ON/OFF
+                  - 結果は basic.tagsCsv に `pulldown:<name>` / `pulldown:none` として書き込まれ、
+                    保存ボタンで Shopify 反映 → ProductCustomization.pickOptionSet が tag を見て描画切替 */}
               <div
-                role="note"
                 style={{
                   marginTop: 4,
-                  padding: '14px 16px',
-                  background: al(T.tx, 0.03),
-                  border: `1px solid ${al(T.tx, 0.12)}`,
+                  padding: '16px 18px',
+                  background: al(T.tx, 0.04),
+                  border: `1px solid ${al(T.tx, 0.14)}`,
                   borderLeft: `3px solid ${T.c}`,
                   borderRadius: 8,
-                  fontSize: 12,
-                  color: T.tx,
-                  lineHeight: 1.7,
                 }}
               >
-                <div style={{display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6}}>
-                  <span style={{fontSize: 18, lineHeight: 1}}>🎛️</span>
-                  <strong style={{fontSize: 13}}>この商品にプルダウン（CPU/SSD/キー配列など）を表示するには？</strong>
+                <div style={{display: 'flex', gap: 10, alignItems: 'center', marginBottom: 4}}>
+                  <span style={{fontSize: 18, lineHeight: 1}} aria-hidden="true">🎛️</span>
+                  <strong style={{fontSize: 13, color: T.tx}}>この商品に表示するプルダウン</strong>
                 </div>
-                <div style={{color: T.t4, marginLeft: 28, marginTop: 4}}>
-                  プルダウンは <strong style={{color: T.tx}}>商品名</strong> と <strong style={{color: T.tx}}>タグ</strong> から自動で判定されます。
-                  <ul style={{margin: '6px 0 8px', paddingLeft: 20}}>
-                    <li><strong>ゲーミングPC本体</strong>（商品名に「PC」「ゲーミング」「Ryzen」「RTX」などを含む）→ CPU・GPU・メモリ・SSDなど 17 項目のプルダウンが自動表示</li>
-                    <li><strong>キーボード</strong>（商品名に「キーボード」を含む）→ キー配列プルダウンが自動表示</li>
-                    <li><strong>マウスパッド／PCケース／グッズ</strong> → プルダウンなし（種類タブで色・サイズを管理）</li>
-                  </ul>
-                  プルダウンの中身（例: CPU の選択肢を増やす・値段を変える）を編集したいときは
+                <div style={{fontSize: 11, color: T.t4, marginLeft: 28, marginBottom: 12, lineHeight: 1.6}}>
+                  💡 「手動で選ぶ」を選ぶと、CPU・SSD・キー配列など、表示したい項目を直接 ON/OFF できます。
+                  保存後、商品ページのプルダウンに即反映されます。
+                </div>
+
+                {/* 3モード segmented control（プルダウン UI そのもの） */}
+                <div
+                  role="radiogroup"
+                  aria-label="プルダウン表示モード"
+                  style={{
+                    display: 'inline-flex',
+                    background: al(T.tx, 0.06),
+                    border: `1px solid ${al(T.tx, 0.16)}`,
+                    borderRadius: 8,
+                    padding: 3,
+                    marginBottom: 12,
+                    marginLeft: 28,
+                  }}
+                >
+                  {([
+                    {key: 'auto' as const, label: '🤖 自動（おまかせ）', hint: '商品名から自動判定'},
+                    {key: 'manual' as const, label: '✋ 手動で選ぶ', hint: '下のチェックで個別指定'},
+                    {key: 'none' as const, label: '🚫 表示しない', hint: 'プルダウンを非表示'},
+                  ]).map((opt) => {
+                    const active = pulldownMode === opt.key;
+                    return (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        title={opt.hint}
+                        onClick={() => writePulldownTags(opt.key)}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: 12,
+                          fontWeight: active ? 700 : 500,
+                          color: active ? T.bg : T.tx,
+                          background: active ? T.c : 'transparent',
+                          border: 'none',
+                          borderRadius: 6,
+                          cursor: 'pointer',
+                          transition: 'background 0.15s, color 0.15s',
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {pulldownMode === 'auto' && (
+                  <div style={{marginLeft: 28, fontSize: 12, color: T.t4, lineHeight: 1.7}}>
+                    🤖 <strong style={{color: T.tx}}>自動判定中</strong>: 商品名にキーワードがあればプルダウンが自動表示されます。
+                    <ul style={{margin: '4px 0 0', paddingLeft: 20}}>
+                      <li>商品名に「PC / ゲーミング / Ryzen / RTX」など → CPU・SSD など 17 項目を表示</li>
+                      <li>商品名に「キーボード」 → キー配列 1 項目を表示</li>
+                      <li>マウスパッド・グッズ等 → プルダウンなし</li>
+                    </ul>
+                  </div>
+                )}
+
+                {pulldownMode === 'none' && (
+                  <div style={{marginLeft: 28, fontSize: 12, color: T.t4, lineHeight: 1.7}}>
+                    🚫 <strong style={{color: T.tx}}>プルダウンを完全に非表示</strong>にします。
+                    商品ページにはバリエーション（種類タブ）のみが表示されます。
+                  </div>
+                )}
+
+                {pulldownMode === 'manual' && (
+                  <div style={{marginLeft: 28}}>
+                    {/* PC本体カテゴリ */}
+                    <div style={{marginBottom: 14}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
+                        <strong style={{fontSize: 12, color: T.tx}}>
+                          🖥️ ゲーミングPC本体（{pulldownCatalog.pc.length}項目）
+                        </strong>
+                        <div style={{display: 'flex', gap: 6}}>
+                          <button
+                            type="button"
+                            onClick={() => setPulldownAllInCategory('pc', true)}
+                            style={{fontSize: 10, padding: '3px 8px', border: `1px solid ${al(T.tx, 0.2)}`, borderRadius: 4, background: 'transparent', color: T.tx, cursor: 'pointer'}}
+                          >
+                            ✓ 全部選ぶ
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPulldownAllInCategory('pc', false)}
+                            style={{fontSize: 10, padding: '3px 8px', border: `1px solid ${al(T.tx, 0.2)}`, borderRadius: 4, background: 'transparent', color: T.t4, cursor: 'pointer'}}
+                          >
+                            × 全部外す
+                          </button>
+                        </div>
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                          gap: 6,
+                          padding: 10,
+                          background: al(T.tx, 0.03),
+                          border: `1px solid ${al(T.tx, 0.1)}`,
+                          borderRadius: 6,
+                        }}
+                      >
+                        {pulldownCatalog.pc.map((name) => {
+                          const isOn = selectedPulldownNames.has(name);
+                          return (
+                            <label
+                              key={name}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: 12,
+                                color: isOn ? T.tx : T.t4,
+                                cursor: 'pointer',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: isOn ? al(T.c, 0.08) : 'transparent',
+                                transition: 'background 0.1s, color 0.1s',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isOn}
+                                onChange={() => togglePulldownName(name)}
+                                aria-label={`${name} を表示する`}
+                                style={{cursor: 'pointer'}}
+                              />
+                              <span>{name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* キーボードカテゴリ */}
+                    <div style={{marginBottom: 6}}>
+                      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6}}>
+                        <strong style={{fontSize: 12, color: T.tx}}>
+                          ⌨️ キーボード（{pulldownCatalog.keyboard.length}項目）
+                        </strong>
+                      </div>
+                      <div
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                          gap: 6,
+                          padding: 10,
+                          background: al(T.tx, 0.03),
+                          border: `1px solid ${al(T.tx, 0.1)}`,
+                          borderRadius: 6,
+                        }}
+                      >
+                        {pulldownCatalog.keyboard.map((name) => {
+                          const isOn = selectedPulldownNames.has(name);
+                          return (
+                            <label
+                              key={name}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 8,
+                                fontSize: 12,
+                                color: isOn ? T.tx : T.t4,
+                                cursor: 'pointer',
+                                padding: '4px 6px',
+                                borderRadius: 4,
+                                background: isOn ? al(T.c, 0.08) : 'transparent',
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isOn}
+                                onChange={() => togglePulldownName(name)}
+                                aria-label={`${name} を表示する`}
+                                style={{cursor: 'pointer'}}
+                              />
+                              <span>{name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* 件数バッジ */}
+                    <div style={{marginTop: 10, fontSize: 11, color: T.t4}}>
+                      📊 現在 <strong style={{color: T.tx}}>{selectedPulldownNames.size}</strong> 個のプルダウンを表示する設定です。
+                      {selectedPulldownNames.size === 0 && (
+                        <span style={{color: T.r, marginLeft: 6}}>
+                          （0 個だと「自動」と同じ扱いになります。表示しないなら 🚫 を選んでください）
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* カスタマイズタブへの導線（中身編集はここではなくタブで） */}
+                <div style={{marginTop: 12, marginLeft: 28, fontSize: 11, color: T.t4}}>
+                  選択肢の中身（例: CPU の値段や追加候補）を編集するときは
                   <Link
                     to="/admin?tab=customization"
-                    style={{color: T.c, textDecoration: 'underline', marginLeft: 4, marginRight: 4, fontWeight: 700}}
+                    style={{
+                      color: T.c,
+                      textDecoration: 'underline',
+                      marginLeft: 4,
+                      marginRight: 4,
+                      fontWeight: 700,
+                    }}
                   >
                     🎛️ カスタマイズタブ
                   </Link>
