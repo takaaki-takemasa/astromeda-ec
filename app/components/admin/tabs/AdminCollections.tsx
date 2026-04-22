@@ -396,7 +396,8 @@ export default function AdminCollections() {
         contextPath: ['コマース', '🛍️ 商品・販売', '📚 コレクション'],
       });
       if (!ok) return;
-      const res = await apiAction({action: 'delete', id});
+      // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+      const res = await apiAction({action: 'delete', id, confirm: true});
       if (res.success) {
         showToast('削除しました', 'ok');
         reload();

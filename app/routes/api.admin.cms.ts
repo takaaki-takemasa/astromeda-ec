@@ -320,6 +320,15 @@ export async function action({ request, context }: Route.ActionArgs) {
           );
         }
 
+        // patch 0114: P1-4 削除確認の二重化（誤削除防止）
+        // クライアントは ConfirmDialog 通過後に必ず confirm:true を送る。
+        if ((payload as { confirm?: unknown }).confirm !== true) {
+          return data(
+            { success: false, error: '削除には確認 (confirm:true) が必要です' },
+            { status: 400 },
+          );
+        }
+
         const deleted = await client.deleteMetaobject(id);
         auditLog({
           action: 'content_delete',

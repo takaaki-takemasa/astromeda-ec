@@ -90,7 +90,8 @@ export function CategoryCardsSection({pushToast, confirm}: SectionProps) {
 
   const handleDelete = async (id: string) => {
     if (!(await confirm('このエントリを削除しますか？'))) return;
-    const res = await apiPost('/api/admin/category-cards', {action: 'delete', metaobjectId: id});
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const res = await apiPost('/api/admin/category-cards', {action: 'delete', metaobjectId: id, confirm: true});
     if (res.success) {
       pushToast('削除しました', 'success');
       await load();

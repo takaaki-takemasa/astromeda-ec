@@ -51,6 +51,10 @@ const FooterConfigActionSchema = z.discriminatedUnion('action', [
   z.object({
     action: z.literal('delete'),
     metaobjectId: z.string().min(1),
+    // patch 0114: P1-4 削除確認の二重化（誤削除防止）
+    confirm: z.literal(true, {
+      errorMap: () => ({ message: '削除には確認 (confirm:true) が必要です' }),
+    }),
   }).strict(),
 ]);
 

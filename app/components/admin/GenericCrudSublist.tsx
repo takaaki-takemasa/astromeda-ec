@@ -293,7 +293,8 @@ export function GenericCrudSublist({
       destructive: true,
     });
     if (!ok) return;
-    const res = await cmsPost({ type, action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const res = await cmsPost({ type, action: 'delete', id, confirm: true });
     if (res.success) { onMsg(`${unitLabel}を削除しました`); onRefresh(); }
     else onMsg(`エラー: ${res.error}`);
   };

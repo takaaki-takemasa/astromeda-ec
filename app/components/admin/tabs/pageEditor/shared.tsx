@@ -445,7 +445,8 @@ export async function cmsUpdate(
 }
 
 export async function cmsDelete(type: string, id: string) {
-  return apiPost('/api/admin/cms', {type, action: 'delete', id});
+  // patch 0114: P1-4 削除確認の二重化（誤削除防止）— サーバ Zod が confirm:true を要求
+  return apiPost('/api/admin/cms', {type, action: 'delete', id, confirm: true});
 }
 
 // ══════════════════════════════════════════════════════════

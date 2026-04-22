@@ -446,8 +446,9 @@ function DeleteModal({
   const isSubmitting = fetcher.state !== 'idle';
 
   const handleDelete = () => {
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
     fetcher.submit(
-      { action: 'delete', productId },
+      { action: 'delete', productId, confirm: true },
       { method: 'POST', action: '/api/admin/products', encType: 'application/json' },
     );
   };

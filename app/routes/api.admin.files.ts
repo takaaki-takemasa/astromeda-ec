@@ -42,6 +42,10 @@ const DeleteSingleSchema = z
   .object({
     action: z.literal('delete'),
     id: GidFile,
+    // patch 0114: P1-4 削除確認の二重化（誤削除防止）
+    confirm: z.literal(true, {
+      errorMap: () => ({ message: '削除には確認 (confirm:true) が必要です' }),
+    }),
   })
   .strict();
 
@@ -49,6 +53,10 @@ const DeleteBulkSchema = z
   .object({
     action: z.literal('delete_bulk'),
     ids: z.array(GidFile).min(1, 'ids は 1 件以上必要').max(100, 'ids は最大 100 件'),
+    // patch 0114: P1-4 一括削除も確認必須
+    confirm: z.literal(true, {
+      errorMap: () => ({ message: '一括削除には確認 (confirm:true) が必要です' }),
+    }),
   })
   .strict();
 

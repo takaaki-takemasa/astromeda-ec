@@ -265,7 +265,8 @@ export default function AdminRedirects() {
         contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '🔀 リダイレクト'],
       });
       if (!ok) return;
-      const res = await apiAction({action: 'delete', id: r.id});
+      // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+      const res = await apiAction({action: 'delete', id: r.id, confirm: true});
       if (res.success) {
         showToast('削除しました', 'ok');
         reload();

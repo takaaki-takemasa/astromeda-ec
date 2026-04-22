@@ -484,7 +484,8 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       const res = await fetch('/api/admin/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', productId: p.id }),
+        // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+        body: JSON.stringify({ action: 'delete', productId: p.id, confirm: true }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || '削除失敗');
@@ -1278,7 +1279,8 @@ function TierList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void }
       contextPath: ['コマース', '🛍️ 商品・販売', '📦 商品管理', 'PCティア'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_pc_tier', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_pc_tier', action: 'delete', id, confirm: true });
     if (r.success) {
       onToast('ティア削除完了', 'ok');
       await fetchData();
@@ -1525,7 +1527,8 @@ function ReviewList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       contextPath: ['コマース', '🛍️ 商品・販売', '📦 商品管理', 'UGCレビュー'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_ugc_review', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_ugc_review', action: 'delete', id, confirm: true });
     if (r.success) {
       onToast('レビュー削除完了', 'ok');
       await fetchData();

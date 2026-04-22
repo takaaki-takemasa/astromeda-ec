@@ -151,7 +151,8 @@ export default function AdminCustomization() {
       contextPath: ['コマース', '🛍️ 商品・販売', '🎨 カスタマイズ'],
     });
     if (!ok) return;
-    const res = await apiPost('/api/admin/customization', {action: 'delete', metaobjectId: id});
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const res = await apiPost('/api/admin/customization', {action: 'delete', metaobjectId: id, confirm: true});
     if (res.success) {
       showToast('削除しました', 'success');
       await load();

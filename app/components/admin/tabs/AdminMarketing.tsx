@@ -539,7 +539,8 @@ function CampaignList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => vo
       contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '📣 マーケティング', 'キャンペーン'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_campaign', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_campaign', action: 'delete', id, confirm: true });
     if (r.success) { onToast('キャンペーン削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
   };
@@ -818,7 +819,8 @@ function CustomOptionList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') =
       contextPath: ['コマース', '🧭 ナビ・マーケ・分析', '📣 マーケティング', 'カスタムオプション'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_custom_option', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_custom_option', action: 'delete', id, confirm: true });
     if (r.success) { onToast('オプション削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
   };

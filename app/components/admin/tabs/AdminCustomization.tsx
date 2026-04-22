@@ -392,7 +392,8 @@ export default function AdminCustomization() {
       const res = await fetch('/api/admin/customization', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', metaobjectId: entry.id }),
+        // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+        body: JSON.stringify({ action: 'delete', metaobjectId: entry.id, confirm: true }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error || '削除失敗');

@@ -550,7 +550,8 @@ function BannerList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRe
   };
 
   const remove = async (id: string) => {
-    const res = await cmsPost({ type: 'astromeda_hero_banner', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const res = await cmsPost({ type: 'astromeda_hero_banner', action: 'delete', id, confirm: true });
     if (res.success) { onMsg('バナーを削除しました'); onRefresh(); }
     else onMsg(`エラー: ${res.error}`);
   };
@@ -1043,7 +1044,8 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
   };
 
   const remove = async (id: string) => {
-    const res = await cmsPost({ type: 'astromeda_marquee_item', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const res = await cmsPost({ type: 'astromeda_marquee_item', action: 'delete', id, confirm: true });
     if (res.success) { onMsg('マーキーを削除しました'); onRefresh(); }
     else onMsg(`エラー: ${res.error}`);
   };

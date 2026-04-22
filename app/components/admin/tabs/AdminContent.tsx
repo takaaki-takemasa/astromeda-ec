@@ -270,7 +270,8 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', '記事コンテンツ'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_article_content', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_article_content', action: 'delete', id, confirm: true });
     if (r.success) { onToast('記事削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
   };
@@ -509,7 +510,8 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
       contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', 'IPバナー'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_ip_banner', action: 'delete', id, confirm: true });
     if (r.success) { onToast('IPバナー削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
   };
@@ -762,7 +764,8 @@ function SEOArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => 
       contextPath: ['コマース', '📝 コンテンツ・ページ', '📄 記事・CMS', 'SEO記事'],
     });
     if (!ok) return;
-    const r = await cmsPost({ type: 'astromeda_seo_article', action: 'delete', id });
+    // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
+    const r = await cmsPost({ type: 'astromeda_seo_article', action: 'delete', id, confirm: true });
     if (r.success) { onToast('SEO記事削除完了', 'ok'); await fetchData(); }
     else onToast(r.error || '削除失敗', 'err');
   };

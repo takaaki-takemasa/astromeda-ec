@@ -153,10 +153,11 @@ async function apiDelete(
   requested?: number;
   deleted?: number;
 }> {
+  // patch 0114: P1-4 サーバ Zod が confirm:true を要求（誤削除防止）
   const body =
     ids.length === 1
-      ? {action: 'delete', id: ids[0]}
-      : {action: 'delete_bulk', ids};
+      ? {action: 'delete', id: ids[0], confirm: true as const}
+      : {action: 'delete_bulk', ids, confirm: true as const};
   const res = await fetch('/api/admin/files', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
