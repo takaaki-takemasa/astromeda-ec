@@ -20,6 +20,7 @@ import { ImagePicker } from '~/components/admin/ds/ImagePicker';
 import { RequiredMark, OptionalMark, HintText } from '~/components/admin/ds/FormField';
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Types ──
 interface MetaField {
@@ -255,6 +256,12 @@ export default function AdminHomepageCMS() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="ホームページ（古いタブ）"
+      description="将来的に「お店の見た目を変える」タブと統合予定です。現状は IPコラボ・ヒーローバナー・8色カラー・マーキーの編集ができます。"
+      relatedTabs={[{label: 'お店の見た目を変える', tab: 'pageEditor'}]}
+    />
       <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: '0 0 16px' }}>
         ホームページCMS
       </h2>

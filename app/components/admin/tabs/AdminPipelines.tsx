@@ -8,6 +8,7 @@ import { PipelineMonitor } from '~/components/admin/PipelineMonitor';
 import { statusColor, statusLabel } from '~/lib/admin-utils';
 import type { PipelineStatus } from '~/types/admin';
 import { AdminListSkeleton } from '~/components/admin/ds/InlineListState';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 interface AdminPipelinesProps {
   pipelines: PipelineStatus[];
@@ -57,6 +58,12 @@ export default function AdminPipelines({pipelines}: AdminPipelinesProps) {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="自動化（パイプライン）"
+      description="AI が自動で動かしている業務フロー（パイプライン）の状況を確認します。"
+      relatedTabs={[{label: 'AI スタッフが今やっている事', tab: 'agents'}, {label: '困ったときの緊急停止', tab: 'control'}]}
+    />
       <div style={{display: 'flex', gap: 8, marginBottom: 20}}>
         {(['monitor', 'cards'] as const).map(m => (
           <button key={m} onClick={() => setPipeViewMode(m)} style={{

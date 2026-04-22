@@ -24,6 +24,7 @@ import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ━━━ Types ━━━
 
@@ -542,6 +543,12 @@ export default function AdminFiles() {
   // ━━━ Render ━━━
   return (
     <div style={{padding: space[4], color: color.text, fontFamily: font.family}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="写真・動画の保管箱"
+      description="バナー画像、商品写真、動画などをここでまとめて管理します。アップロードと削除ができます。"
+      relatedTabs={[{label: 'お店の見た目を変える', tab: 'pageEditor'}, {label: '商品を作る・直す', tab: 'products'}]}
+    />
       {/* Header */}
       <div
         style={{

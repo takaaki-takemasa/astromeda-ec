@@ -26,6 +26,7 @@ import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ━━━ Types ━━━
 
@@ -417,6 +418,12 @@ export default function AdminDiscounts() {
   // ━━━ Render ━━━
   return (
     <div style={{padding: space[4], color: color.text, fontFamily: font.family}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="セール価格を決める"
+      description="割引コード（クーポン）や期間限定セールを作ります。「SUMMER2026 で 10% OFF」などの設定ができます。"
+      relatedTabs={[{label: 'キャンペーン効果を見る', tab: 'marketing'}, {label: '商品を作る・直す', tab: 'products'}]}
+    />
       {/* Header */}
       <div
         style={{

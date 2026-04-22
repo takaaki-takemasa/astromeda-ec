@@ -19,6 +19,7 @@ import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import {useToast} from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Types ──
 interface RuleInput {
@@ -411,6 +412,12 @@ export default function AdminCollections() {
   // ── Render ──
   return (
     <div style={{maxWidth: 1200, margin: '0 auto'}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="商品をジャンルでまとめる"
+      description="コレクション = 商品をジャンル別にまとめる箱です。「ゲーミングPC」「呪術廻戦コラボ」など、お客さまが一覧で見られる単位を作ります。"
+      relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
+    />
       <Toast />
       {/* patch 0087: useToast が自前で render するため条件分岐不要 */}
       <Dialog {...dialogProps} />

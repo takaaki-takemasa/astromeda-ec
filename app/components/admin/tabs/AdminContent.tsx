@@ -20,6 +20,7 @@ import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirect
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Article/SEO 用軽量プレビュー ──
 function ArticlePreview({title, body, excerpt, author, tags, metaDesc}: {
@@ -900,6 +901,12 @@ export default function AdminContent() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="記事・お知らせ"
+      description="ブログ記事や新商品のお知らせ、IPコラボの紹介ページなどを書きます。"
+      relatedTabs={[{label: 'お店の見た目を変える', tab: 'pageEditor'}, {label: '商品を作る・直す', tab: 'products'}]}
+    />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
           コンテンツ管理

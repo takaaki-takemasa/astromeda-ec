@@ -25,6 +25,7 @@ import {Button} from '~/components/admin/Button';
 // patch 0101: IPコラボは Metaobject 空時に COLLABS 定数 (23 件) でフォールバック表示される。
 // ダッシュボード上も同じフォールバック件数を注釈付きで示し、「0/0」誤解を防ぐ。
 import {COLLABS} from '~/lib/astromeda-data';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 const SHOPIFY_ADMIN_BASE = 'https://admin.shopify.com/store/production-mining-base';
 const SITE_BASE = 'https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev';
@@ -467,6 +468,12 @@ export default function AdminOnboarding() {
   // ── レンダリング ──
   return (
     <div style={{maxWidth: 1280, margin: '0 auto'}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="出品ガイド（次にやることを案内）"
+      description="商品を売り出すまでの手順をステップで表示します。今やるべきタスクが分かります。"
+      relatedTabs={[{label: '売上ダッシュボード', tab: 'summary'}, {label: '商品を作る・直す', tab: 'products'}]}
+    />
       {/* ヘッダー */}
       <div style={{marginBottom: space[5]}}>
         <div style={{display: 'flex', alignItems: 'center', gap: space[3], marginBottom: space[1]}}>

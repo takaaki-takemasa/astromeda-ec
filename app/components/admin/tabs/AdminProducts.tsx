@@ -27,6 +27,8 @@ import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineL
 import { useToast } from '~/components/admin/ds/Toast';
 // patch 0099: IPタグ入力を TagPicker に統一（既存タグを autocomplete 選択）
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0119 (Apple CEO ライフサイクル監査): 高校生向け「このタブで何ができるか」1 行説明
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 // patch 0107 (CEO P0-α): 新規商品作成モーダルでも生 HTML textarea を WYSIWYG に置換
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 
@@ -1743,6 +1745,11 @@ export default function AdminProducts() {
 
   return (
     <div>
+      {/* patch 0119: 高校生向け「このタブで何ができるか」1 行説明 */}
+      <TabHeaderHint
+        title="商品を作る・直す"
+        description="お店で売っている商品（PC・グッズ）の追加・編集・削除をします。商品の選択肢（色やサイズなど）は「お客様が選べる選択肢」タブで設定します。"
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
           商品管理

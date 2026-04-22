@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react';
 import { color } from '~/lib/design-tokens';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 export default function AdminAnalytics() {
   const [reports, setReports] = useState<unknown[]>([]);
@@ -35,6 +36,12 @@ export default function AdminAnalytics() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="詳しいデータ分析（上級者）"
+      description="売上、客数、商品ランキングなどの詳しいデータを確認します。経営判断に使うタブです。"
+      relatedTabs={[{label: '売上ダッシュボード', tab: 'summary'}, {label: 'キャンペーン効果', tab: 'marketing'}]}
+    />
       <div style={{display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap'}}>
         {[
           {label: 'DataAnalyst', active: agentStatus.dataAnalyst},

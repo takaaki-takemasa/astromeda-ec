@@ -19,6 +19,7 @@ import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirect
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Types ──
 interface MetaobjectNode {
@@ -969,6 +970,12 @@ export default function AdminMarketing() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="キャンペーン効果を見る"
+      description="マーケティング施策（バナー・SNS連動・期間限定キャンペーン等）の作成と効果測定を行います。"
+      relatedTabs={[{label: 'セール価格を決める', tab: 'discounts'}, {label: '詳しいデータ分析', tab: 'analytics'}]}
+    />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
           マーケティング

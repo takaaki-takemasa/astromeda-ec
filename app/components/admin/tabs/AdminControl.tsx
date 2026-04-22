@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { color } from '~/lib/design-tokens';
 import { andonColor, formatActionResult } from '~/lib/admin-utils';
 import type { SystemMetrics, QuickActionDefinition } from '~/types/admin';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 interface AdminControlProps {
   metrics: SystemMetrics;
@@ -30,6 +31,12 @@ export default function AdminControl({
 }: AdminControlProps) {
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="困ったときの緊急停止"
+      description="何かおかしい時は、ここから AI を一旦すべて止められます（Andon 緊急停止）。緊急時専用です。"
+      relatedTabs={[{label: 'AI スタッフが今やっている事', tab: 'agents'}, {label: '自動化（パイプライン）', tab: 'pipelines'}]}
+    />
       <div style={{
         fontSize: 11,
         fontWeight: 800,

@@ -18,6 +18,7 @@ import { GenericCrudSublist, extractField, type MetaobjectNode, type FieldDef } 
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 // patch 0074 (R1-2): Stripe/Apple 水準の Skeleton + CTA 付き EmptyState primitive
 import { AdminListSkeleton } from '~/components/admin/ds/InlineListState';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 type SubTab =
   | 'site_config'
@@ -468,6 +469,12 @@ export default function AdminSiteConfig() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="お店の基本情報"
+      description="屋号（ASTROMEDA）、運営会社、連絡先、特定商取引法に基づく表記など、お店の基礎情報を編集します。"
+      relatedTabs={[{label: '記事・お知らせ', tab: 'content'}]}
+    />
       <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: '0 0 16px' }}>
         サイト設定・ブロックCMS
       </h2>

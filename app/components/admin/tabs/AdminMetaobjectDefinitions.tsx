@@ -25,6 +25,7 @@ import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminEmptyCard, AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ━━━ Types ━━━
 
@@ -698,6 +699,12 @@ export default function AdminMetaobjectDefinitions() {
 
   return (
     <div style={{padding: space[6]}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="データの設計図（上級者）"
+      description="上級者向け: Metaobject の項目（フィールド）を直接編集します。普段は触る必要はありません。"
+      relatedTabs={[{label: '記事・お知らせ', tab: 'content'}]}
+    />
       {/* Header */}
       <div
         style={{

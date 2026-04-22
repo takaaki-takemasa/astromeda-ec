@@ -21,6 +21,7 @@ import {useConfirmDialog} from '~/hooks/useConfirmDialog';
 import {AdminListSkeleton} from '~/components/admin/ds/InlineListState';
 // patch 0087: useToast 統合プリミティブ
 import { useToast } from '~/components/admin/ds/Toast';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ━━━ Types ━━━
 
@@ -284,6 +285,12 @@ export default function AdminRedirects() {
   // ━━━ Render ━━━
   return (
     <div style={{padding: space[4], color: color.text, fontFamily: font.family}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="ページの引っ越し転送"
+      description="古い URL から新しい URL に自動でジャンプさせます。「お引っ越ししたページの案内板」のようなものです。"
+      relatedTabs={[{label: 'お客様向けの道案内', tab: 'menus'}]}
+    />
       {/* Header */}
       <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: space[4]}}>
         <div>

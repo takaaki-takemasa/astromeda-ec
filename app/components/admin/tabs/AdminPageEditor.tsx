@@ -52,6 +52,7 @@ import {
 // GAMING_PC_SECTIONS/PAGE_DEFS/VisualEditSectionProps は ./pageEditor/VisualEditSection.tsx へ切り出し済み。
 // 戻し方: Git 履歴の `13fd803` 時点 L191-818 を参照。
 import {VisualEditSection} from './pageEditor/VisualEditSection';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // patch 0047 Phase C 第1段: 型/スタイル/ヘルパー/UI は ./pageEditor/shared.tsx へ集約済み。
 // patch 0058 Phase C 第4段: VisualEditSection も ./pageEditor/VisualEditSection.tsx に分離した。
@@ -104,6 +105,12 @@ export default function AdminPageEditor() {
 
   return (
     <div style={{padding: 20, color: T.tx}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="お店の見た目を変える"
+      description="トップページの宣伝バナー、特集カード、商品シェルフなど、お客さまが最初に見る画面を編集します。"
+      relatedTabs={[{label: '写真・動画の保管箱', tab: 'files'}, {label: 'お店の基本情報', tab: 'siteConfig'}]}
+    />
       <div style={{marginBottom: 16}}>
         <h2 style={{fontSize: 18, fontWeight: 900, margin: 0, color: T.tx}}>ページ編集</h2>
         <div style={{fontSize: 11, color: T.t4, marginTop: 4}}>

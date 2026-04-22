@@ -8,6 +8,7 @@ import { color, font, formatJPY } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 import { formatUptime, statusColor, statusLabel, andonColor } from '~/lib/admin-utils';
 import type { AgentStatus, PipelineStatus, SystemMetrics, StorageStats, AttributionData, RevenueData } from '~/types/admin';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 interface AdminHomeProps {
   metrics: SystemMetrics;
@@ -68,6 +69,12 @@ export default function AdminHome({
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="売上ダッシュボード"
+      description="今日・今週・今月・今年の売上を一覧表示します。お店の経営状況をひと目で確認できます。"
+      relatedTabs={[{label: '出品ガイド', tab: 'onboarding'}, {label: '詳しいデータ分析', tab: 'analytics'}]}
+    />
       {/* ── アラートバナー ── */}
       {alerts.length > 0 && (
         <div style={{marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6}}>

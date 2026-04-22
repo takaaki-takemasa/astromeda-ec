@@ -23,6 +23,7 @@ import { useToast } from '~/components/admin/ds/Toast';
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 // patch 0099: タグ入力を TagPicker に統一（既存タグ候補から選ぶ→タイポ・UX 根絶）
 import TagPicker from '~/components/admin/TagPicker';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Types ──
 interface ProductListItem {
@@ -356,6 +357,12 @@ export default function AdminBulkTags() {
   // ── Render ──
   return (
     <div style={{maxWidth: 1400, margin: '0 auto'}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="商品にラベルを一気に付ける"
+      description="たくさんの商品に同じタグ（ラベル）を一気に付けたり外したりできます。コレクションの自動振り分け条件にも使われます。"
+      relatedTabs={[{label: '商品をジャンルでまとめる', tab: 'collections'}, {label: '商品を作る・直す', tab: 'products'}]}
+    />
       <Toast />
       <Dialog {...dialogProps} />
 

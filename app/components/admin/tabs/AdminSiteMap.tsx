@@ -8,6 +8,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {useSearchParams} from 'react-router';
 import {T, al, COLLABS, FEATURED, PC_COLORS} from '~/lib/astromeda-data';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── 型定義 ──
 interface SectionCounts {
@@ -283,6 +284,12 @@ export default function AdminSiteMap() {
 
   return (
     <div style={{padding: 20, color: T.tx}}>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="サイトマップ（お店の全体像）"
+      description="お店の全ページ・全カテゴリ・全商品をツリーで一覧表示します。お店の構造を俯瞰したい時に使います。"
+      relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '商品をジャンルでまとめる', tab: 'collections'}]}
+    />
       <div style={{marginBottom: 20}}>
         <h2 style={{fontSize: 20, fontWeight: 900, margin: 0, color: T.tx}}>🗺️ サイトマップ</h2>
         <div style={{fontSize: 12, color: T.t4, marginTop: 6, lineHeight: 1.6}}>

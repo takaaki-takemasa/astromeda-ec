@@ -26,6 +26,7 @@ import { ToggleSwitch } from '~/components/admin/ds/ToggleSwitch';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 import TagPicker from '~/components/admin/TagPicker';
 import CustomizationMatrix from '~/components/admin/CustomizationMatrix';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 // ── Types ──
 interface Choice {
@@ -675,6 +676,12 @@ export default function AdminCustomization() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="お客様が選べる選択肢"
+      description="商品ページに表示される「色を選ぶ」「キーボード配列を選ぶ」などのプルダウンを作るタブです。"
+      relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
+    />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
           🎛️ プルダウン管理

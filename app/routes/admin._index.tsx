@@ -282,21 +282,25 @@ type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
 type CommerceGroup = 'catalog' | 'content' | 'navmarketing';
 
+// patch 0119 (Apple CEO ライフサイクル監査): 各グループ内のタブ順を業務フローに沿って並び替え
+//   catalog       — 商品 → 選択肢 → ジャンル → 一括タグ → セール（商品準備の自然な順）
+//   content       — 見た目編集 → 説明ページ → 基本情報 → 写真 → 旧 homepage（接客準備の自然な順）
+//   navmarketing  — マーケ → メニュー → URL転送 → 分析 → CMS定義（集客→分析→上級者の順）
 const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; default: SubTab}> = {
   catalog: {
     label: '🛍️ 商品・販売',
-    tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts'],
+    tabs: ['products', 'customization', 'collections', 'bulkTags', 'discounts'],
     default: 'products',
   },
   content: {
     label: '📝 コンテンツ・ページ',
-    tabs: ['content', 'pageEditor', 'homepage', 'siteConfig', 'files'],
-    default: 'content',
+    tabs: ['pageEditor', 'content', 'siteConfig', 'files', 'homepage'],
+    default: 'pageEditor',
   },
   navmarketing: {
     label: '🧭 ナビ・マーケ・分析',
-    tabs: ['menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics'],
-    default: 'menus',
+    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'metaobjectDefs'],
+    default: 'marketing',
   },
 };
 

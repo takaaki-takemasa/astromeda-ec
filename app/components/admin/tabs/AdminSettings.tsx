@@ -5,6 +5,7 @@
 import { useState, useCallback } from 'react';
 import { color } from '~/lib/design-tokens';
 import { SchedulerPanel } from '~/components/admin/SchedulerPanel';
+import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 export default function AdminSettings() {
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'downloading' | 'done' | 'error'>('idle');
@@ -100,6 +101,11 @@ export default function AdminSettings() {
 
   return (
     <div>
+    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    <TabHeaderHint
+      title="バージョン・更新（上級者）"
+      description="システムのバージョン情報、更新履歴を確認します。普段は触る必要はありません。"
+    />
       <div style={{
         fontSize: 11,
         fontWeight: 800,
