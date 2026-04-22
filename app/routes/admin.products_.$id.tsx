@@ -655,6 +655,7 @@ export default function AdminProductDetail() {
                   value={basic.tagsCsv}
                   onChange={(csv) => setBasic({...basic, tagsCsv: csv})}
                   placeholder="タグを検索して追加（既存タグから選べます）"
+                  excludePulldown
                 />
                 <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
                   💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。

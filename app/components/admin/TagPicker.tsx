@@ -33,6 +33,13 @@ interface TagPickerProps {
   placeholder?: string;
   disabled?: boolean;
   id?: string;
+  /**
+   * patch 0117: true にするとプルダウン部品マーカータグ
+   * (pulldown-component / globo-product-options) を候補から除外する。
+   * 商品編集・新規作成・一括タグなど「製品に付けるタグ」を扱う UI で true にする。
+   * 既定 false で後方互換。
+   */
+  excludePulldown?: boolean;
 }
 
 // ── ユーティリティ ──
@@ -148,6 +155,7 @@ export default function TagPicker({
   placeholder = 'タグを検索して追加…',
   disabled = false,
   id,
+  excludePulldown = false,
 }: TagPickerProps) {
   const [allTags, setAllTags] = useState<TagPickerTag[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -162,11 +170,15 @@ export default function TagPicker({
   const selected = useMemo(() => parseCsv(value), [value]);
 
   // ── タグ一覧ロード ──
+  // patch 0117: excludePulldown=true で部品マーカータグを除外する
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const res = await fetch('/api/admin/product-tags');
+        const url = excludePulldown
+          ? '/api/admin/product-tags?excludePulldown=true'
+          : '/api/admin/product-tags';
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (!alive) return;
@@ -184,7 +196,7 @@ export default function TagPicker({
     return () => {
       alive = false;
     };
-  }, []);
+  }, [excludePulldown]);
 
   // ── 選択中タグの商品数推計を親へ通知 ──
   // (sum ではなく union 近似: 同一商品が複数タグを持つ場合は重複カウントになる)

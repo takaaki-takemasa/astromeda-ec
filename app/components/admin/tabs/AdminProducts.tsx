@@ -619,6 +619,7 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
           value={form.ipTag}
           onChange={(csv) => setForm({ ...form, ipTag: csv })}
           placeholder="タグを検索して追加（既存タグから選べます）"
+          excludePulldown
         />
         <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>
           どのIPコラボに紐づくかを指定します。該当しない商品なら空欄のままで OK です。複数指定も可。

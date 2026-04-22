@@ -383,6 +383,7 @@ export default function AdminBulkTags() {
             value={tagInput}
             onChange={(csv) => setTagInput(csv)}
             placeholder="タグを検索して追加（既存タグから選べます）"
+            excludePulldown
           />
           <div style={{marginTop: 6, fontSize: font.xs, color: color.textMuted}}>
             {parsedTags.length > 0 ? (

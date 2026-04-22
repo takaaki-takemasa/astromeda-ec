@@ -7,6 +7,11 @@
  * 件数は products(first:250) サンプリングによる推計
  * （200 以上の商品を持つタグは productCount が実体より少ない可能性あり）
  *
+ * patch 0117: クエリパラメータ `?excludePulldown=true` でプルダウン部品マーカー
+ *   タグ (pulldown-component / globo-product-options) を結果から除外する。
+ *   商品編集タブ等、製品文脈の TagPicker から「部品タグ」が混入するのを防ぐ。
+ *   既定 false で後方互換。
+ *
  * セキュリティ: RateLimit → AdminAuth → RBAC(products.view) → AuditLog
  */
 
@@ -16,6 +21,17 @@ import { applyRateLimit, RATE_LIMIT_PRESETS } from '~/lib/rate-limiter';
 import { requirePermission } from '~/lib/rbac';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
+import { PULLDOWN_COMPONENT_TAG } from '~/lib/pulldown-classifier';
+
+/**
+ * patch 0117: 製品文脈の TagPicker から除外するパーツマーカータグ。
+ * - PULLDOWN_COMPONENT_TAG ('pulldown-component'): patch 0103 で 494 商品に付与した canonical マーカー
+ * - 'globo-product-options': 旧 Globo Options 由来のレガシーマーカー (282 件)
+ */
+const PULLDOWN_MARKER_TAGS = new Set<string>([
+  PULLDOWN_COMPONENT_TAG,
+  'globo-product-options',
+]);
 
 export async function loader({ request, context }: Route.LoaderArgs) {
   const limited = applyRateLimit(request, 'api.admin.product-tags', RATE_LIMIT_PRESETS.admin);
@@ -32,6 +48,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     ]);
     const role = requirePermission(session, 'products.view');
     auditLog({ action: 'api_access', role, resource: 'api/admin/product-tags [GET]', success: true });
+
+    // patch 0117: ?excludePulldown=true で部品マーカータグ (pulldown-component / globo-product-options)
+    // を結果から除外する。製品出品 UI で「部品タグ」が候補に混入しないようにするため。
+    const url = new URL(request.url);
+    const excludePulldown = url.searchParams.get('excludePulldown') === 'true';
 
     const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
     setAdminEnv(contextEnv);
@@ -50,10 +71,18 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     }
 
     // 3) shop.productTags の全タグに対して件数マージ（存在しないタグは 0 件）
-    const tags = tagNames.map((name) => ({
+    let tags = tagNames.map((name) => ({
       name,
       productCount: countMap.get(name) || 0,
     }));
+
+    // patch 0117: 部品マーカータグを除外（excludePulldown=true 時のみ）
+    let excludedCount = 0;
+    if (excludePulldown) {
+      const before = tags.length;
+      tags = tags.filter((t) => !PULLDOWN_MARKER_TAGS.has(t.name));
+      excludedCount = before - tags.length;
+    }
 
     // 名前順にソート（日本語 locale）
     tags.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
@@ -63,6 +92,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       tags,
       total: tags.length,
       sampledProductCount: sampled.length,
+      excludePulldown,
+      excludedCount,
       note: sampled.length >= 250
         ? '商品数が 250 件を超えるため件数は最新 250 件のサンプル推計です'
         : '全商品を走査した正確な件数です',
