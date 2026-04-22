@@ -1,14 +1,19 @@
 /**
- * AdminHome Tab — Executive Summary
- * 経営サマリータブコンポーネント（売上・KPI・Agent健全性）
+ * AdminHome Tab — 今日のお店日報 (Daily Store Report)
+ *
+ * patch 0122 (2026-04-23): Apple/Stripe CEO 視点 + 中学生でも分かる版に全面刷新。
+ * - 「今日のお店日報」を最上部に配置（カート離脱/在庫/AOV/週次売上）
+ * - 「今日やることTop3」を実データから自動生成（説明付き）
+ * - 「これって何？」ツールチップでAOV/カート離脱率の意味を解説
+ * - 既存の5KPIは規模把握用に下に残す
+ * - 技術詳細はさらに下に折り畳み
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { color, font, formatJPY } from '~/lib/design-tokens';
 import { CompactKPI } from '~/components/admin/CompactKPI';
 import { formatUptime, statusColor, statusLabel, andonColor } from '~/lib/admin-utils';
 import type { AgentStatus, PipelineStatus, SystemMetrics, StorageStats, AttributionData, RevenueData } from '~/types/admin';
-import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 
 interface AdminHomeProps {
   metrics: SystemMetrics;
@@ -22,6 +27,86 @@ interface AdminHomeProps {
   revenue365d?: RevenueData;
   pendingApprovals: number;
   onNavigate?: (section: string) => void;
+}
+
+// ── 「これって何？」ツールチップ（中学生向け説明） ──
+function TermTooltip({ term, explain }: { term: string; explain: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <span style={{position: 'relative', display: 'inline-block'}}>
+      <button
+        type="button"
+        aria-label={`${term} の説明を見る`}
+        onClick={() => setOpen(!open)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 16,
+          height: 16,
+          borderRadius: '50%',
+          background: 'rgba(0,240,255,.12)',
+          border: `1px solid ${color.cyan}40`,
+          color: color.cyan,
+          fontSize: 10,
+          fontWeight: 800,
+          cursor: 'help',
+          padding: 0,
+          marginLeft: 4,
+          verticalAlign: 'middle',
+        }}
+      >?</button>
+      {open && (
+        <span style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 6px)',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#1A1A2E',
+          color: color.text,
+          fontSize: 11,
+          fontWeight: 500,
+          lineHeight: 1.5,
+          padding: '8px 12px',
+          borderRadius: 8,
+          border: `1px solid ${color.cyan}40`,
+          boxShadow: '0 4px 12px rgba(0,0,0,.4)',
+          whiteSpace: 'normal',
+          width: 240,
+          zIndex: 50,
+          textAlign: 'left',
+        }}>
+          <span style={{fontWeight: 800, color: color.cyan, display: 'block', marginBottom: 2}}>{term} とは？</span>
+          {explain}
+        </span>
+      )}
+    </span>
+  );
+}
+
+// ── API レスポンス型 ──
+interface CartAbandonmentData {
+  success: boolean;
+  abandonmentRate?: number;
+  totalCheckouts?: number;
+  abandonedCheckouts?: number;
+  completedCheckouts?: number;
+  abandonedValue?: number;
+  recentAbandoned?: Array<{ id: string; createdAt: string; totalPrice: number; customerEmail?: string }>;
+}
+
+interface InventoryAlertsData {
+  success: boolean;
+  alerts?: Array<{
+    productId: string;
+    productTitle: string;
+    handle: string;
+    inventoryQuantity: number;
+    severity: 'critical' | 'warning' | 'info';
+  }>;
+  summary?: { total: number; critical: number; warning: number };
 }
 
 export default function AdminHome({
@@ -38,6 +123,25 @@ export default function AdminHome({
   onNavigate,
 }: AdminHomeProps) {
   const [showTechDetails, setShowTechDetails] = useState(false);
+  const [cartData, setCartData] = useState<CartAbandonmentData | null>(null);
+  const [invData, setInvData] = useState<InventoryAlertsData | null>(null);
+  const [loadingDaily, setLoadingDaily] = useState(true);
+
+  // ── 「今日のお店日報」用データ取得（カート離脱 + 在庫アラート） ──
+  useEffect(() => {
+    let cancelled = false;
+    Promise.allSettled([
+      fetch('/api/admin/cart-abandonment?days=30', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/admin/inventory-alerts?threshold=5', { credentials: 'include' }).then(r => r.json()),
+    ]).then(([cart, inv]) => {
+      if (cancelled) return;
+      if (cart.status === 'fulfilled') setCartData(cart.value as CartAbandonmentData);
+      if (inv.status === 'fulfilled') setInvData(inv.value as InventoryAlertsData);
+      setLoadingDaily(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
   const healthyPct = metrics.activeAgents > 0 ? Math.round((metrics.healthyAgents / metrics.activeAgents) * 100) : 100;
   const errorAgents = agents.filter(a => a.status === 'error' || a.status === 'degraded');
   const errorPipelines = pipelines.filter(p => p.status === 'error');
@@ -60,22 +164,328 @@ export default function AdminHome({
   const todayOrders = revenueToday && !revenueToday.isMock ? revenueToday.orderCount : 0;
   const isTodayLive = revenueToday ? !revenueToday.isMock : false;
 
+  // ── 「今日のお店日報」用の派生指標 ──
+  const abRate = cartData?.success ? (cartData.abandonmentRate ?? 0) : 0;
+  const abValue = cartData?.success ? (cartData.abandonedValue ?? 0) : 0;
+  const abCount = cartData?.success ? (cartData.abandonedCheckouts ?? 0) : 0;
+  const invTotal = invData?.success ? (invData.summary?.total ?? 0) : 0;
+  const invCritical = invData?.success ? (invData.summary?.critical ?? 0) : 0;
+  const aov = revenue7d.averageOrderValue || revenue30d.averageOrderValue || 0;
+
+  // ── 「今日やることTop3」自動生成 ──
+  const todoList: Array<{ rank: number; title: string; reason: string; cta: string; ctaUrl?: string; ctaSection?: string; severity: 'critical' | 'warning' | 'info' }> = [];
+
+  // 優先度1: カート離脱が高い（最大の機会損失）
+  if (abRate >= 60 && abCount >= 5) {
+    todoList.push({
+      rank: 1,
+      title: `カート離脱を減らそう (${abRate.toFixed(0)}% 離脱中)`,
+      reason: `お客様が商品をカートに入れたあと、${abCount}人が買わずに帰ってしまっています。失った金額は ${fmtYen(abValue)}。送料無料キャンペーンや「あと少しで送料無料」表示で背中を押せます。`,
+      cta: '🎁 キャンペーンを作る',
+      ctaSection: 'marketing',
+      severity: 'critical',
+    });
+  }
+
+  // 優先度2: 在庫アラート
+  if (invTotal > 0) {
+    todoList.push({
+      rank: todoList.length + 1,
+      title: `在庫が少ない商品が ${invTotal}件 あります`,
+      reason: invCritical > 0
+        ? `そのうち ${invCritical}件 はもう在庫ゼロです。Shopify管理画面から早めに補充しましょう。在庫切れ商品は売れません。`
+        : `早めに補充しないと、人気商品なら数日で売り切れます。Shopify管理画面で確認してください。`,
+      cta: '📦 商品を確認',
+      ctaSection: 'products',
+      severity: invCritical > 0 ? 'critical' : 'warning',
+    });
+  }
+
+  // 優先度3: 売上ゼロ → 集客 / 売上あり → AOV改善
+  if (revenue7d.totalRevenue === 0 || revenue7d.orderCount === 0) {
+    todoList.push({
+      rank: todoList.length + 1,
+      title: 'まずはお客様を呼び込もう',
+      reason: '今週はまだ売上が立っていません。トップページのバナーを新作IPコラボに変える、SNSで告知する、Google広告を出すなどでお客様を呼び込みましょう。',
+      cta: '🖼️ トップページを編集',
+      ctaSection: 'homepage',
+      severity: 'warning',
+    });
+  } else if (aov > 0 && aov < 30000) {
+    todoList.push({
+      rank: todoList.length + 1,
+      title: `お客様1人あたりの購入額を上げよう (今 ${fmtYen(aov)})`,
+      reason: 'カートに「あわせ買い」のおすすめ商品を出すと、1人あたりの購入額が上がります。アクセサリーやキーボードを推薦してみましょう。',
+      cta: '🛒 関連商品を設定',
+      ctaSection: 'marketing',
+      severity: 'info',
+    });
+  }
+
+  // 優先度4: 承認待ち
+  if (pendingApprovals > 0 && todoList.length < 3) {
+    todoList.push({
+      rank: todoList.length + 1,
+      title: `承認待ちが ${pendingApprovals}件 あります`,
+      reason: 'AIエージェントが「これやっていい？」と聞いています。確認して承認/却下しましょう。',
+      cta: '👀 承認画面へ',
+      ctaSection: 'agents',
+      severity: 'warning',
+    });
+  }
+
+  // フォールバック: 何もなければデータ取得状況を促す
+  if (todoList.length === 0 && !loadingDaily) {
+    todoList.push({
+      rank: 1,
+      title: '今のところ大きな問題はありません',
+      reason: 'カート離脱・在庫・売上すべて健全です。新商品の追加やキャンペーン企画に時間を使いましょう。',
+      cta: '📝 商品を追加',
+      ctaSection: 'products',
+      severity: 'info',
+    });
+  }
+
+  const top3 = todoList.slice(0, 3);
+
   const alerts: Array<{level: 'critical' | 'warning' | 'info'; text: string}> = [];
   if (metrics.andonStatus === 'red') alerts.push({level: 'critical', text: 'Andon発動中 — 全Agent停止中'});
-  if (pendingApprovals > 0) alerts.push({level: 'warning', text: `承認待ち ${pendingApprovals}件 — 対応が必要です`});
   if (errorAgents.length > 0) alerts.push({level: 'warning', text: `Agent異常 ${errorAgents.length}件 — ${errorAgents.map(a => a.name).join(', ')}`});
   if (errorPipelines.length > 0) alerts.push({level: 'warning', text: `Pipeline異常 ${errorPipelines.length}件`});
   if (revenue7d.isMock) alerts.push({level: 'info', text: 'Shopify API未接続 — 売上データはまだ取得できません'});
 
+  // 日付フォーマット
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}年${today.getMonth() + 1}月${today.getDate()}日`;
+  const weekday = ['日', '月', '火', '水', '木', '金', '土'][today.getDay()];
+
   return (
     <div>
-    {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
-    <TabHeaderHint
-      title="売上ダッシュボード"
-      description="今日・今週・今月・今年の売上を一覧表示します。お店の経営状況をひと目で確認できます。"
-      relatedTabs={[{label: '出品ガイド', tab: 'onboarding'}, {label: '詳しいデータ分析', tab: 'analytics'}]}
-    />
-      {/* ── アラートバナー ── */}
+      {/* ════════════════════════════════════════════ */}
+      {/* ── 🌟 今日のお店日報 (CEO/中学生 共通の入口) ── */}
+      {/* ════════════════════════════════════════════ */}
+      <section
+        aria-labelledby="daily-report-heading"
+        style={{
+          background: `linear-gradient(135deg, ${color.bg1} 0%, rgba(0,240,255,.04) 100%)`,
+          border: `1px solid ${color.cyan}30`,
+          borderRadius: 20,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8}}>
+          <h2 id="daily-report-heading" style={{fontSize: 22, fontWeight: 900, color: color.text, margin: 0, letterSpacing: -0.5}}>
+            🌟 今日のお店日報
+          </h2>
+          <span style={{fontSize: 12, color: color.textMuted, fontWeight: 600}}>
+            {todayStr} ({weekday}) · 過去30日のデータ
+          </span>
+        </div>
+
+        {/* ── 4つの大きなカード（中学生でも一目で分かる） ── */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 12,
+          marginBottom: 20,
+        }}>
+          {/* (1) 過去7日 売上 */}
+          <div style={{
+            background: color.bg1,
+            borderRadius: 14,
+            border: `1px solid ${revenue7d.totalRevenue > 0 ? `${color.green}40` : color.border}`,
+            padding: 18,
+          }}>
+            <div style={{fontSize: 11, color: color.textMuted, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center'}}>
+              💰 今週の売上
+              <TermTooltip term="今週の売上" explain="過去7日間でお店が売り上げた金額の合計です。お客様が決済を完了した注文の合計額。" />
+            </div>
+            <div style={{fontSize: 28, fontWeight: 900, color: revenue7d.totalRevenue > 0 ? color.green : color.textDim, lineHeight: 1.1}}>
+              {fmtYen(revenue7d.totalRevenue)}
+            </div>
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 6}}>
+              {revenue7d.orderCount}件の注文
+            </div>
+            <div style={{fontSize: 10, color: revenue7d.totalRevenue > 0 ? color.green : color.textDim, marginTop: 4, fontWeight: 600}}>
+              {revenue7d.totalRevenue > 0 ? '✅ 売上が立っています' : '⚠️ まだ今週の売上はゼロです'}
+            </div>
+          </div>
+
+          {/* (2) ⚠️ カート離脱（最重要・赤強調） */}
+          <div style={{
+            background: abRate >= 60 ? `${color.red}10` : color.bg1,
+            borderRadius: 14,
+            border: `2px solid ${abRate >= 60 ? color.red : abRate >= 30 ? color.orange : color.border}`,
+            padding: 18,
+            position: 'relative',
+          }}>
+            {abRate >= 60 && (
+              <span style={{
+                position: 'absolute',
+                top: -10,
+                right: 12,
+                background: color.red,
+                color: '#FFF',
+                fontSize: 9,
+                fontWeight: 900,
+                padding: '3px 8px',
+                borderRadius: 10,
+                letterSpacing: 1,
+              }}>
+                最優先
+              </span>
+            )}
+            <div style={{fontSize: 11, color: color.textMuted, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center'}}>
+              🛒 カート離脱
+              <TermTooltip term="カート離脱" explain="お客様が商品をカートに入れたのに、買わずにサイトを離れること。離脱率が高い＝買う気だった人を逃している＝大きな機会損失。" />
+            </div>
+            <div style={{fontSize: 28, fontWeight: 900, color: abRate >= 60 ? color.red : abRate >= 30 ? color.orange : color.textDim, lineHeight: 1.1}}>
+              {loadingDaily ? '…' : cartData?.success ? `${abRate.toFixed(0)}%` : '—'}
+            </div>
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 6}}>
+              {cartData?.success ? `${abCount}人がカート放置` : 'API取得中…'}
+            </div>
+            <div style={{fontSize: 11, color: abValue > 0 ? color.red : color.textDim, marginTop: 4, fontWeight: 700}}>
+              {abValue > 0 ? `失った売上 ${fmtYen(abValue)}` : ''}
+            </div>
+          </div>
+
+          {/* (3) 在庫アラート */}
+          <div style={{
+            background: invCritical > 0 ? `${color.orange}10` : color.bg1,
+            borderRadius: 14,
+            border: `1px solid ${invCritical > 0 ? `${color.orange}50` : invTotal > 0 ? `${color.yellow}40` : color.border}`,
+            padding: 18,
+          }}>
+            <div style={{fontSize: 11, color: color.textMuted, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center'}}>
+              📦 在庫アラート
+              <TermTooltip term="在庫アラート" explain="在庫が少なくなった商品の数。0件なら安全。多い＝補充が必要＝放置すると売れない時間が増える。" />
+            </div>
+            <div style={{fontSize: 28, fontWeight: 900, color: invCritical > 0 ? color.orange : invTotal > 0 ? color.yellow : color.green, lineHeight: 1.1}}>
+              {loadingDaily ? '…' : invData?.success ? `${invTotal}件` : '—'}
+            </div>
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 6}}>
+              {invData?.success ? (invCritical > 0 ? `うち${invCritical}件は在庫ゼロ` : invTotal > 0 ? '在庫少 (補充推奨)' : '✅ 在庫は十分') : 'API取得中…'}
+            </div>
+          </div>
+
+          {/* (4) AOV (お客様1人あたりの購入額) */}
+          <div style={{
+            background: color.bg1,
+            borderRadius: 14,
+            border: `1px solid ${color.border}`,
+            padding: 18,
+          }}>
+            <div style={{fontSize: 11, color: color.textMuted, fontWeight: 700, marginBottom: 8, display: 'flex', alignItems: 'center'}}>
+              👤 お客様1人あたり
+              <TermTooltip term="お客様1人あたり購入額 (AOV)" explain="1回の注文の平均金額。AOV (Average Order Value) とも言う。これが上がる＝お客様が高い商品を買ってくれる、または複数買ってくれる＝お店が儲かる。" />
+            </div>
+            <div style={{fontSize: 28, fontWeight: 900, color: aov > 0 ? color.cyan : color.textDim, lineHeight: 1.1}}>
+              {fmtYen(aov)}
+            </div>
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 6}}>
+              1回の注文の平均
+            </div>
+            <div style={{fontSize: 10, color: color.textDim, marginTop: 4}}>
+              ゲーミングPC平均 ¥150,000+
+            </div>
+          </div>
+        </div>
+
+        {/* ── 🎯 今日やることTop3 ── */}
+        <div>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            marginBottom: 12,
+          }}>
+            <span style={{fontSize: 16, fontWeight: 900, color: color.text}}>🎯 今日やることTop3</span>
+            <span style={{fontSize: 10, color: color.textMuted, fontWeight: 600}}>
+              データから自動おすすめ
+            </span>
+          </div>
+
+          {loadingDaily && top3.length === 0 ? (
+            <div style={{
+              padding: 20,
+              background: color.bg1,
+              borderRadius: 12,
+              border: `1px solid ${color.border}`,
+              color: color.textMuted,
+              fontSize: 13,
+              textAlign: 'center',
+            }}>
+              データを読み込み中…
+            </div>
+          ) : (
+            <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+              {top3.map((todo) => {
+                const sevColor = todo.severity === 'critical' ? color.red : todo.severity === 'warning' ? color.orange : color.cyan;
+                return (
+                  <div
+                    key={todo.rank}
+                    style={{
+                      background: color.bg1,
+                      border: `1px solid ${sevColor}40`,
+                      borderLeft: `4px solid ${sevColor}`,
+                      borderRadius: 12,
+                      padding: 16,
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 14,
+                    }}
+                  >
+                    <div style={{
+                      flexShrink: 0,
+                      width: 32,
+                      height: 32,
+                      borderRadius: '50%',
+                      background: `${sevColor}20`,
+                      color: sevColor,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 16,
+                      fontWeight: 900,
+                    }}>
+                      {todo.rank}
+                    </div>
+                    <div style={{flex: 1, minWidth: 0}}>
+                      <div style={{fontSize: 14, fontWeight: 800, color: color.text, marginBottom: 4}}>
+                        {todo.title}
+                      </div>
+                      <div style={{fontSize: 12, color: color.textMuted, lineHeight: 1.6, marginBottom: 8}}>
+                        <span style={{color: sevColor, fontWeight: 700}}>なぜ？ </span>
+                        {todo.reason}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => todo.ctaSection && onNavigate?.(todo.ctaSection)}
+                        style={{
+                          background: `${sevColor}15`,
+                          border: `1px solid ${sevColor}50`,
+                          borderRadius: 8,
+                          padding: '6px 14px',
+                          color: sevColor,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {todo.cta} →
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── アラートバナー（システム異常など、ある時だけ） ── */}
       {alerts.length > 0 && (
         <div style={{marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 6}}>
           {alerts.map((alert, i) => (
@@ -103,7 +513,12 @@ export default function AdminHome({
         </div>
       )}
 
-      {/* ── 売上 KPI（最重要）── */}
+      {/* ── 売上 KPI（規模感の把握）── */}
+      <div style={{marginBottom: 12}}>
+        <div style={{fontSize: 11, fontWeight: 800, color: color.textDim, letterSpacing: 2, marginBottom: 10}}>
+          📈 売上の規模感
+        </div>
+      </div>
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
