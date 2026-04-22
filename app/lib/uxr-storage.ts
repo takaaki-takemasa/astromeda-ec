@@ -19,8 +19,16 @@ import { initKVStore, getKVStore, type KVStore } from './kv-storage';
 
 /** UX イベントの基本形（client tracker と一致させる） */
 export interface UxrEvent {
-  /** event type */
-  t: 'pv' | 'click' | 'scroll' | 'rage';
+  /**
+   * event type
+   * - pv: page view
+   * - click: マウスクリック
+   * - scroll: scroll depth
+   * - rage: 短時間に同じ場所を連打
+   * - nav: SPA route change（patch 0124 Phase B）
+   * - input: 入力フォームに focus → blur した（patch 0124 Phase B・値は記録しない）
+   */
+  t: 'pv' | 'click' | 'scroll' | 'rage' | 'nav' | 'input';
   /** timestamp (ms since epoch) */
   ts: number;
   /** click x (viewport-relative, 0-1) */
@@ -43,6 +51,10 @@ export interface UxrEvent {
   u?: string;
   /** rage: count of rapid clicks in 50px area */
   c?: number;
+  /** input: focus→blur 滞在秒数（最大 600 = 10分） */
+  dur?: number;
+  /** nav: 遷移先 path（先頭スラッシュ込・最大 200 char） */
+  to?: string;
 }
 
 /** バッチの保存形式 */
@@ -226,4 +238,161 @@ export async function listKnownPaths(
 /** テスト用: ページ一覧キャッシュをリセット */
 export function _resetPagesCache(): void {
   cachedPages = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// patch 0124 Phase B: セッション再生（誰がいつ何をクリックしたか）
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * セッション概要（admin 一覧テーブル用）
+ */
+export interface SessionSummary {
+  /** session id */
+  sid: string;
+  /** このセッションが訪れたユニーク path 一覧 */
+  paths: string[];
+  /** 最初に観測した timestamp */
+  firstSeen: number;
+  /** 最後に観測した timestamp */
+  lastSeen: number;
+  /** 総 event 数 */
+  eventCount: number;
+  /** click 数 */
+  clickCount: number;
+  /** rage click 数 */
+  rageCount: number;
+  /** pageview 数 */
+  pageviews: number;
+  /** user-agent 先頭 80 char (device 推定用) */
+  ua: string;
+}
+
+let cachedSessions: { ts: number; sessions: SessionSummary[] } | null = null;
+const SESSIONS_CACHE_MS = 30_000;
+
+/**
+ * 最近のセッション一覧（KV 全 prefix scan → sid 別に集約）
+ *
+ * KV scan 上限 1000 + 直近 500 バッチに絞り込み。
+ * 30秒キャッシュ。
+ */
+export async function listRecentSessions(
+  env: Record<string, unknown> | null | undefined,
+  options?: { limit?: number; sinceMs?: number },
+): Promise<SessionSummary[]> {
+  const now = Date.now();
+  if (cachedSessions && now - cachedSessions.ts < SESSIONS_CACHE_MS) {
+    return cachedSessions.sessions.slice(0, options?.limit ?? 50);
+  }
+
+  const kv = resolveKv(env);
+  const list = await kv.list({ prefix: UXR_KEY_PREFIX, limit: 1000 });
+  const sinceMs = options?.sinceMs ?? 0;
+
+  const filtered = list.keys
+    .map((k) => {
+      const parts = k.name.split(':');
+      const ts = Number(parts[3] || 0);
+      return { name: k.name, ts };
+    })
+    .filter((x) => x.ts >= sinceMs)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 500);
+
+  const batches = await Promise.all(
+    filtered.map(async (x) => {
+      try {
+        return await kv.get<UxrBatch>(x.name);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const bySid: Record<string, SessionSummary> = {};
+  for (const b of batches) {
+    if (!b || !b.sid) continue;
+    let s = bySid[b.sid];
+    if (!s) {
+      s = {
+        sid: b.sid,
+        paths: [],
+        firstSeen: b.ts,
+        lastSeen: b.ts,
+        eventCount: 0,
+        clickCount: 0,
+        rageCount: 0,
+        pageviews: 0,
+        ua: b.ua || '',
+      };
+      bySid[b.sid] = s;
+    }
+    if (b.path && !s.paths.includes(b.path)) s.paths.push(b.path);
+    if (b.ts < s.firstSeen) s.firstSeen = b.ts;
+    if (b.ts > s.lastSeen) s.lastSeen = b.ts;
+    s.eventCount += b.events.length;
+    for (const e of b.events) {
+      if (e.t === 'click') s.clickCount++;
+      else if (e.t === 'rage') s.rageCount++;
+      else if (e.t === 'pv') s.pageviews++;
+    }
+  }
+
+  const sessions = Object.values(bySid).sort((a, b) => b.lastSeen - a.lastSeen);
+  cachedSessions = { ts: now, sessions };
+  return sessions.slice(0, options?.limit ?? 50);
+}
+
+/**
+ * 1セッション分の全イベント timeline（admin 再生 UI 用）
+ */
+export async function readEventsForSession(
+  env: Record<string, unknown> | null | undefined,
+  sid: string,
+  options?: { maxBatches?: number },
+): Promise<{
+  batches: UxrBatch[];
+  events: Array<{ event: UxrEvent; path: string }>;
+}> {
+  const kv = resolveKv(env);
+  const list = await kv.list({ prefix: UXR_KEY_PREFIX, limit: 1000 });
+  const maxBatches = options?.maxBatches ?? 200;
+
+  const sorted = list.keys
+    .map((k) => {
+      const parts = k.name.split(':');
+      const ts = Number(parts[3] || 0);
+      return { name: k.name, ts };
+    })
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 500);
+
+  const all = await Promise.all(
+    sorted.map(async (x) => {
+      try {
+        return await kv.get<UxrBatch>(x.name);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  const matching = all
+    .filter((b): b is UxrBatch => !!b && b.sid === sid)
+    .slice(0, maxBatches);
+
+  const events: Array<{ event: UxrEvent; path: string }> = [];
+  matching.forEach((b) => {
+    for (const e of b.events) {
+      events.push({ event: e, path: b.path });
+    }
+  });
+  events.sort((a, b) => a.event.ts - b.event.ts);
+  return { batches: matching, events };
+}
+
+/** テスト用: セッション一覧キャッシュをリセット */
+export function _resetSessionsCache(): void {
+  cachedSessions = null;
 }

@@ -15,7 +15,12 @@ import type { Route } from './+types/api.admin.uxr';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '~/lib/rate-limiter';
 import { auditLog } from '~/lib/audit-log';
 import { AppSession } from '~/lib/session';
-import { listKnownPaths, readBatchesForPath } from '~/lib/uxr-storage';
+import {
+  listKnownPaths,
+  readBatchesForPath,
+  listRecentSessions,
+  readEventsForSession,
+} from '~/lib/uxr-storage';
 
 async function authenticateAdmin(request: Request, contextEnv: Env, context: unknown) {
   const { verifyAdminAuth } = await import('~/lib/admin-auth');
@@ -129,6 +134,63 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         avgScroll,
         topLinks,
         batchCount: batches.length,
+      });
+    }
+
+    // patch 0124 Phase B: セッション一覧（admin sessions タブ用）
+    if (action === 'sessions') {
+      const limit = Math.max(1, Math.min(200, Number(url.searchParams.get('limit') || '50')));
+      const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days') || '7')));
+      const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+      const sessions = await listRecentSessions(contextEnv as unknown as Record<string, unknown>, {
+        limit,
+        sinceMs,
+      });
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: 'api/admin/uxr?action=sessions',
+        success: true,
+      });
+      return data({
+        success: true,
+        days,
+        sessions,
+        total: sessions.length,
+      });
+    }
+
+    // patch 0124 Phase B: 1セッション分の event timeline（admin 再生 UI 用）
+    if (action === 'session') {
+      const sid = url.searchParams.get('sid');
+      if (!sid) {
+        return data({ success: false, error: 'sid query param required' }, { status: 400 });
+      }
+      const result = await readEventsForSession(
+        contextEnv as unknown as Record<string, unknown>,
+        sid,
+        { maxBatches: 200 },
+      );
+      // batch level の path / ts / ua を返す（client が path 切り替えを再現できるように）
+      const batchMeta = result.batches.map((b) => ({
+        path: b.path,
+        ts: b.ts,
+        ua: b.ua,
+        eventCount: b.events.length,
+      }));
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: `api/admin/uxr?action=session&sid=${sid.slice(0, 12)}`,
+        success: true,
+      });
+      return data({
+        success: true,
+        sid,
+        batchCount: result.batches.length,
+        eventCount: result.events.length,
+        batches: batchMeta,
+        events: result.events,
       });
     }
 

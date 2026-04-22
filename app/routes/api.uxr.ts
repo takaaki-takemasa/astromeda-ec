@@ -41,7 +41,8 @@ function sanitizeEvent(raw: unknown): UxrEvent | null {
   if (!raw || typeof raw !== 'object') return null;
   const e = raw as Record<string, unknown>;
   const t = String(e.t || '');
-  if (t !== 'pv' && t !== 'click' && t !== 'scroll' && t !== 'rage') return null;
+  // patch 0124 Phase B: 'nav'（SPA 遷移）'input'（入力 focus 滞在秒数）を追加
+  if (t !== 'pv' && t !== 'click' && t !== 'scroll' && t !== 'rage' && t !== 'nav' && t !== 'input') return null;
   const ts = Number(e.ts);
   if (!Number.isFinite(ts) || ts <= 0) return null;
 
@@ -54,11 +55,17 @@ function sanitizeEvent(raw: unknown): UxrEvent | null {
   if (typeof e.vh === 'number' && Number.isFinite(e.vh)) out.vh = Math.max(0, Math.min(10000, e.vh));
   if (typeof e.d === 'number' && Number.isFinite(e.d)) out.d = Math.max(0, Math.min(100, e.d));
   if (typeof e.c === 'number' && Number.isFinite(e.c)) out.c = Math.max(0, Math.min(100, Math.floor(e.c)));
+  // patch 0124 Phase B: input 滞在秒数（0-600 = 10分上限）
+  if (typeof e.dur === 'number' && Number.isFinite(e.dur)) out.dur = Math.max(0, Math.min(600, Math.round(e.dur)));
 
   if (typeof e.sel === 'string') out.sel = e.sel.slice(0, MAX_SEL_LEN);
   if (typeof e.txt === 'string') out.txt = e.txt.slice(0, MAX_TXT_LEN);
   if (typeof e.r === 'string') out.r = e.r.slice(0, 80);
   if (typeof e.u === 'string') out.u = e.u.slice(0, 40);
+  // patch 0124 Phase B: nav 遷移先 path（先頭 / 必須・MAX_PATH_LEN 上限）
+  if (typeof e.to === 'string' && e.to.startsWith('/') && e.to.length <= MAX_PATH_LEN) {
+    out.to = e.to;
+  }
 
   return out;
 }

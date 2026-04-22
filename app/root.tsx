@@ -724,6 +724,70 @@ fbq('track','PageView');`,
                   }
                   window.addEventListener('scroll',onScroll,{passive:true});
 
+                  // patch 0124 Phase B: SPA route change (history.pushState / popstate)
+                  // → admin で「お客様がどのページからどのページへ移動したか」のセッション再生に使う
+                  try{
+                    var origPush=history.pushState;
+                    history.pushState=function(state,title,url){
+                      var ret=origPush.apply(history,arguments);
+                      try{
+                        var to=String(url||location.pathname||'/');
+                        if(to.indexOf('http')===0){try{to=new URL(to).pathname;}catch(e){}}
+                        if(to.indexOf('/admin')!==0&&to.indexOf('/api/')!==0){
+                          pushEvent({t:'nav',ts:Date.now(),to:to.slice(0,200)});
+                          p=to; // tracker の現在 path も更新
+                        }
+                      }catch(e){}
+                      return ret;
+                    };
+                    window.addEventListener('popstate',function(){
+                      try{
+                        var to=location.pathname||'/';
+                        if(to.indexOf('/admin')!==0&&to.indexOf('/api/')!==0){
+                          pushEvent({t:'nav',ts:Date.now(),to:to.slice(0,200)});
+                          p=to;
+                        }
+                      }catch(e){}
+                    });
+                  }catch(e){}
+
+                  // patch 0124 Phase B: 入力 focus → blur の滞在秒数
+                  // プライバシー保護: 入力された値は決して記録しない（dur 秒数と sel のみ）
+                  // password/email/credit-card 系の input はそもそも skip
+                  var focusStart=null;
+                  var focusSel='';
+                  function isSensitiveInput(el){
+                    if(!el||el.nodeType!==1)return true;
+                    var tag=(el.tagName||'').toLowerCase();
+                    if(tag!=='input'&&tag!=='textarea'&&tag!=='select')return true;
+                    var typ=(el.getAttribute&&el.getAttribute('type')||'').toLowerCase();
+                    if(typ==='password'||typ==='email'||typ==='tel'||typ==='hidden')return true;
+                    var name=(el.getAttribute&&el.getAttribute('name')||'').toLowerCase();
+                    if(name.indexOf('card')>=0||name.indexOf('cvv')>=0||name.indexOf('pass')>=0||name.indexOf('email')>=0||name.indexOf('phone')>=0)return true;
+                    var auto=(el.getAttribute&&el.getAttribute('autocomplete')||'').toLowerCase();
+                    if(auto.indexOf('cc-')===0||auto.indexOf('email')>=0||auto.indexOf('tel')>=0||auto.indexOf('current-password')>=0||auto.indexOf('new-password')>=0)return true;
+                    return false;
+                  }
+                  document.addEventListener('focusin',function(ev){
+                    try{
+                      var t=ev.target;
+                      if(isSensitiveInput(t))return;
+                      focusStart=Date.now();
+                      focusSel=selOf(t);
+                    }catch(e){focusStart=null;focusSel='';}
+                  },{capture:true,passive:true});
+                  document.addEventListener('focusout',function(ev){
+                    try{
+                      if(focusStart===null)return;
+                      var dur=Math.round((Date.now()-focusStart)/1000);
+                      if(dur>=1&&dur<=600){
+                        pushEvent({t:'input',ts:Date.now(),sel:focusSel,dur:dur});
+                      }
+                      focusStart=null;
+                      focusSel='';
+                    }catch(e){focusStart=null;focusSel='';}
+                  },{capture:true,passive:true});
+
                   // 5秒ごとに flush + scroll depth を埋める
                   setInterval(function(){
                     if(maxScroll>0){
