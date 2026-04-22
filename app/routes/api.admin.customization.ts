@@ -59,7 +59,41 @@ const CustomizationActionSchema = z.discriminatedUnion('action', [
     action: z.literal('delete'),
     metaobjectId: z.string().min(1),
   }).strict(),
+  // patch 0106: P0-β プルダウン seed
+  // STANDARD_OPTIONS (17 PC オプション) を Metaobject に一括投入し、
+  // admin 側で「現状の出品 PC 用プルダウン」が初日から見える状態にする。
+  // 既存 handle はスキップ (idempotent)。
+  z.object({
+    action: z.literal('seed'),
+  }).strict(),
 ]);
+
+// patch 0106: STANDARD_OPTIONS と並走する handle / category / displayOrder の定義。
+// ProductCustomization.tsx の STANDARD_OPTIONS を import してそのまま使う。
+// handle 衝突を避けるためすべて `pc-` prefix。category は Metaobject 検索用ラベル。
+const STANDARD_SEED_META: Array<{
+  name: string;
+  handle: string;
+  category: string;
+}> = [
+  { name: 'メモリ', handle: 'pc-memory', category: 'memory' },
+  { name: 'SSD(1つ目)', handle: 'pc-ssd-1', category: 'storage' },
+  { name: 'SSD(2つ目)', handle: 'pc-ssd-2', category: 'storage' },
+  { name: 'HDD', handle: 'pc-hdd', category: 'storage' },
+  { name: '電源', handle: 'pc-psu', category: 'psu' },
+  { name: '電源スリーブケーブル', handle: 'pc-psu-cable', category: 'psu' },
+  { name: '水冷クーラー＆ケースファンカラーの変更', handle: 'pc-cooler-color-toggle', category: 'cooling' },
+  { name: '水冷クーラー＆ケースファンカラー', handle: 'pc-cooler-color', category: 'cooling' },
+  { name: 'RGB GPU(グラフィックカード)ステイ', handle: 'pc-gpu-stay', category: 'gpu' },
+  { name: 'RGB GPU(グラフィックカード)ステイカラー', handle: 'pc-gpu-stay-color', category: 'gpu' },
+  { name: 'CPUグリス', handle: 'pc-cpu-grease', category: 'cooling' },
+  { name: 'Microsoft Office(Word/Excel/Outlook/PowerPoint)', handle: 'pc-office', category: 'general' },
+  { name: '無線LAN(Wi-Fi＆Bluetooth接続)', handle: 'pc-wifi', category: 'general' },
+  { name: 'OS', handle: 'pc-os', category: 'general' },
+  { name: 'Windows言語', handle: 'pc-os-language', category: 'general' },
+  { name: 'クイックスタート(初期設定代行)', handle: 'pc-quickstart', category: 'general' },
+  { name: '延長保証(自然故障)', handle: 'pc-warranty', category: 'general' },
+];
 
 // ── GET: カスタマイズオプション一覧 ──
 
@@ -189,6 +223,72 @@ export async function action({ request, context }: Route.ActionArgs) {
         const result = await client.deleteMetaobject(v.metaobjectId);
         auditLog({ action: 'customization_delete', role, resource: `metaobject/${v.metaobjectId}`, success: result });
         return data({ success: result });
+      }
+
+      case 'seed': {
+        // patch 0106: STANDARD_OPTIONS (PC 17 オプション) を Metaobject に一括投入。
+        // 既存 handle はスキップ (idempotent)。CEO は admin タブで「一括登録」を
+        // 1 度押せば、出品中 PC のプルダウン構成 17 項目が即可視化される。
+        const role = requirePermission(session, 'products.edit');
+
+        // STANDARD_OPTIONS は ProductCustomization からそのまま import
+        const { STANDARD_OPTIONS } = await import('../components/astro/ProductCustomization');
+
+        // 既存 handle 一覧を取得して衝突回避
+        const existing = await client.getMetaobjects(METAOBJECT_TYPE, 100);
+        const existingHandles = new Set(existing.map((mo) => mo.handle));
+
+        let created = 0;
+        let skipped = 0;
+        const errors: Array<{ handle: string; error: string }> = [];
+
+        // STANDARD_OPTIONS の name と STANDARD_SEED_META の name で対応付け
+        for (let i = 0; i < STANDARD_SEED_META.length; i++) {
+          const meta = STANDARD_SEED_META[i];
+          const opt = STANDARD_OPTIONS.find((o) => o.name === meta.name);
+          if (!opt) {
+            errors.push({ handle: meta.handle, error: `STANDARD_OPTIONS に "${meta.name}" が見つかりません` });
+            continue;
+          }
+          if (existingHandles.has(meta.handle)) {
+            skipped++;
+            continue;
+          }
+
+          const fields: Array<{ key: string; value: string }> = [
+            { key: 'name', value: meta.name },
+            { key: 'category', value: meta.category },
+            { key: 'choices_json', value: JSON.stringify(opt.options) },
+            { key: 'display_order', value: String(i) },
+            { key: 'is_required', value: 'false' },
+            { key: 'applies_to_tags', value: '' },
+          ];
+
+          try {
+            await client.createMetaobject(METAOBJECT_TYPE, meta.handle, fields);
+            created++;
+          } catch (e) {
+            errors.push({
+              handle: meta.handle,
+              error: e instanceof Error ? e.message : 'Unknown error',
+            });
+          }
+        }
+
+        auditLog({
+          action: 'customization_create',
+          role,
+          resource: `seed/${created}created/${skipped}skipped/${errors.length}errors`,
+          success: errors.length === 0,
+        });
+
+        return data({
+          success: errors.length === 0,
+          created,
+          skipped,
+          errors,
+          total: STANDARD_SEED_META.length,
+        });
       }
 
       default:

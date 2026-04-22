@@ -15,6 +15,9 @@ import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/Previ
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 // patch 0099: タグ入力を TagPicker に統一（既存タグを autocomplete 選択）
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0107 (CEO P0-α): 商品説明の生 HTML 編集を、中学生でも触れる
+// WYSIWYG + プレビュー + 上級者向け HTML の 3 モード切替に置換
+import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 
 // ── 型定義 ──
 interface ProductDetail {
@@ -482,13 +485,20 @@ export default function AdminProductDetail() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>説明 (HTML)</label>
-                <textarea
+                <label style={labelStyle} htmlFor="prod-description-editor">商品説明</label>
+                {/* patch 0107: 生 HTML textarea → かんたん編集 / プレビュー / HTML の 3 モード切替 */}
+                <RichTextEditor
+                  id="prod-description-editor"
+                  ariaLabel="商品説明エディタ"
                   value={basic.descriptionHtml}
-                  onChange={(e) => setBasic({...basic, descriptionHtml: e.target.value})}
-                  rows={8}
-                  style={{...inputStyle, fontFamily: 'monospace'}}
+                  onChange={(html) => setBasic({...basic, descriptionHtml: html})}
+                  minHeight={260}
+                  placeholder="商品の特長を書きましょう。「✏️ かんたん編集」のままでも、見出しや箇条書き・リンクを上のボタンから挿入できます。"
                 />
+                <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                  💡 「📄 プレビュー」タブで実際の見た目を確認できます。
+                  どうしても HTML を直接書きたい場合は「{`{} HTML`}」タブに切り替えてください。
+                </div>
               </div>
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
                 <div>

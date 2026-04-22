@@ -22,6 +22,8 @@ import { ImageUploader } from '~/components/admin/ImageUploader';
 import type { ImageUploadResult } from '~/components/admin/ImageUploader';
 // patch 0099: タグ入力を TagPicker に統一
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0107: 商品説明をリッチテキストエディタに統一
+import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 import {
   formatPrice,
   getProductStatus,
@@ -371,7 +373,20 @@ function ProductModal({
             disabled={isSubmitting}
           />
 
-          <FormField label="説明 (HTML可)" value={form.descriptionHtml} onChange={(v) => setForm({ ...form, descriptionHtml: v })} multiline placeholder="商品の説明文..." />
+          {/* patch 0107: 中学生でも編集できるリッチテキスト UI（WYSIWYG/プレビュー/HTMLの3モード切替） */}
+          <div>
+            <label htmlFor="prod-modal-description-editor" style={{ display: 'block', fontSize: 13, fontWeight: 600, color: T.t4, marginBottom: 6 }}>
+              商品説明
+            </label>
+            <RichTextEditor
+              id="prod-modal-description-editor"
+              ariaLabel="商品説明エディタ"
+              value={form.descriptionHtml}
+              onChange={(html) => setForm({ ...form, descriptionHtml: html })}
+              minHeight={200}
+              placeholder="商品の特長を書きましょう..."
+            />
+          </div>
 
           {mode === 'create' && (
             <>

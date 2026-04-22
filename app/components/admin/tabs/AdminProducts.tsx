@@ -27,6 +27,8 @@ import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineL
 import { useToast } from '~/components/admin/ds/Toast';
 // patch 0099: IPタグ入力を TagPicker に統一（既存タグを autocomplete 選択）
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0107 (CEO P0-α): 新規商品作成モーダルでも生 HTML textarea を WYSIWYG に置換
+import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 
 // ── Types ──
 interface ProductListItem {
@@ -592,18 +594,19 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
         </div>
       </div>
 
-      {/* 説明文 */}
+      {/* 説明文 — patch 0107: 生 HTML → WYSIWYG */}
       <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>商品説明（任意）</label>
-        <textarea
-          style={{ ...inputStyle, resize: 'vertical', minHeight: 80 }}
-          rows={4}
+        <label style={labelStyle} htmlFor="admin-products-create-desc">商品説明（任意）</label>
+        <RichTextEditor
+          id="admin-products-create-desc"
+          ariaLabel="新規商品の説明エディタ"
           value={form.descriptionHtml}
-          onChange={(e) => setForm({ ...form, descriptionHtml: e.target.value })}
+          onChange={(html) => setForm({ ...form, descriptionHtml: html })}
+          minHeight={180}
           placeholder="例: 最新 Ryzen 5 7500F と RTX 5060 を搭載したゲーミングPC。フルHD高画質で人気ゲームを快適プレイ。"
         />
         <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>
-          そのまま商品ページに表示されます。後から編集もできます。
+          そのまま商品ページに表示されます。後から編集もできます。「📄 プレビュー」で見た目を確認できます。
         </div>
       </div>
 

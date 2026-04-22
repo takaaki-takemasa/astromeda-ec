@@ -227,6 +227,42 @@ export default function AdminCustomization() {
     }
   };
 
+  // patch 0106: 「📥 17項目を一括登録」— STANDARD_OPTIONS (PC 17 オプション) を
+  // Metaobject に一括投入。既存 handle はスキップ (idempotent) なので何度押しても安全。
+  const [seeding, setSeeding] = useState(false);
+  const handleSeedDefaults = async () => {
+    const ok = await confirmDialog({
+      title: 'PC標準プルダウン17項目を一括登録しますか？',
+      message: '出品中の PC で使われている標準プルダウン (メモリ / SSD / 電源 / OS / 延長保証 等) を 17 件まとめて登録します。同じ識別子のプルダウンが既にある場合はスキップされます。',
+      confirmLabel: '一括登録する',
+      destructive: false,
+      contextPath: ['コマース', '🛍️ 商品・販売', '🎛️ プルダウン管理'],
+    });
+    if (!ok) return;
+    setSeeding(true);
+    try {
+      const res = await fetch('/api/admin/customization', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'seed' }),
+      });
+      const json = await res.json();
+      const created = Number(json.created || 0);
+      const skipped = Number(json.skipped || 0);
+      const errors = Array.isArray(json.errors) ? json.errors.length : 0;
+      if (json.success) {
+        showToast(`一括登録完了: 新規 ${created} 件 / スキップ ${skipped} 件`, 'ok');
+      } else {
+        showToast(`一部失敗: 新規 ${created} 件 / スキップ ${skipped} 件 / エラー ${errors} 件`, 'err');
+      }
+      await fetchData();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '一括登録に失敗しました', 'err');
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   // ── Form helpers ──
   const openCreate = () => {
     setForm({ ...EMPTY_FORM, choices: [{ value: '', label: '' }] });
@@ -659,6 +695,25 @@ export default function AdminCustomization() {
           >
             定義を初期化
           </button>
+          {/* patch 0106: PC 17 オプション一括登録 (idempotent) */}
+          <button
+            onClick={handleSeedDefaults}
+            disabled={seeding}
+            style={{
+              padding: '8px 16px',
+              fontSize: 12,
+              fontWeight: 600,
+              color: seeding ? color.textMuted : color.cyan,
+              background: 'transparent',
+              border: `1px solid ${seeding ? color.border : 'rgba(0,240,255,.4)'}`,
+              borderRadius: radius.md,
+              cursor: seeding ? 'wait' : 'pointer',
+              fontFamily: font.family,
+            }}
+            title="現在の出品 PC が使っている標準プルダウン17項目 (メモリ/SSD/電源/OS/延長保証 等) を一括で取り込みます。既存はスキップ"
+          >
+            {seeding ? '登録中...' : '📥 PC標準17項目を一括登録'}
+          </button>
           <button
             onClick={openCreate}
             style={{
@@ -791,11 +846,33 @@ export default function AdminCustomization() {
         <AdminEmptyCard
           icon="🎛️"
           title="プルダウンがまだ登録されていません"
-          description='「＋ 新しいプルダウンを作る」から最初のプルダウンを作りましょう。例: メモリ容量 (16GB / 32GB / 64GB)、キーボード配列 (US / JIS)。'
+          description='今出品されている PC では「メモリ・SSD・電源・OS・延長保証」など 17 項目のプルダウンが既に動いています。下のボタンを押すとその 17 項目をまとめて登録できます。自分で 1 件ずつ作ることもできます。'
           action={
-            <button onClick={openCreate} style={btnPrimary}>
-              ＋ 最初のプルダウンを作る
-            </button>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {/* patch 0106: ワンクリックで PC 標準 17 項目を一括投入 (推奨経路) */}
+              <button
+                onClick={handleSeedDefaults}
+                disabled={seeding}
+                style={{
+                  ...btnPrimary,
+                  opacity: seeding ? 0.6 : 1,
+                  cursor: seeding ? 'wait' : 'pointer',
+                }}
+              >
+                {seeding ? '登録中...' : '📥 PC標準17項目を一括登録（おすすめ）'}
+              </button>
+              <button
+                onClick={openCreate}
+                style={{
+                  ...btnPrimary,
+                  background: 'transparent',
+                  color: color.cyan,
+                  border: `1px solid rgba(0,240,255,.4)`,
+                }}
+              >
+                ＋ 自分で1件ずつ作る
+              </button>
+            </div>
           }
         />
       )}
