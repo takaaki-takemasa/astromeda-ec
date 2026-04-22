@@ -238,7 +238,23 @@ async function apiGet(id: string): Promise<MenuDetail> {
 
 async function apiAction(
   body: Record<string, unknown>,
-): Promise<{success: boolean; error?: string; details?: string[]; id?: string; handle?: string; title?: string}> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  details?: string[];
+  id?: string;
+  handle?: string;
+  title?: string;
+  // patch 0113: menu update 時に server から差分内訳が返る (kept/added/removed/renamed)
+  diff?: {
+    kept: number;
+    added: number;
+    removed: number;
+    renamed: number;
+    totalCurrent: number;
+    totalIncoming: number;
+  };
+}> {
   const res = await fetch('/api/admin/menus', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
@@ -251,6 +267,14 @@ async function apiAction(
     id?: string;
     handle?: string;
     title?: string;
+    diff?: {
+      kept: number;
+      added: number;
+      removed: number;
+      renamed: number;
+      totalCurrent: number;
+      totalIncoming: number;
+    };
   };
 }
 
@@ -444,10 +468,24 @@ export default function AdminMenus() {
     const res = await apiAction(body);
     setSaving(false);
     if (res.success) {
-      showToast(
-        editMode === 'new' ? 'メニューを作成しました' : 'メニューを更新しました',
-        'ok',
-      );
+      // patch 0113: 更新時は diff 内訳を CEO に見せる (中学生レベル日本語)
+      let okMessage: string;
+      if (editMode === 'new') {
+        okMessage = 'メニューを作成しました';
+      } else if (res.diff) {
+        const {kept, added, removed, renamed} = res.diff;
+        const parts: string[] = [];
+        if (kept > 0) parts.push(`保持${kept}件`);
+        if (added > 0) parts.push(`追加${added}件`);
+        if (removed > 0) parts.push(`削除${removed}件`);
+        if (renamed > 0) parts.push(`名前変更${renamed}件`);
+        okMessage = parts.length > 0
+          ? `メニューを更新しました（${parts.join('・')}）`
+          : 'メニューを更新しました（変更なし）';
+      } else {
+        okMessage = 'メニューを更新しました';
+      }
+      showToast(okMessage, 'ok');
       closeModal();
       reload();
     } else {
@@ -789,9 +827,42 @@ export default function AdminMenus() {
                           borderRadius: radius.md,
                         }}
                       >
-                        {/* Position */}
-                        <div style={{color: color.textMuted, fontSize: font.xs, textAlign: 'center'}}>
-                          {i + 1}
+                        {/* Position + 保持/新規 バッジ (patch 0113: ID 保持の可視化) */}
+                        <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2}}>
+                          <div style={{color: color.textMuted, fontSize: font.xs}}>
+                            {i + 1}
+                          </div>
+                          {editMode === 'edit' && (
+                            it.id ? (
+                              <span
+                                title="既存項目（保存しても URL や設定は引き継がれます）"
+                                style={{
+                                  fontSize: 9,
+                                  padding: '1px 4px',
+                                  borderRadius: 3,
+                                  background: '#dcfce7',
+                                  color: '#166534',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                保持
+                              </span>
+                            ) : (
+                              <span
+                                title="新規項目（保存時に新しく作られます）"
+                                style={{
+                                  fontSize: 9,
+                                  padding: '1px 4px',
+                                  borderRadius: 3,
+                                  background: '#fef3c7',
+                                  color: '#92400e',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                新規
+                              </span>
+                            )
+                          )}
                         </div>
 
                         {/* Title */}

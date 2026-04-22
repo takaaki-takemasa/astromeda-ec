@@ -3277,11 +3277,26 @@ export class ShopifyAdminClient {
   /**
    * メニュー更新 (title / handle / items を丸ごと置換)
    * — patch 0070: items は全置換方式 (Shopify の menuUpdate 仕様)
+   * — patch 0113 (P1-3, 全保存パターン監査 2026-04-22):
+   *   構造的 partial 化は Shopify 仕様で不可能 (per-MenuItem mutation 不在)。
+   *   代わりに更新前後の diff を計算して呼出元に返却 → AuditLog にリッチに残せる。
+   *   呼出側で current 取得 → 差分送信 → diff 検証のフローを推奨。
+   *
+   *   ID 保持の不変条件: 既存 MenuItem は input.items[*].id で識別される。
+   *   id を抜かして送ると Shopify は新規作成扱い → 外部参照切断のリスク。
+   *   computeMenuItemsDiff() で kept/added/removed/renamed を可視化する。
    */
   async updateMenu(
     id: string,
-    input: {title: string; handle: string; items: ShopifyMenuItem[]},
-  ): Promise<{id: string; handle: string; title: string}> {
+    input: {
+      title: string;
+      handle: string;
+      items: ShopifyMenuItem[];
+      // patch 0113: 呼出側から渡す現在値スナップショット (UI で getMenu 直後の items)。
+      // 渡された場合、差分を計算して result.diff に詰めて返す。
+      currentItems?: ShopifyMenuItem[];
+    },
+  ): Promise<{id: string; handle: string; title: string; diff?: MenuItemsDiff}> {
     const gql = `
       mutation menuUpdate(
         $id: ID!
@@ -3297,6 +3312,11 @@ export class ShopifyAdminClient {
     `;
 
     const itemsForUpdate = toMenuItemUpdateInputList(input.items);
+
+    // patch 0113: 差分計算 (currentItems が無い場合は undefined を返す)
+    const diff = input.currentItems
+      ? computeMenuItemsDiff(input.currentItems, input.items)
+      : undefined;
 
     try {
       const res = await this.query<{
@@ -3319,8 +3339,15 @@ export class ShopifyAdminClient {
         throw new Error('メニュー更新失敗: ノードが返されませんでした');
       }
 
-      log.info(`[updateMenu] Updated: ${menu.id} (${input.items.length} top-level items)`);
-      return menu;
+      if (diff) {
+        log.info(
+          `[updateMenu] Updated: ${menu.id} (kept=${diff.kept} added=${diff.added} removed=${diff.removed} renamed=${diff.renamed})`,
+        );
+      } else {
+        log.info(`[updateMenu] Updated: ${menu.id} (${input.items.length} top-level items, no diff)`);
+      }
+
+      return {...menu, diff};
     } catch (err) {
       this.notifyError('updateMenu', err);
       throw err;
@@ -3446,6 +3473,94 @@ function toMenuItemUpdateInput(it: ShopifyMenuItem): Record<string, unknown> {
     out.items = it.items.map((child) => toMenuItemUpdateInput(child));
   }
   return out;
+}
+
+/**
+ * patch 0113 (P1-3, 全保存パターン監査 2026-04-22):
+ * メニュー項目の差分計算ヘルパー。
+ *
+ * Shopify の menuUpdate は items[] 全置換が仕様 (per-item mutation 不在)。
+ * したがって構造的な partial update は不可能だが、UI は MenuItem の id を保持して
+ * 送信している (toMenuItemUpdateInput が `if (it.id) out.id = it.id`)。
+ *
+ * このヘルパーは「保存時に何が起きるか」を呼出元に伝えるための診断ツール:
+ *   - kept: 既存 id を持って送られている項目数 (Shopify 側で in-place update)
+ *   - added: id を持たない項目 = 新規 MenuItem として作成される
+ *   - removed: 既存 menu には居たが今回送信されない項目 = 削除される
+ *   - renamed: id 一致だが title が変わる項目 (既存 id 維持・タイトルだけ変更)
+ *
+ * Why: 「1 項目リネームで MenuItem id 全変化 → 外部参照切断」は構造ではなく UI ミス
+ * (id を抜かす) で起きる。AuditLog にこの diff を残せば事故時のロールバックが可能になる。
+ */
+export interface MenuItemsDiff {
+  kept: number; // 既存 id 保持
+  added: number; // 新規 (id なし)
+  removed: number; // 今回送信されない既存項目
+  renamed: number; // id 一致 + title 変更
+  totalIncoming: number;
+  totalCurrent: number;
+}
+
+function flattenMenuItems(items: ShopifyMenuItem[] | undefined): ShopifyMenuItem[] {
+  if (!items) return [];
+  const out: ShopifyMenuItem[] = [];
+  for (const it of items) {
+    out.push(it);
+    if (it.items && it.items.length > 0) {
+      out.push(...flattenMenuItems(it.items));
+    }
+  }
+  return out;
+}
+
+export function computeMenuItemsDiff(
+  current: ShopifyMenuItem[] | undefined,
+  incoming: ShopifyMenuItem[] | undefined,
+): MenuItemsDiff {
+  const flatCurrent = flattenMenuItems(current);
+  const flatIncoming = flattenMenuItems(incoming);
+
+  const currentById = new Map<string, ShopifyMenuItem>();
+  for (const it of flatCurrent) {
+    if (it.id) currentById.set(it.id, it);
+  }
+
+  const incomingIds = new Set<string>();
+  let kept = 0;
+  let added = 0;
+  let renamed = 0;
+
+  for (const it of flatIncoming) {
+    if (it.id) {
+      incomingIds.add(it.id);
+      const existing = currentById.get(it.id);
+      if (existing) {
+        kept += 1;
+        if ((existing.title || '').trim() !== (it.title || '').trim()) {
+          renamed += 1;
+        }
+      } else {
+        // id 指定だが現状に存在しない (UI バグ or stale state)
+        added += 1;
+      }
+    } else {
+      added += 1;
+    }
+  }
+
+  let removed = 0;
+  for (const id of currentById.keys()) {
+    if (!incomingIds.has(id)) removed += 1;
+  }
+
+  return {
+    kept,
+    added,
+    removed,
+    renamed,
+    totalIncoming: flatIncoming.length,
+    totalCurrent: flatCurrent.length,
+  };
 }
 
 // ── 環境変数キャッシュ ──

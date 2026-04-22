@@ -305,19 +305,43 @@ export async function action({request, context}: Route.ActionArgs) {
         return data({success: true, id: result.id, handle: result.handle, title: result.title});
       }
       case 'update': {
+        // patch 0113 (P1-3, 全保存パターン監査 2026-04-22):
+        // menuUpdate は items[] 全置換が Shopify 仕様。事前に現在値を取得して
+        // updateMenu に渡し、kept/added/removed/renamed の diff を計算する。
+        // 失敗 (権限不足/idなし等) は致命ではないので catch して silent fallback。
+        let currentItems: ShopifyMenuItem[] | undefined;
+        try {
+          const currentMenu = await client.getMenu(body.id);
+          currentItems = currentMenu?.items;
+        } catch {
+          currentItems = undefined;
+        }
+
         const result = await client.updateMenu(body.id, {
           title: body.title,
           handle: body.handle,
           items: body.items as ShopifyMenuItem[],
+          currentItems,
         });
+
+        const diffStr = result.diff
+          ? `kept=${result.diff.kept} added=${result.diff.added} removed=${result.diff.removed} renamed=${result.diff.renamed} (current=${result.diff.totalCurrent} incoming=${result.diff.totalIncoming})`
+          : `items=${body.items.length} (no diff baseline)`;
+
         auditLog({
           action: 'menu_update',
           role,
           resource: `api/admin/menus [${result.handle}]`,
           success: true,
-          detail: `id=${body.id} items=${body.items.length}`,
+          detail: `id=${body.id} ${diffStr}`,
         });
-        return data({success: true, id: result.id, handle: result.handle, title: result.title});
+        return data({
+          success: true,
+          id: result.id,
+          handle: result.handle,
+          title: result.title,
+          diff: result.diff,
+        });
       }
       case 'delete': {
         const result = await client.deleteMenu(body.id);
