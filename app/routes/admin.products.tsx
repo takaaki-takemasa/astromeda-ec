@@ -258,40 +258,52 @@ function ProductModal({
   }, [fetcher.state, fetcher.data, form.imageResourceUrl, form.title, imageAttaching, imageFetcher]);
 
   const handleSubmit = () => {
-    const payload =
-      mode === 'create'
-        ? {
-            action: 'create' as const,
-            product: {
-              title: form.title.trim(),
-              descriptionHtml: form.descriptionHtml.trim() || undefined,
-              productType: form.productType.trim() || undefined,
-              vendor: form.vendor.trim() || undefined,
-              tags: form.tags
-                ? form.tags.split(',').map((t) => t.trim()).filter(Boolean)
-                : undefined,
-              status: form.status,
-              variants: form.variantPrice
-                ? [{ price: form.variantPrice, sku: form.variantSku || undefined }]
-                : undefined,
-            },
-          }
-        : {
-            action: 'update' as const,
-            productId: productId!,
-            product: {
-              title: form.title.trim() || undefined,
-              descriptionHtml: form.descriptionHtml.trim() || undefined,
-              productType: form.productType.trim() || undefined,
-              vendor: form.vendor.trim() || undefined,
-              tags: form.tags
-                ? form.tags.split(',').map((t) => t.trim()).filter(Boolean)
-                : undefined,
-              status: form.status,
-            },
-          };
+    // patch 0111 (P0-1, 全保存パターン監査 2026-04-22):
+    // 編集モードでは tags を全置換せず、initial vs current を diff して tagsAdd/tagsRemove に分割。
+    // 新規作成モードでは初期タグを丸ごと付与 (差分の参照元がないため)。
+    const splitTags = (csv: string): string[] =>
+      csv ? csv.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
-    fetcher.submit(payload as Record<string, unknown>, {
+    let payload: Record<string, unknown>;
+    if (mode === 'create') {
+      payload = {
+        action: 'create' as const,
+        product: {
+          title: form.title.trim(),
+          descriptionHtml: form.descriptionHtml.trim() || undefined,
+          productType: form.productType.trim() || undefined,
+          vendor: form.vendor.trim() || undefined,
+          tags: form.tags ? splitTags(form.tags) : undefined,
+          status: form.status,
+          variants: form.variantPrice
+            ? [{ price: form.variantPrice, sku: form.variantSku || undefined }]
+            : undefined,
+        },
+      };
+    } else {
+      const initialTags = splitTags(initialData.tags);
+      const currentTags = splitTags(form.tags);
+      const initialSet = new Set(initialTags);
+      const currentSet = new Set(currentTags);
+      const tagsAdd = currentTags.filter((t) => !initialSet.has(t));
+      const tagsRemove = initialTags.filter((t) => !currentSet.has(t));
+      payload = {
+        action: 'update' as const,
+        productId: productId!,
+        product: {
+          title: form.title.trim() || undefined,
+          descriptionHtml: form.descriptionHtml.trim() || undefined,
+          productType: form.productType.trim() || undefined,
+          vendor: form.vendor.trim() || undefined,
+          // tags はここに含めない (patch 0111: 全置換を回避)
+          status: form.status,
+        },
+        tagsAdd,
+        tagsRemove,
+      };
+    }
+
+    fetcher.submit(payload, {
       method: 'POST',
       action: '/api/admin/products',
       encType: 'application/json',

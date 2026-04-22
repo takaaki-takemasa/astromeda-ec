@@ -247,7 +247,18 @@ export default function AdminProductDetail() {
   }, [fetcher]);
 
   // ── 保存アクション ──
+  // patch 0111 (P0-1, 全保存パターン監査 2026-04-22): タグ差分送信
+  // 旧: tags: basic.tagsCsv.split() で全置換 → 別タブで付けた pulldown:* タグが消失
+  // 新: initial vs current を diff して tagsAdd / tagsRemove に分割。
+  //      productUpdate からは tags フィールドを除外し、tagsAdd/tagsRemove mutation を別経路で発火。
+  //      Shopify は他タグを preserve するので「タイトルだけ修正」しても manual pulldown が生き残る。
   const saveBasic = () => {
+    const initialTags = parseCsvTags(initialBasic.tagsCsv);
+    const currentTagsForDiff = parseCsvTags(basic.tagsCsv);
+    const initialSet = new Set(initialTags);
+    const currentSet = new Set(currentTagsForDiff);
+    const tagsAdd = currentTagsForDiff.filter((t) => !initialSet.has(t));
+    const tagsRemove = initialTags.filter((t) => !currentSet.has(t));
     submit({
       action: 'update',
       productId: product.id,
@@ -256,9 +267,11 @@ export default function AdminProductDetail() {
         descriptionHtml: basic.descriptionHtml,
         vendor: basic.vendor,
         productType: basic.productType,
-        tags: basic.tagsCsv.split(',').map((t) => t.trim()).filter(Boolean),
+        // tags はここに含めない (patch 0111)
         status: basic.status,
       },
+      tagsAdd,
+      tagsRemove,
     });
   };
 

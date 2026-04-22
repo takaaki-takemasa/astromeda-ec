@@ -460,14 +460,54 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0111 (P0-1, 全保存パターン監査 2026-04-22):
+        // tags は productUpdate に渡さない (Shopify 仕様で全置換になり patch 0110 の手動 pulldown が消える)。
+        // tagsAdd / tagsRemove で差分送信 (Shopify tagsAdd / tagsRemove mutation は冪等で他タグを保持)。
         const result = await client.updateProduct(validated.productId, validated.product);
+
+        // タグ追加 (差分のみ)
+        const tagsAddArr = (validated as { tagsAdd?: string[] }).tagsAdd ?? [];
+        const tagsRemoveArr = (validated as { tagsRemove?: string[] }).tagsRemove ?? [];
+        let tagsAddResult: { ok: number; failed: number } | null = null;
+        let tagsRemoveResult: { ok: number; failed: number } | null = null;
+        if (tagsAddArr.length > 0) {
+          const r = await client.bulkAddTagsToProducts([validated.productId], tagsAddArr);
+          const ok = r.filter((x) => x.success).length;
+          tagsAddResult = { ok, failed: r.length - ok };
+          auditLog({
+            action: 'product_bulk_tag',
+            role,
+            resource: `product/${validated.productId}`,
+            detail: `add tags=[${tagsAddArr.join(', ')}] ok=${ok} failed=${r.length - ok}`,
+            success: tagsAddResult.failed === 0,
+          });
+        }
+        if (tagsRemoveArr.length > 0) {
+          const r = await client.bulkRemoveTagsFromProducts([validated.productId], tagsRemoveArr);
+          const ok = r.filter((x) => x.success).length;
+          tagsRemoveResult = { ok, failed: r.length - ok };
+          auditLog({
+            action: 'product_bulk_tag',
+            role,
+            resource: `product/${validated.productId}`,
+            detail: `remove tags=[${tagsRemoveArr.join(', ')}] ok=${ok} failed=${r.length - ok}`,
+            success: tagsRemoveResult.failed === 0,
+          });
+        }
+
         auditLog({
           action: 'product_update',
           role,
           resource: `product/${validated.productId}`,
+          detail: `tags +${tagsAddArr.length}/-${tagsRemoveArr.length}`,
           success: true,
         });
-        return data({ success: true, product: result });
+        return data({
+          success: true,
+          product: result,
+          tagsAdd: tagsAddResult,
+          tagsRemove: tagsRemoveResult,
+        });
       }
 
       case 'delete': {

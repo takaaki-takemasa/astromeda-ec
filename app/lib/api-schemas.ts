@@ -230,17 +230,27 @@ export const ProductCreateSchema = z.object({
 }).strict();
 export type ProductCreate = z.infer<typeof ProductCreateSchema>;
 
-/** 商品更新: POST /api/admin/products { action: 'update', productId: '...', product: {...} } */
+/**
+ * 商品更新: POST /api/admin/products { action: 'update', productId: '...', product: {...} }
+ *
+ * patch 0111 (P0-1, 全保存パターン監査 2026-04-22):
+ * tags フィールドは productUpdate には含めない (Shopify productUpdate は tags を全置換するため
+ * 「タイトルだけ修正」が patch 0110 で苦労した手動 pulldown:* タグを毎回潰してしまう)。
+ * タグ操作は 'update' アクションに付随する tagsAdd/tagsRemove を使うこと。
+ * これにより productUpdate を呼んでも tags は preserve される (差分送信)。
+ */
 export const ProductUpdateSchema = z.object({
   title: safeString(255).optional(),
   descriptionHtml: z.string().max(50000).optional(),
   productType: safeString(255).optional(),
   vendor: safeString(255).optional(),
-  tags: z.array(safeString(255)).max(250).optional(),
   status: z.enum(['ACTIVE', 'DRAFT', 'ARCHIVED']).optional(),
   variants: z.array(VariantInputSchema).max(100).optional(),
 }).strict();
 export type ProductUpdate = z.infer<typeof ProductUpdateSchema>;
+
+/** タグ差分配列の共通バリデータ (patch 0111) */
+const ProductTagDiffArray = z.array(safeString(255)).max(250).optional();
 
 /** 商品管理アクション: POST /api/admin/products */
 export const ProductActionSchema = z.discriminatedUnion('action', [
@@ -252,6 +262,10 @@ export const ProductActionSchema = z.discriminatedUnion('action', [
     action: z.literal('update'),
     productId: z.string().regex(/^gid:\/\/shopify\/Product\/\d+$/, '無効なproductIdです'),
     product: ProductUpdateSchema,
+    // patch 0111: タグ差分送信 — 全置換ではなく add/remove のみ。
+    // 旧 product.tags フィールドは廃止。クライアントは initial vs current を diff してこれに詰める。
+    tagsAdd: ProductTagDiffArray,
+    tagsRemove: ProductTagDiffArray,
   }).strict(),
   z.object({
     action: z.literal('delete'),
