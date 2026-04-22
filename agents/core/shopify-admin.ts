@@ -377,22 +377,65 @@ export class ShopifyAdminClient {
 
   /**
    * Admin GraphQL APIにクエリを送信
+   *
+   * patch 0105 (P4): fetch に AbortSignal を渡せるよう options 引数を追加。
+   * caller (route loader 等) から server.ts の requestSignal を渡せば、
+   * 30秒の request timeout が切れたタイミングで Shopify への fetch も
+   * 即座に abort される。caller が signal を渡さない場合は内部で
+   * AbortSignal.timeout(25_000) を生成し、Shopify API ハング時に
+   * 上流から強制中断する (server.ts の 30秒より 5秒早く切る)。
    */
-  async query<T = unknown>(graphql: string, variables?: Record<string, unknown>): Promise<T> {
+  async query<T = unknown>(
+    graphql: string,
+    variables?: Record<string, unknown>,
+    options?: {signal?: AbortSignal},
+  ): Promise<T> {
     if (!this.isConfigured) {
       throw new Error('Shopify Admin API is not configured. Set PRIVATE_STOREFRONT_API_TOKEN and PUBLIC_STORE_DOMAIN.');
     }
 
     const endpoint = `https://${this.storeDomain}/admin/api/${this.apiVersion}/graphql.json`;
 
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': this.apiToken,
-      },
-      body: JSON.stringify({query: graphql, variables}),
+    // patch 0105 (P4): caller signal を内部 25s timeout と AnySignal でマージ。
+    // 古い workerd は AbortSignal.any/timeout が無いケースもあるので feature
+    // detect してフォールバック。少なくとも内部 timeout は必ず付ける。
+    const signals: AbortSignal[] = [];
+    if (options?.signal) signals.push(options.signal);
+    const SignalAny = (AbortSignal as unknown as {
+      any?: (s: AbortSignal[]) => AbortSignal;
+      timeout?: (ms: number) => AbortSignal;
     });
+    if (typeof SignalAny.timeout === 'function') {
+      signals.push(SignalAny.timeout(25_000));
+    }
+    const finalSignal: AbortSignal | undefined =
+      signals.length === 0
+        ? undefined
+        : signals.length === 1
+          ? signals[0]
+          : typeof SignalAny.any === 'function'
+            ? SignalAny.any(signals)
+            : signals[0]; // fallback: caller signal 優先
+
+    let response: Response;
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': this.apiToken,
+        },
+        body: JSON.stringify({query: graphql, variables}),
+        signal: finalSignal,
+      });
+    } catch (err) {
+      // AbortError は上流の 504 ハンドラに乗せるためそのまま re-throw
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        throw err;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`Shopify Admin API fetch failed: ${msg}`);
+    }
 
     if (!response.ok) {
       const text = await response.text().catch(() => '');

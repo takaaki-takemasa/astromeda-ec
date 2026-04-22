@@ -48,7 +48,11 @@ const REQUEST_TIMEOUT_MS = 30_000;
 let agentWarmUpStarted = false;
 
 const RATE_LIMIT_WINDOW = 60_000; // 1分間
-const RATE_LIMIT_MAX_API = 30;     // APIエンドポイント: 30req/min
+// patch 0105 (P2): server-level API rate limit を route admin preset (120/min) と統一。
+// 旧値 30/min は admin タブ連打で 429 を踏みやすく、route 側 RATE_LIMIT_PRESETS.admin
+// (120/min) と二重制限になっていた。route 側プリセット (public:60 / admin:120 / submit:5)
+// に subordinate するため、server-level は最大値 120 に揃える。
+const RATE_LIMIT_MAX_API = 120;    // APIエンドポイント: 120req/min（route側で更に絞る）
 const RATE_LIMIT_MAX_PAGE = 120;   // ページ: 120req/min
 const rateLimitMap = new Map<string, {count: number; resetAt: number}>();
 
@@ -355,26 +359,36 @@ export default {
     // === BR-02: AbortController タイムアウト ===
     // 30秒の生存限界を設定。リクエスト処理がこれを超えた場合、
     // AbortSignalで中断し504 Gateway Timeoutを返す。
+    //
+    // patch 0105 (P0): 旧実装は AbortController を生成して setTimeout で abort()
+    // を呼ぶだけで、signal は handleRequest にも下流の fetch にも propagate
+    // されていなかった (decorative timeout)。Shopify Admin API がハングすると
+    // worker が永久に詰まり、CDP/エッジ層で 45秒切断される構造バグだった。
+    //
+    // 修正: Promise.race で実際に timeout reject させ、catch 側の AbortError
+    // ハンドラに乗せて 504 を返す。signal は hydrogenContext に同梱して
+    // 下流 (shopify-admin.query) でも cancel 可能にする。
     const timeoutController = new AbortController();
     const timeoutId = setTimeout(() => timeoutController.abort(), REQUEST_TIMEOUT_MS);
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutController.signal.addEventListener(
+        'abort',
+        () => reject(new DOMException('Request timed out', 'AbortError')),
+        {once: true},
+      );
+    });
 
     try {
-      // タイムアウトチェック: すでにabortされていたら即座に504を返す
-      if (timeoutController.signal.aborted) {
-        clearTimeout(timeoutId);
-        const timeoutResponse = Response.json(
-          {error: 'Gateway Timeout', traceId},
-          {status: 504, headers: {'X-Trace-Id': traceId, 'Cache-Control': 'no-store'}},
-        );
-        applySecurityHeaders(timeoutResponse);
-        return timeoutResponse;
-      }
-
       const hydrogenContext = await createHydrogenRouterContext(
         request,
         env,
         executionContext,
       );
+
+      // patch 0105 (P0): timeout signal を context に同梱し、loader/action から
+      // 下流 fetch (Shopify Admin API 等) に渡せるようにする。
+      (hydrogenContext as unknown as Record<string, unknown>).requestSignal =
+        timeoutController.signal;
 
       const handleRequest = createRequestHandler({
         build: serverBuild,
@@ -382,7 +396,12 @@ export default {
         getLoadContext: () => hydrogenContext,
       });
 
-      const response = await handleRequest(request);
+      // Promise.race で実 timeout を強制。30秒経過したら timeoutPromise が
+      // AbortError で reject し、catch 側で 504 に変換される。
+      const response = await Promise.race([
+        handleRequest(request),
+        timeoutPromise,
+      ]);
 
       // BR-01: trace-id を全レスポンスに付与
       response.headers.set('X-Trace-Id', traceId);
