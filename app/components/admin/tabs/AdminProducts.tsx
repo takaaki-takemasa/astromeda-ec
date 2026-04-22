@@ -33,6 +33,13 @@ import TagPicker from '~/components/admin/TagPicker';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 // patch 0107 (CEO P0-α): 新規商品作成モーダルでも生 HTML textarea を WYSIWYG に置換
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
+// patch 0121 (CEO P0 2026-04-23):
+//   ① 新規作成モーダルで画像を選べるようにする (ImagePicker 差し込み)
+//   ② PC ジャンル選択時に「標準17プルダウンが自動で表示される」旨をその場で明示
+//   ③「IPコラボタグ」(不明瞭なタグ文字列) を、実 IP バナーから選ぶビジュアル
+//      ピッカーに置き換えて「どのIPに結びつけるか」を一目で理解できるようにする
+import { ImagePicker } from '~/components/admin/ds/ImagePicker';
+import { COLLABS } from '~/lib/astromeda-data';
 
 // ── Types ──
 interface ProductListItem {
@@ -65,6 +72,7 @@ interface ProductListResponse {
 }
 
 // patch 0079: 新規商品作成フォーム state
+// patch 0121: imageUrl を追加（ImagePicker からの選択結果。空なら画像なしで作成）
 interface NewProductForm {
   title: string;
   productType: string;
@@ -73,7 +81,8 @@ interface NewProductForm {
   sku: string;
   descriptionHtml: string;
   categoryTag: string; // 'PC' | 'ガジェット' | 'グッズ' | '着せ替え' — 必須の分類タグ
-  ipTag: string; // 例: one-piece (任意)
+  ipTag: string; // 例: one-piece (任意) — patch 0121 で IP バナーピッカーから自動投入もする
+  imageUrl: string; // patch 0121: 商品画像 URL (ImagePicker)
   status: 'DRAFT' | 'ACTIVE';
 }
 
@@ -86,6 +95,7 @@ const EMPTY_NEW_PRODUCT: NewProductForm = {
   descriptionHtml: '',
   categoryTag: '',
   ipTag: '',
+  imageUrl: '',
   status: 'DRAFT',
 };
 
@@ -243,21 +253,23 @@ function NewProductCardPreview({ form }: { form: NewProductForm }) {
         overflow: 'hidden',
         maxWidth: 280,
       }}>
-        {/* 画像エリア (画像未指定ならグラデ) */}
+        {/* 画像エリア — patch 0121: imageUrl があれば実画像を、なければ絵文字グラデ */}
         <div style={{
           width: '100%',
           aspectRatio: '1 / 1',
-          background: `linear-gradient(135deg, ${al(T.c, 0.12)}, ${al(T.t3, 0.08)})`,
+          background: form.imageUrl
+            ? `url(${form.imageUrl}) center/cover no-repeat, linear-gradient(135deg, ${al(T.c, 0.12)}, ${al(T.t3, 0.08)})`
+            : `linear-gradient(135deg, ${al(T.c, 0.12)}, ${al(T.t3, 0.08)})`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: 36,
           color: al(T.tx, 0.3),
         }}>
-          {form.categoryTag === 'PC' ? '🖥️' :
+          {!form.imageUrl && (form.categoryTag === 'PC' ? '🖥️' :
             form.categoryTag === 'ガジェット' ? '⌨️' :
             form.categoryTag === 'グッズ' ? '🎁' :
-            form.categoryTag === '着せ替え' ? '🎨' : '📦'}
+            form.categoryTag === '着せ替え' ? '🎨' : '📦')}
         </div>
 
         <div style={{ padding: 14 }}>
@@ -335,7 +347,7 @@ function NewProductCardPreview({ form }: { form: NewProductForm }) {
         color: T.t4,
         lineHeight: 1.5,
       }}>
-        💡「下書き」で保存すればお客様には見えません。準備が整ったら「公開」に変えてください。画像は作成後に「編集」から差し替えられます。
+        💡「下書き」で保存すればお客様には見えません。準備が整ったら「公開」に変えてください。画像は左のフォームの「商品画像」欄から今すぐ選べます（後からの差し替えも可能）。
       </div>
     </div>
   );
@@ -364,6 +376,80 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const [form, setForm] = useState<NewProductForm>(EMPTY_NEW_PRODUCT);
   const [saving, setSaving] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<PreviewDevice>('mobile');
+
+  // patch 0121: IPバナー Metaobject 一覧（CMSから取得・空ならCOLLABS定数をフォールバック）
+  // 「タグ」という抽象語ではなく、お客様トップに並ぶ実IPバナーを画像つきで選ばせる。
+  type IpBannerOption = {
+    key: string;            // checkbox 識別用
+    name: string;           // 表示名（例: ONE PIECE バウンティラッシュ）
+    collectionHandle: string; // 商品に付与するタグ（= Shopify コレクションのハンドル）
+    imageUrl: string | null;
+  };
+  const [ipBanners, setIpBanners] = useState<IpBannerOption[]>([]);
+  // モーダルを開いたタイミングで取得。失敗しても COLLABS フォールバックで運用継続。
+  useEffect(() => {
+    if (!createOpen) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const items = await cmsGet('astromeda_ip_banner');
+        if (cancelled) return;
+        const fromMeta: IpBannerOption[] = items
+          .map((node) => {
+            const handle = String(node.collection_handle || '').trim();
+            const name = String(node.name || node.handle || '').trim();
+            if (!handle || !name) return null;
+            const img = String(node.image || '').trim();
+            return {
+              key: `meta:${node.id}`,
+              name,
+              collectionHandle: handle,
+              imageUrl: img && (img.startsWith('http') || img.startsWith('/')) ? img : null,
+            } as IpBannerOption;
+          })
+          .filter((x): x is IpBannerOption => !!x);
+        if (fromMeta.length > 0) {
+          setIpBanners(fromMeta);
+          return;
+        }
+        // フォールバック: ハードコード COLLABS（Shopify コレクションハンドル付き）
+        const fallback: IpBannerOption[] = COLLABS
+          .filter((c) => !!c.shop)
+          .map((c) => ({
+            key: `collab:${c.id}`,
+            name: c.name,
+            collectionHandle: c.shop,
+            imageUrl: c.banner ?? null,
+          }));
+        setIpBanners(fallback);
+      } catch {
+        // ネットワーク失敗時もフォールバック
+        const fallback: IpBannerOption[] = COLLABS
+          .filter((c) => !!c.shop)
+          .map((c) => ({
+            key: `collab:${c.id}`,
+            name: c.name,
+            collectionHandle: c.shop,
+            imageUrl: c.banner ?? null,
+          }));
+        if (!cancelled) setIpBanners(fallback);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [createOpen]);
+
+  // 現在 ipTag CSV に含まれているタグ集合（O(1) 判定用）
+  const selectedIpTags = new Set(
+    form.ipTag.split(',').map((s) => s.trim()).filter(Boolean),
+  );
+  const toggleIpBanner = (handle: string) => {
+    const next = new Set(selectedIpTags);
+    if (next.has(handle)) next.delete(handle);
+    else next.add(handle);
+    setForm({ ...form, ipTag: Array.from(next).join(',') });
+  };
 
   // 削除確認
   const { confirm: confirmDialog, dialogProps, ConfirmDialog: Dialog } = useConfirmDialog();
@@ -462,6 +548,37 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
         const detail = Array.isArray(json.details) ? json.details.join(' / ') : (json.error || '作成失敗');
         throw new Error(detail);
       }
+
+      // patch 0121 ①: 画像が選ばれていれば、商品作成成功後に image_upload で添付する。
+      // 画像添付の失敗はトーストで知らせるが、商品作成自体は成功扱いにする
+      // (後から編集ページで再アップロードできるため)。
+      const createdProductId: string | undefined = (json as { product?: { id?: string } }).product?.id;
+      const imageUrl = form.imageUrl.trim();
+      if (imageUrl && createdProductId) {
+        try {
+          const imgRes = await fetch('/api/admin/products', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'image_upload',
+              productId: createdProductId,
+              src: imageUrl,
+              altText: form.title.trim().slice(0, 500) || undefined,
+            }),
+          });
+          const imgJson = (await imgRes.json()) as { success?: boolean; error?: string; details?: string[] };
+          if (!imgJson.success) {
+            const imgDetail = Array.isArray(imgJson.details) ? imgJson.details.join(' / ') : (imgJson.error || '画像の添付に失敗しました');
+            onToast(`商品は作成できましたが、画像の添付に失敗しました: ${imgDetail}`, 'err');
+          }
+        } catch (imgErr) {
+          onToast(
+            `商品は作成できましたが、画像の添付に失敗しました: ${imgErr instanceof Error ? imgErr.message : String(imgErr)}`,
+            'err',
+          );
+        }
+      }
+
       onToast('商品を作成しました', 'ok');
       setCreateOpen(false);
       setForm(EMPTY_NEW_PRODUCT);
@@ -559,6 +676,47 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             );
           })}
         </div>
+
+        {/* patch 0121 ②: PC を選んだ瞬間に「標準17プルダウン」が自動で付く旨を明示 */}
+        {form.categoryTag === 'PC' && (
+          <div
+            role="note"
+            style={{
+              marginTop: 10,
+              padding: '10px 12px',
+              background: color.bg1,
+              border: `1px solid ${color.border}`,
+              borderLeft: `3px solid ${color.cyan}`,
+              borderRadius: 8,
+              fontSize: 11,
+              color: color.textMuted,
+              lineHeight: 1.55,
+            }}
+          >
+            <div style={{ fontWeight: 700, color: color.text, marginBottom: 4 }}>
+              🎛️ PCの「パーツ選択プルダウン」は自動で付きます
+            </div>
+            お客様が商品ページを開くと、<strong style={{ color: color.text }}>CPU / GPU / メモリ / ストレージ …</strong>{' '}
+            などの標準プルダウン（最大17項目）が自動表示されます。設定や登録作業は不要です。
+            {' '}個別に項目を増やしたい場合は
+            <button
+              type="button"
+              onClick={() => {
+                setSearchParams({ tab: 'customization' });
+                try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch { /* noop */ }
+              }}
+              style={{
+                ...btnOutline,
+                padding: '3px 8px',
+                fontSize: 10,
+                marginLeft: 6,
+                verticalAlign: 'middle',
+              }}
+            >
+              🎛️ カスタマイズタブへ
+            </button>
+          </div>
+        )}
       </div>
 
       {/* 価格 (必須) + 在庫 + SKU */}
@@ -615,20 +773,176 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
         </div>
       </div>
 
-      {/* IPタグ (任意) — patch 0099: TagPicker 化 */}
+      {/* patch 0121 ①: 商品画像 (任意) — ImagePicker で 3モード (アップロード/ライブラリ/URL) */}
       <div style={{ marginBottom: 14 }}>
-        <label style={labelStyle}>IPコラボタグ（任意）</label>
-        <TagPicker
-          id="admin-products-create-iptag-picker"
-          value={form.ipTag}
-          onChange={(csv) => setForm({ ...form, ipTag: csv })}
-          placeholder="タグを検索して追加（既存タグから選べます）"
-          excludePulldown
+        <ImagePicker
+          label="商品画像"
+          optional
+          value={form.imageUrl}
+          onChange={(url) => setForm({ ...form, imageUrl: url })}
+          hint="お客様が一番目にする画像です。横長より正方形がおすすめ。あとから差し替えもできます。"
+          initialMode="upload"
         />
-        <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>
-          どのIPコラボに紐づくかを指定します。該当しない商品なら空欄のままで OK です。複数指定も可。
-        </div>
       </div>
+
+      {/* patch 0121 ③: IPコラボバナー ビジュアルピッカー
+          CEO 指摘「タグをつければ IP バナーとリンクできるのか？なぜ不明瞭なタグというものが必要か」へ
+          の回答。タグは Shopify の Smart Collection が商品を拾う仕組みの名前ですが、
+          非エンジニアが最初から理解する必要はないので、実際のIPバナーを画像つきで並べて
+          「どのIPコラボに結びつける？」を絵で選ばせる。選んだ結果が内部的にタグ
+          (コレクションハンドル) として保存される。
+      */}
+      <div style={{ marginBottom: 14 }}>
+        <label style={labelStyle}>IPコラボ（任意）</label>
+        <div style={{
+          fontSize: 11,
+          color: color.textMuted,
+          lineHeight: 1.55,
+          marginBottom: 8,
+        }}>
+          この商品を「ONE PIECE / NARUTO / サンリオ」など IP コラボに結びつける場合だけ選んでください。
+          選んだ IP のトップページ「コラボ」セクションに自動で並ぶようになります。
+          <strong style={{ color: color.text }}>タグは自動で付きます</strong>ので、自分でタグを打ち込む必要はありません。
+        </div>
+        {ipBanners.length === 0 ? (
+          <div style={{
+            fontSize: 11,
+            color: color.textMuted,
+            padding: 10,
+            background: color.bg1,
+            border: `1px dashed ${color.border}`,
+            borderRadius: 8,
+          }}>
+            IPコラボ一覧を読み込み中です...
+          </div>
+        ) : (
+          <div
+            role="group"
+            aria-label="IPコラボを選ぶ"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(132px, 1fr))',
+              gap: 8,
+              maxHeight: 280,
+              overflowY: 'auto',
+              padding: 8,
+              background: color.bg0,
+              border: `1px solid ${color.border}`,
+              borderRadius: 8,
+            }}
+          >
+            {ipBanners.map((ip) => {
+              const active = selectedIpTags.has(ip.collectionHandle);
+              return (
+                <button
+                  key={ip.key}
+                  type="button"
+                  onClick={() => toggleIpBanner(ip.collectionHandle)}
+                  aria-pressed={active}
+                  aria-label={`${ip.name} を${active ? '解除' : '選ぶ'}`}
+                  style={{
+                    padding: 0,
+                    background: 'transparent',
+                    border: `2px solid ${active ? color.cyan : color.border}`,
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    overflow: 'hidden',
+                    fontFamily: font.family,
+                    transition: 'border-color 150ms ease',
+                  }}
+                >
+                  <div style={{
+                    width: '100%',
+                    aspectRatio: '16 / 9',
+                    background: ip.imageUrl
+                      ? `url(${ip.imageUrl}) center/cover no-repeat, linear-gradient(135deg, #222, #111)`
+                      : 'linear-gradient(135deg, #222, #111)',
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'flex-start',
+                    position: 'relative',
+                  }}>
+                    {active && (
+                      <span
+                        aria-hidden="true"
+                        style={{
+                          position: 'absolute',
+                          top: 4,
+                          right: 4,
+                          background: color.cyan,
+                          color: '#000',
+                          fontSize: 10,
+                          fontWeight: 800,
+                          padding: '2px 6px',
+                          borderRadius: 10,
+                        }}
+                      >
+                        ✓ 選択中
+                      </span>
+                    )}
+                  </div>
+                  <div style={{
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    color: color.text,
+                    fontWeight: active ? 700 : 500,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    background: active ? 'rgba(0,240,255,.08)' : 'transparent',
+                  }}>
+                    {ip.name}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+        {selectedIpTags.size > 0 && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginTop: 8,
+              fontSize: 11,
+              color: color.text,
+            }}
+          >
+            選択中: <strong style={{ color: color.cyan }}>{selectedIpTags.size} 件</strong>
+            {' '}（タグ: {Array.from(selectedIpTags).join(', ')}）
+          </div>
+        )}
+      </div>
+
+      {/* IPタグ (任意・上級) — patch 0099: TagPicker はビジュアルに無いタグを自分で付ける逃げ道 */}
+      <details style={{ marginBottom: 14 }}>
+        <summary style={{
+          fontSize: 11,
+          color: color.textMuted,
+          cursor: 'pointer',
+          padding: '6px 10px',
+          background: color.bg1,
+          border: `1px solid ${color.border}`,
+          borderRadius: 6,
+          userSelect: 'none',
+        }}>
+          🔧 上級: タグを手動で付ける（ふつうは不要です）
+        </summary>
+        <div style={{ marginTop: 8 }}>
+          <TagPicker
+            id="admin-products-create-iptag-picker"
+            value={form.ipTag}
+            onChange={(csv) => setForm({ ...form, ipTag: csv })}
+            placeholder="タグを検索して追加（既存タグから選べます）"
+            excludePulldown
+          />
+          <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>
+            上のIPコラボを選ぶとタグは自動で付きます。ここは既存のキャンペーンタグや特殊タグを
+            付けたい場合だけ使ってください。
+          </div>
+        </div>
+      </details>
 
       {/* 公開状態 */}
       <div style={{ marginBottom: 18 }}>
