@@ -500,24 +500,51 @@ export default function AdminProductDetail() {
                   どうしても HTML を直接書きたい場合は「{`{} HTML`}」タブに切り替えてください。
                 </div>
               </div>
+              {/* patch 0109 (CEO P0): ベンダー → ブランド名（メーカー）／商品タイプ → 商品ジャンル
+                  + datalist で代表ジャンル候補を提示。中学生にもわかる自然日本語に統一。 */}
               <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
                 <div>
-                  <label style={labelStyle}>ベンダー</label>
+                  <label style={labelStyle} htmlFor="prod-vendor-input">ブランド名（メーカー）</label>
                   <input
+                    id="prod-vendor-input"
                     type="text"
                     value={basic.vendor}
                     onChange={(e) => setBasic({...basic, vendor: e.target.value})}
+                    placeholder="例: Astromeda"
                     style={inputStyle}
                   />
+                  <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                    💡 通常は「Astromeda」のままで OK。商品ページに小さく表示されます。
+                  </div>
                 </div>
                 <div>
-                  <label style={labelStyle}>商品タイプ</label>
+                  <label style={labelStyle} htmlFor="prod-type-input">商品ジャンル</label>
                   <input
+                    id="prod-type-input"
+                    list="prod-type-suggestions"
                     type="text"
                     value={basic.productType}
                     onChange={(e) => setBasic({...basic, productType: e.target.value})}
+                    placeholder="例: ゲーミングPC"
                     style={inputStyle}
                   />
+                  <datalist id="prod-type-suggestions">
+                    <option value="ゲーミングPC" />
+                    <option value="ビジネスPC" />
+                    <option value="キーボード" />
+                    <option value="マウス" />
+                    <option value="マウスパッド" />
+                    <option value="PCケース" />
+                    <option value="ヘッドセット" />
+                    <option value="モニター" />
+                    <option value="アクリルスタンド" />
+                    <option value="Tシャツ" />
+                    <option value="グッズ" />
+                    <option value="着せ替えパネル" />
+                  </datalist>
+                  <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                    💡 商品の大ざっぱな分類。入力欄をクリックすると候補が出ます。検索や並び替えに使われます。
+                  </div>
                 </div>
               </div>
               <div>
@@ -532,17 +559,60 @@ export default function AdminProductDetail() {
                   💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
                 </div>
               </div>
+              {/* patch 0109 (CEO P0): 生 ENUM (ACTIVE/DRAFT/ARCHIVED) → 自然日本語 + 絵文字 + ヒント */}
               <div>
-                <label style={labelStyle}>ステータス</label>
+                <label style={labelStyle} htmlFor="prod-status-select">公開ステータス</label>
                 <select
+                  id="prod-status-select"
                   value={basic.status}
                   onChange={(e) => setBasic({...basic, status: e.target.value as BasicInfo['status']})}
                   style={inputStyle}
                 >
-                  <option value="ACTIVE">ACTIVE</option>
-                  <option value="DRAFT">DRAFT</option>
-                  <option value="ARCHIVED">ARCHIVED</option>
+                  <option value="ACTIVE">🟢 公開中（お客様に見えます）</option>
+                  <option value="DRAFT">📝 下書き（お客様には見えません）</option>
+                  <option value="ARCHIVED">🗄️ アーカイブ（販売停止・履歴のみ）</option>
                 </select>
+                <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                  💡 「下書き」で保存すれば、お客様には見えません。準備が整ったら「公開中」に変えましょう。
+                </div>
+              </div>
+
+              {/* patch 0109 (CEO P0): プルダウン（カスタマイズ選択肢）の自動接続を中学生向けに説明。
+                  「どうすれば自分の商品にプルダウンが付くのか」が直感的にわかるようにする。 */}
+              <div
+                role="note"
+                style={{
+                  marginTop: 4,
+                  padding: '14px 16px',
+                  background: al(T.tx, 0.03),
+                  border: `1px solid ${al(T.tx, 0.12)}`,
+                  borderLeft: `3px solid ${T.c}`,
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: T.tx,
+                  lineHeight: 1.7,
+                }}
+              >
+                <div style={{display: 'flex', gap: 10, alignItems: 'center', marginBottom: 6}}>
+                  <span style={{fontSize: 18, lineHeight: 1}}>🎛️</span>
+                  <strong style={{fontSize: 13}}>この商品にプルダウン（CPU/SSD/キー配列など）を表示するには？</strong>
+                </div>
+                <div style={{color: T.t4, marginLeft: 28, marginTop: 4}}>
+                  プルダウンは <strong style={{color: T.tx}}>商品名</strong> と <strong style={{color: T.tx}}>タグ</strong> から自動で判定されます。
+                  <ul style={{margin: '6px 0 8px', paddingLeft: 20}}>
+                    <li><strong>ゲーミングPC本体</strong>（商品名に「PC」「ゲーミング」「Ryzen」「RTX」などを含む）→ CPU・GPU・メモリ・SSDなど 17 項目のプルダウンが自動表示</li>
+                    <li><strong>キーボード</strong>（商品名に「キーボード」を含む）→ キー配列プルダウンが自動表示</li>
+                    <li><strong>マウスパッド／PCケース／グッズ</strong> → プルダウンなし（種類タブで色・サイズを管理）</li>
+                  </ul>
+                  プルダウンの中身（例: CPU の選択肢を増やす・値段を変える）を編集したいときは
+                  <Link
+                    to="/admin?tab=customization"
+                    style={{color: T.c, textDecoration: 'underline', marginLeft: 4, marginRight: 4, fontWeight: 700}}
+                  >
+                    🎛️ カスタマイズタブ
+                  </Link>
+                  から編集できます。
+                </div>
               </div>
               <div style={{display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8}}>
                 {isDirty && <span style={{fontSize: 11, color: T.r, alignSelf: 'center'}}>● 未保存</span>}

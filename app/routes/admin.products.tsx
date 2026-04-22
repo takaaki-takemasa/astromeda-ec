@@ -336,8 +336,9 @@ function ProductModal({
 
         <div style={{ display: 'grid', gap: 16 }}>
           <FormField label="商品名 *" value={form.title} onChange={(v) => setForm({ ...form, title: v })} placeholder="例: ASTROMEDA ゲーミングPC" />
-          <FormField label="商品タイプ" value={form.productType} onChange={(v) => setForm({ ...form, productType: v })} placeholder="例: ゲーミングPC, キーボード" />
-          <FormField label="ベンダー" value={form.vendor} onChange={(v) => setForm({ ...form, vendor: v })} placeholder="例: ASTROMEDA" />
+          {/* patch 0109 (CEO P0): 商品タイプ→「商品ジャンル」、ベンダー→「ブランド名（メーカー）」に統一 */}
+          <FormField label="商品ジャンル" value={form.productType} onChange={(v) => setForm({ ...form, productType: v })} placeholder="例: ゲーミングPC" hint="商品の大ざっぱな分類です。検索や並び替えに使われます。" />
+          <FormField label="ブランド名（メーカー）" value={form.vendor} onChange={(v) => setForm({ ...form, vendor: v })} placeholder="例: Astromeda" hint="通常は「Astromeda」のままで OK。商品ページに小さく表示されます。" />
           {/* patch 0099: タグ入力を TagPicker に統一 */}
           <div>
             <label style={labelStyle}>タグ</label>
@@ -510,12 +511,15 @@ function FormField({
   onChange,
   placeholder,
   multiline,
+  hint,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder?: string;
   multiline?: boolean;
+  /** patch 0109: 中学生向けヒント文（input 下にグレーで表示） */
+  hint?: string;
 }) {
   const Tag = multiline ? 'textarea' : 'input';
   return (
@@ -531,6 +535,11 @@ function FormField({
           ...(multiline ? { resize: 'vertical' as const, minHeight: 80 } : {}),
         }}
       />
+      {hint && (
+        <div style={{ marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5 }}>
+          💡 {hint}
+        </div>
+      )}
     </div>
   );
 }
@@ -888,7 +897,7 @@ export default function AdminProductsDashboard() {
         <div style={{ marginBottom: '32px' }}>
           <input
             type="text"
-            placeholder="商品名、ベンダー、商品タイプで検索..."
+            placeholder="商品名、ブランド名、商品ジャンルで検索..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             disabled={isLoading}

@@ -99,6 +99,47 @@ export const ADMIN_TERMS = {
     placeholder: '例: ホワイト / Lサイズ',
     hint: '同じ商品の中の「色違い」「サイズ違い」など、種類のことです。',
   } as AdminTerm,
+
+  /**
+   * patch 0109 (CEO P0): ベンダー (Shopify 用語) — 中学生にはピンとこない
+   * 「ブランド名（メーカー）」に統一。ほぼ常に "Astromeda" のままで OK。
+   */
+  vendor: {
+    label: 'ブランド名（メーカー）',
+    placeholder: '例: Astromeda',
+    hint: '通常は「Astromeda」のままで OK。商品ページに小さく表示されます。',
+  } as AdminTerm,
+
+  /**
+   * patch 0109 (CEO P0): 商品タイプ (Shopify productType) → 「商品ジャンル」
+   * 検索・並び替えに使われる大ざっぱな分類。datalist でよく使う候補を提示する。
+   */
+  productType: {
+    label: '商品ジャンル',
+    placeholder: '例: ゲーミングPC',
+    hint: '商品の大ざっぱな分類です。入力欄をクリックすると候補が出ます。検索や並び替えに使われます。',
+  } as AdminTerm,
+
+  /**
+   * patch 0109 (CEO P0): ステータス (ACTIVE/DRAFT/ARCHIVED) を「公開ステータス」に
+   * 統一。生 ENUM ではなく「🟢 公開中 / 📝 下書き / 🗄️ アーカイブ」を表示。
+   */
+  productStatus: {
+    label: '公開ステータス',
+    placeholder: '',
+    hint: '「下書き」で保存すれば、お客様には見えません。準備が整ったら「公開中」に変えましょう。',
+  } as AdminTerm,
+
+  /**
+   * patch 0109 (CEO P0): プルダウン（カスタマイズ選択肢）の接続説明。
+   * 中学生でも「どうやって自分の商品にプルダウンを付けるか」がわかるよう、
+   * 自動判定ルールを明文化する。
+   */
+  customizationDropdown: {
+    label: 'プルダウン（カスタマイズ選択肢）',
+    placeholder: '',
+    hint: 'プルダウンは商品名とタグから自動で判定されます。例: 「ゲーミングPC」を含む商品 → CPU/SSD などが自動表示。',
+  } as AdminTerm,
 } as const;
 
 /**
