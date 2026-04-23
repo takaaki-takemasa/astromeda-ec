@@ -373,17 +373,48 @@ export default function AdminBulkTags() {
       <Toast />
       <Dialog {...dialogProps} />
 
-      {/* ヘッダー */}
-      <div style={{...cardStyle, background: color.bg2, marginBottom: space[4]}}>
-        <h2 style={{margin: 0, fontSize: 22, fontWeight: 800, color: color.text}}>
-          🏷️ 商品タグ一括編集
-        </h2>
-        <p style={{margin: '6px 0 0', fontSize: 13, color: color.textMuted, lineHeight: 1.6}}>
-          複数商品を選択して同じタグを一括付与・削除できます。
-          <strong style={{color: color.text}}>下のタグ入力欄でタグを選ぶと、そのタグの「効果」と「お客様に見える場所」が右側に表示されます</strong>
-          ので、迷わず操作できます。
-        </p>
-      </div>
+      {/* patch 0137 P0: 高校生にも分かる ①②③ 順序バー (ヘッダー説明文は削除) */}
+      <ol
+        aria-label="操作の順番"
+        style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: `0 0 ${space[3]}px 0`,
+          display: 'flex',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        {[
+          {n: '①', label: '商品を選ぶ', icon: '📦'},
+          {n: '②', label: 'タグを入れる', icon: '🏷️'},
+          {n: '③', label: 'ボタンを押す', icon: '✅'},
+        ].map((s) => (
+          <li
+            key={s.n}
+            style={{
+              flex: 1,
+              minWidth: 140,
+              padding: '10px 14px',
+              background: color.bg1,
+              border: `1px solid ${color.border}`,
+              borderLeft: `4px solid ${color.cyan}`,
+              borderRadius: radius.md,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              fontSize: 13,
+              fontWeight: 700,
+              color: color.text,
+              fontFamily: font.family,
+            }}
+          >
+            <span aria-hidden style={{fontSize: 22, color: color.cyan}}>{s.n}</span>
+            <span aria-hidden style={{fontSize: 18}}>{s.icon}</span>
+            <span>{s.label}</span>
+          </li>
+        ))}
+      </ol>
 
       {/* patch 0134: タグ用途の早見表 — 7 カテゴリの説明カード */}
       <details
