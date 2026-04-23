@@ -29,26 +29,94 @@ description: Astromeda EC の非エンジニアチームメンバーを支援す
 
 ### 1. 初回案内モード (新規メンバー onboarding)
 
+**重要**: GitHub Desktop は不要。あなた (Cowork) 自身が Linux サンドボックス内で git を実行する。
+メンバーが必要な技術操作は「**PAT を 1 回発行して貼り付ける**」だけ。
+
 以下の順で、**1 つずつ確認しながら**進める:
 
-#### Step A: 環境チェック
-```
-聞く: 「現在 GitHub Desktop はインストールされていますか?」
-- 未: https://desktop.github.com を案内
-- 済: 次へ
-```
-
-```
-聞く: 「Astromeda の repo (takaaki-takemasa/astromeda-ec) を Clone 済みですか?」
-- 未: GitHub Desktop で File → Clone repository → URL タブ → 
-       https://github.com/takaaki-takemasa/astromeda-ec.git を入力 → Clone を案内
-- 済: その作業フォルダのパスを教えてもらい、Cowork の作業フォルダとして mount するよう促す
-```
-
+#### Step A: 前提確認
 ```
 聞く: 「CEO から GitHub の招待メールは届いて Accept しましたか?」
 - 未: CEO に「招待まだです」と LINE してくださいと案内
 - 済: 次へ
+```
+
+```
+聞く: 「今、作業フォルダ (例: Documents/astromeda-work) を Cowork で開いていますか?」
+- 未: フォルダ作成 + Cowork 側で mount する方法を案内
+- 済: 次へ
+```
+
+#### Step B: PAT 発行 (1 回だけ)
+
+以下を案内:
+```
+「GitHub の Personal Access Token (PAT) を 1 回だけ発行します。
+ 以下のリンクをブラウザで開いてください:
+
+ https://github.com/settings/tokens/new?description=astromeda-ec-cowork&scopes=repo
+
+ 画面で:
+ 1. Note 欄: すでに 'astromeda-ec-cowork' と入っているはず
+ 2. Expiration: 90 days を選ぶ (3ヶ月おきに再発行)
+ 3. Scopes: 'repo' にチェック (最初から入っているはず)
+ 4. 画面最下部 'Generate token' ボタンをクリック
+ 5. 表示された 'ghp_xxxxxxxxxxx...' で始まる文字列をコピー
+ 6. この会話に貼り付けてください」
+```
+
+メンバーが PAT を貼り付けたら、以下を内部実行:
+
+```bash
+# Linux サンドボックス内で認証保存
+git config --global credential.helper store
+echo "https://(username):(PAT)@github.com" > ~/.git-credentials
+git config --global user.name "(メンバーの名前)"
+git config --global user.email "(メンバーのメール)"
+```
+
+**注意**: PAT は決してチャット内で復唱したり、ファイルに書き出したりしない。`~/.git-credentials` に書いたらすぐ「保存しました」とだけ伝える。
+
+#### Step C: Clone
+
+内部で実行 (メンバーには `git clone` の用語は見せない):
+```bash
+cd (作業フォルダ)
+git clone https://github.com/takaaki-takemasa/astromeda-ec.git
+cd astromeda-ec
+```
+
+メンバーには:
+```
+「Astromeda のコードを最新の状態でダウンロードしました。これで作業できます」
+```
+
+#### Step D: 動作確認 (練習)
+
+メンバーに提案:
+```
+「練習として、あなたの自己紹介を team-onboarding/members/(あなたの名前).md として
+ 追加してみましょう。何も壊れないので安心です」
+```
+
+内部で:
+1. ディレクトリ作成 (`team-onboarding/members/`)
+2. `(name).md` に簡単な自己紹介テンプレを書く
+3. メンバーに diff 表示して「こう書きます、よろしいですか?」と確認
+4. OK なら内部で `git add / commit / push`
+5. メンバーに「4-5 分後に GitHub の一覧で自分の commit が見えれば成功」と確認方法を案内
+
+#### Step E: 日常作業の入り口
+
+```
+「セットアップ完了です！次にやりたいことは何ですか?
+ 例えば:
+   - IP コラボ (例: 呪術廻戦) の説明文を直したい
+   - トップページのバナーを差し替えたい
+   - 商品にタグを付けたい
+   - FAQ を追加したい
+   - その他
+ 自由に話しかけてください」
 ```
 
 #### Step B: 動作確認 (練習)
