@@ -8,12 +8,15 @@
  * - シングルトン管理
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   initKVStore,
   getKVStore,
   _resetKVStore,
   _createInMemoryKV,
+  _createCacheKV,
+  _peekKVStoreType,
+  _diagnoseEnv,
   type KVStore,
 } from '../kv-storage';
 
@@ -394,6 +397,234 @@ describe('KV Storage (Memory 脳幹)', () => {
       await kv.delete('test');
       const after = await kv.get('test');
       expect(after).toBeNull();
+    });
+  });
+
+  // ─────────────────────────────────────────────────────────────────────
+  // patch 0129: Cloudflare Workers Cache API ベースの CacheKV
+  // ─────────────────────────────────────────────────────────────────────
+  describe('CacheKV (patch 0129 — Cache API adapter)', () => {
+    /**
+     * 簡易 Cache モック
+     * - put: URL+Response を Map に保存 (TTL は ヘッダ簡易解釈)
+     * - match: URL から Response 複製を返す
+     * - delete: URL を Map から削除
+     */
+    function createMockCacheStorage(): CacheStorage {
+      const stores = new Map<string, Map<string, { body: string; headers: Record<string, string>; expiresAt?: number }>>();
+      const openCache = (name: string): Cache => {
+        if (!stores.has(name)) stores.set(name, new Map());
+        const inner = stores.get(name)!;
+        const cache: Partial<Cache> = {
+          async match(req: RequestInfo | URL): Promise<Response | undefined> {
+            const url = typeof req === 'string' ? req : (req as Request).url ?? String(req);
+            const entry = inner.get(url);
+            if (!entry) return undefined;
+            if (entry.expiresAt && Date.now() > entry.expiresAt) {
+              inner.delete(url);
+              return undefined;
+            }
+            return new Response(entry.body, { status: 200, headers: entry.headers });
+          },
+          async put(req: RequestInfo, res: Response): Promise<void> {
+            const url = typeof req === 'string' ? req : (req as Request).url ?? String(req);
+            const headers: Record<string, string> = {};
+            res.headers.forEach((v, k) => (headers[k] = v));
+            const cc = headers['cache-control'] ?? '';
+            const m = /max-age=(\d+)/.exec(cc);
+            const expiresAt = m ? Date.now() + Number(m[1]) * 1000 : undefined;
+            const body = await res.text();
+            inner.set(url, { body, headers, expiresAt });
+          },
+          async delete(req: RequestInfo): Promise<boolean> {
+            const url = typeof req === 'string' ? req : (req as Request).url ?? String(req);
+            return inner.delete(url);
+          },
+        };
+        return cache as Cache;
+      };
+      return {
+        async open(name: string) {
+          return openCache(name);
+        },
+        async match() {
+          return undefined;
+        },
+        async has() {
+          return true;
+        },
+        async delete() {
+          return true;
+        },
+        async keys() {
+          return Array.from(stores.keys());
+        },
+      } as unknown as CacheStorage;
+    }
+
+    let originalCaches: CacheStorage | undefined;
+
+    beforeEach(() => {
+      originalCaches = (globalThis as unknown as { caches?: CacheStorage }).caches;
+      (globalThis as unknown as { caches: CacheStorage }).caches = createMockCacheStorage();
+      _resetKVStore();
+    });
+
+    afterEach(() => {
+      if (originalCaches === undefined) {
+        delete (globalThis as { caches?: CacheStorage }).caches;
+      } else {
+        (globalThis as unknown as { caches: CacheStorage }).caches = originalCaches;
+      }
+    });
+
+    it('initKVStore should choose CacheKV when caches API is available and no KV binding', () => {
+      _resetKVStore();
+      const kv = initKVStore({});
+      expect(kv).toBeDefined();
+      expect(_peekKVStoreType()).toBe('CacheKV');
+    });
+
+    it('CacheKV should put and get string values', async () => {
+      const cache = _createCacheKV({ namespace: 'test-1' });
+      await cache.put('hello', 'world');
+      const got = await cache.get<string>('hello');
+      expect(got).toBe('world');
+    });
+
+    it('CacheKV should put and get JSON values', async () => {
+      const cache = _createCacheKV({ namespace: 'test-2' });
+      const obj = { a: 1, b: 'two', c: [3, 4] };
+      await cache.put('json', JSON.stringify(obj));
+      const got = await cache.get<typeof obj>('json');
+      expect(got).toEqual(obj);
+    });
+
+    it('CacheKV list should return inserted keys (newest first)', async () => {
+      const cache = _createCacheKV({ namespace: 'test-3' });
+      await cache.put('k1', 'v1');
+      await cache.put('k2', 'v2');
+      await cache.put('k3', 'v3');
+      const result = await cache.list();
+      const names = result.keys.map((k) => k.name);
+      // 新しい順 (k3 が最新)
+      expect(names[0]).toBe('k3');
+      expect(names).toContain('k1');
+      expect(names).toContain('k2');
+    });
+
+    it('CacheKV list should filter by prefix', async () => {
+      const cache = _createCacheKV({ namespace: 'test-4' });
+      await cache.put('user:1', 'a');
+      await cache.put('user:2', 'b');
+      await cache.put('session:1', 'x');
+      const result = await cache.list({ prefix: 'user:' });
+      const names = result.keys.map((k) => k.name);
+      expect(names).toEqual(expect.arrayContaining(['user:1', 'user:2']));
+      expect(names).not.toContain('session:1');
+    });
+
+    it('CacheKV list should respect limit', async () => {
+      const cache = _createCacheKV({ namespace: 'test-5' });
+      for (let i = 0; i < 10; i++) {
+        await cache.put(`k${i}`, `v${i}`);
+      }
+      const result = await cache.list({ limit: 3 });
+      expect(result.keys.length).toBe(3);
+    });
+
+    it('CacheKV delete should remove key from get and list', async () => {
+      const cache = _createCacheKV({ namespace: 'test-6' });
+      await cache.put('k1', 'v1');
+      await cache.put('k2', 'v2');
+      await cache.delete('k1');
+      const got = await cache.get('k1');
+      expect(got).toBeNull();
+      const result = await cache.list();
+      const names = result.keys.map((k) => k.name);
+      expect(names).not.toContain('k1');
+      expect(names).toContain('k2');
+    });
+
+    it('CacheKV TTL: max-age=1 expires after 1.1s', async () => {
+      const cache = _createCacheKV({ namespace: 'test-7' });
+      await cache.put('exp', 'v', { expirationTtl: 1 });
+      expect(await cache.get('exp')).toBe('v');
+      await new Promise((r) => setTimeout(r, 1100));
+      expect(await cache.get('exp')).toBeNull();
+    });
+
+    it('CacheKV cross-instance visibility (simulates cross-isolate via shared cache)', async () => {
+      // Same namespace = same backing cache → 別 instance でも見える
+      const writer = _createCacheKV({ namespace: 'shared' });
+      const reader = _createCacheKV({ namespace: 'shared' });
+      await writer.put('cross', JSON.stringify({ value: 42 }));
+      const got = await reader.get<{ value: number }>('cross');
+      expect(got).toEqual({ value: 42 });
+      const list = await reader.list();
+      expect(list.keys.map((k) => k.name)).toContain('cross');
+    });
+
+    it('initKVStore CloudflareKV takes precedence over CacheKV', () => {
+      _resetKVStore();
+      const mockKV = {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue({ keys: [] }),
+      } as unknown as KVNamespace;
+      initKVStore({ AGENT_KV: mockKV });
+      expect(_peekKVStoreType()).toBe('CloudflareKV');
+    });
+
+    it('initKVStore should upgrade from CacheKV → CloudflareKV when binding appears', () => {
+      _resetKVStore();
+      const kv1 = initKVStore({});
+      expect(_peekKVStoreType()).toBe('CacheKV');
+      const mockKV = {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue({ keys: [] }),
+      } as unknown as KVNamespace;
+      const kv2 = initKVStore({ AGENT_KV: mockKV });
+      expect(kv1).not.toBe(kv2);
+      expect(_peekKVStoreType()).toBe('CloudflareKV');
+    });
+
+    it('_diagnoseEnv should report hasCacheApi: true when caches available', () => {
+      const diag = _diagnoseEnv({ FOO: 'bar' });
+      expect(diag.hasCacheApi).toBe(true);
+      expect(diag.hasKV_STORE).toBe(false);
+      expect(diag.hasAGENT_KV).toBe(false);
+      expect(diag.envKeys).toContain('FOO');
+    });
+  });
+
+  describe('initKVStore without caches API (Node test fallback)', () => {
+    let originalCaches: CacheStorage | undefined;
+
+    beforeEach(() => {
+      originalCaches = (globalThis as unknown as { caches?: CacheStorage }).caches;
+      delete (globalThis as { caches?: CacheStorage }).caches;
+      _resetKVStore();
+    });
+
+    afterEach(() => {
+      if (originalCaches !== undefined) {
+        (globalThis as unknown as { caches: CacheStorage }).caches = originalCaches;
+      }
+    });
+
+    it('should fall back to InMemoryKV when caches API is unavailable', () => {
+      _resetKVStore();
+      initKVStore({});
+      expect(_peekKVStoreType()).toBe('InMemoryKV');
+    });
+
+    it('_diagnoseEnv should report hasCacheApi: false', () => {
+      const diag = _diagnoseEnv({});
+      expect(diag.hasCacheApi).toBe(false);
     });
   });
 });
