@@ -78,16 +78,22 @@ export function TabHeaderHint({
         fontFamily: font.family,
       }}
     >
-      <div
+      {/* patch 0131 (2026-04-23): CEO 指摘「H1/H2 が無い」を受け h2 化。
+          スクリーンリーダー読み上げと Apple/Stripe 水準の文書構造のため。
+          既存スタイル (13px/600) は維持して見た目は変えない。 */}
+      <h2
         style={{
+          margin: 0,
           fontSize: 13,
           fontWeight: 600,
           color: color.text,
           marginBottom: 4,
+          lineHeight: 1.3,
+          fontFamily: font.family,
         }}
       >
         💡 {title}
-      </div>
+      </h2>
       <p
         style={{
           margin: 0,
