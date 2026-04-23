@@ -24,6 +24,9 @@ import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 // patch 0099: タグ入力を TagPicker に統一（既存タグ候補から選ぶ→タイポ・UX 根絶）
 import TagPicker from '~/components/admin/TagPicker';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
+// patch 0134 P0: タグ管理 UX 全面刷新 — 効果説明カード + 7 カテゴリ早見表
+import {TagEffectCard} from '~/components/admin/ds/TagEffectCard';
+import {TAG_CATEGORY_META, type TagCategory} from '~/lib/tag-classifier';
 
 // ── Types ──
 interface ProductListItem {
@@ -372,11 +375,66 @@ export default function AdminBulkTags() {
           🏷️ 商品タグ一括編集
         </h2>
         <p style={{margin: '6px 0 0', fontSize: 13, color: color.textMuted, lineHeight: 1.6}}>
-          複数商品を選択して同じタグを一括付与・削除できます。Shopify のスマートコレクション条件がタグベースの場合、
-          ここで付けたタグは即座にコレクションメンバーシップへ反映されます。既存のタグは上書きせず
-          マージ（付与）または該当タグのみ削除します。
+          複数商品を選択して同じタグを一括付与・削除できます。
+          <strong style={{color: color.text}}>下のタグ入力欄でタグを選ぶと、そのタグの「効果」と「お客様に見える場所」が右側に表示されます</strong>
+          ので、迷わず操作できます。
         </p>
       </div>
+
+      {/* patch 0134: タグ用途の早見表 — 7 カテゴリの説明カード */}
+      <details
+        style={{
+          ...cardStyle,
+          marginBottom: space[3],
+          background: color.bg0,
+        }}
+      >
+        <summary
+          style={{
+            cursor: 'pointer',
+            fontSize: font.sm,
+            fontWeight: 600,
+            color: color.text,
+            padding: 4,
+            listStyle: 'revert',
+          }}
+        >
+          📚 タグの「種類」早見表 — 各タグはどんな機能を持つの？ (クリックで開く)
+        </summary>
+        <div
+          style={{
+            marginTop: 12,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: 10,
+          }}
+        >
+          {(Object.keys(TAG_CATEGORY_META) as TagCategory[]).map((cat) => {
+            const meta = TAG_CATEGORY_META[cat];
+            return (
+              <div
+                key={cat}
+                style={{
+                  padding: 10,
+                  background: color.bg1,
+                  border: `1px solid ${color.border}`,
+                  borderRadius: radius.sm,
+                  fontSize: 12,
+                  color: color.text,
+                  lineHeight: 1.5,
+                }}
+              >
+                <div style={{fontWeight: 700, marginBottom: 4}}>
+                  {meta.icon} {meta.label}
+                </div>
+                <div style={{color: color.textMuted, fontSize: 11}}>
+                  {meta.categoryDescription}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </details>
 
       {/* 操作バー */}
       <div style={{...cardStyle, display: 'flex', flexDirection: 'column', gap: space[3]}}>
@@ -402,6 +460,37 @@ export default function AdminBulkTags() {
             )}
           </div>
         </div>
+
+        {/* patch 0134: 選択タグの効果リアルタイムプレビュー — 「これを付けると何が起きるか」 */}
+        {parsedTags.length > 0 && (
+          <div
+            role="region"
+            aria-label="選択タグの効果プレビュー"
+            style={{
+              padding: 12,
+              background: color.bg0,
+              border: `1px solid ${color.cyan}44`,
+              borderLeft: `3px solid ${color.cyan}`,
+              borderRadius: radius.md,
+            }}
+          >
+            <div
+              style={{
+                fontSize: font.xs,
+                fontWeight: 700,
+                color: color.cyan,
+                marginBottom: 8,
+              }}
+            >
+              👀 プレビュー: 上のボタンを押すと、選択中の {selectedCount} 件の商品にこれらのタグが {parsedTags.length} 個 付与または削除されます
+            </div>
+            <div style={{display: 'flex', flexDirection: 'column', gap: 8}}>
+              {parsedTags.map((t) => (
+                <TagEffectCard key={t} tag={t} size="default" />
+              ))}
+            </div>
+          </div>
+        )}
 
         <div style={{display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center'}}>
           <span style={{fontSize: font.sm, color: color.text, fontWeight: 600}}>
