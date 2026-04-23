@@ -21,8 +21,11 @@ import {
   listRecentSessions,
   readEventsForSession,
   computeFunnel,
+  writeBatch,
+  type UxrBatch,
 } from '~/lib/uxr-storage';
 import { generateInsights } from '~/lib/uxr-insights';
+import { _peekKVStoreType, _diagnoseEnv, getKVStore } from '~/lib/kv-storage';
 
 async function authenticateAdmin(request: Request, contextEnv: Env, context: unknown) {
   const { verifyAdminAuth } = await import('~/lib/admin-auth');
@@ -234,6 +237,81 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       return data({
         success: true,
         ...result,
+      });
+    }
+
+    // patch 0128 selftest: KV binding 認識・write/read 同一 isolate 検証
+    if (action === 'selftest') {
+      const env = contextEnv as unknown as Record<string, unknown>;
+      const envDiag = _diagnoseEnv(env);
+      const kvTypeBefore = _peekKVStoreType();
+
+      const testPath = '/__selftest__';
+      const testSid = 'selftest-' + Math.random().toString(36).slice(2, 10);
+      const batch: UxrBatch = {
+        sid: testSid,
+        path: testPath,
+        ua: 'selftest',
+        ts: Date.now(),
+        events: [
+          { t: 'pv', ts: Date.now() },
+          { t: 'click', ts: Date.now() + 1, x: 0.5, y: 0.5, sel: 'selftest', txt: 'probe' },
+        ],
+      };
+
+      let writeResult: { key: string; size: number } | null = null;
+      let writeError: string | null = null;
+      try {
+        writeResult = await writeBatch(env, batch);
+      } catch (err) {
+        writeError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      }
+
+      const kvTypeAfter = _peekKVStoreType();
+
+      // 同一 isolate で読み戻し
+      let sameIsolateReadback: { count: number; sample: UxrBatch | null } = { count: 0, sample: null };
+      let readError: string | null = null;
+      try {
+        const batches = await readBatchesForPath(env, testPath, { maxBatches: 5 });
+        sameIsolateReadback = {
+          count: batches.length,
+          sample: batches[0] ?? null,
+        };
+      } catch (err) {
+        readError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      }
+
+      // 全 prefix 直接スキャン（cache 経由しない）
+      let totalKeys = 0;
+      let scanError: string | null = null;
+      let sampleKeys: string[] = [];
+      try {
+        const kv = getKVStore();
+        const list = await kv.list({ prefix: 'ux:b:', limit: 100 });
+        totalKeys = list.keys.length;
+        sampleKeys = list.keys.slice(0, 5).map((k) => k.name);
+      } catch (err) {
+        scanError = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+      }
+
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: 'api/admin/uxr?action=selftest',
+        success: true,
+      });
+
+      return data({
+        success: true,
+        envDiag,
+        kvTypeBefore,
+        kvTypeAfter,
+        writeResult,
+        writeError,
+        sameIsolateReadback,
+        readError,
+        directScan: { totalKeys, sampleKeys, scanError },
       });
     }
 

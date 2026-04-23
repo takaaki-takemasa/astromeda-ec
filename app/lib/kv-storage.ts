@@ -243,3 +243,31 @@ export function _resetKVStore(): void {
 export function _createInMemoryKV(maxEntries?: number): InMemoryKV {
   return new InMemoryKV(maxEntries);
 }
+
+/**
+ * 診断用: 現在の kvInstance の実装種別を返す
+ * patch 0128 selftest: production binding 認識状態の可視化
+ */
+export function _peekKVStoreType(): 'CloudflareKV' | 'InMemoryKV' | 'none' {
+  if (!kvInstance) return 'none';
+  if (kvInstance instanceof CloudflareKV) return 'CloudflareKV';
+  if (kvInstance instanceof InMemoryKV) return 'InMemoryKV';
+  return 'none';
+}
+
+/**
+ * 診断用: env から binding 認識状況を返す（initKVStore は呼ばない）
+ */
+export function _diagnoseEnv(env: Record<string, unknown>): {
+  hasKV_STORE: boolean;
+  hasAGENT_KV: boolean;
+  envKeys: string[];
+} {
+  const kvStore = env.KV_STORE as KVNamespace | undefined;
+  const agentKv = env.AGENT_KV as KVNamespace | undefined;
+  return {
+    hasKV_STORE: !!(kvStore && typeof kvStore.get === 'function'),
+    hasAGENT_KV: !!(agentKv && typeof agentKv.get === 'function'),
+    envKeys: Object.keys(env).slice(0, 50),
+  };
+}
