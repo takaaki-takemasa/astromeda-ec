@@ -348,36 +348,40 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
 // 2026-04-22: CEO「中学生・高校生にわかるラベルか」指摘を受けた業務語化
 // 専門用語（カスタマイズ / コレクション / メニュー / リダイレクト / CMS 定義 等）を
 // 中学生でも理解できる業務語に置換。括弧書きで旧名を併記し移行コストを下げる。
+// patch 0130 (2026-04-23): CEO 指摘「タブ名が長すぎて読めない」を受けた構造修正
+// Apple/Stripe 水準: タブラベルは 6-10 文字以内に短縮し、詳細は各タブ内の
+// TabHeaderHint コンポーネントで業務語の 1-2 行説明として表示する。
+// 旧長文は TabHeaderHint の title/description に既に転記済み。
 const SUB_TAB_LABELS: Record<SubTab, string> = {
-  simpleHome: '🏠 はじめに（やりたいことを選ぶ）',
-  onboarding: '🚀 出品ガイド（次にやることを案内）',
-  siteMap: '🗺️ サイトマップ（お店の全体像）',
-  summary: '📊 売上ダッシュボード',
+  simpleHome: '🏠 はじめに',
+  onboarding: '🚀 出品ガイド',
+  siteMap: '🗺️ サイトマップ',
+  summary: '📊 売上',
   content: '📄 記事・お知らせ',
-  products: '📦 商品を作る・直す',
-  collections: '📚 商品をジャンルでまとめる',
-  bulkTags: '🏷️ 商品にラベルを一気に付ける',
-  redirects: '🔀 ページの引っ越し転送',
-  files: '📁 写真・動画の保管箱',
-  metaobjectDefs: '🧬 データの設計図（上級者）',
-  discounts: '🎟️ セール価格を決める',
-  menus: '🧭 お客様向けの道案内（メニュー）',
-  customization: '🎨 お客様が選べる選択肢',
-  homepage: '🏠 ホームページ（古いタブ）',
-  pageEditor: '✏️ お店の見た目を変える',
-  siteConfig: '⚙️ お店の基本情報',
-  marketing: '📣 キャンペーン効果を見る',
-  analytics: '📈 詳しいデータ分析（上級者）',
+  products: '📦 商品',
+  collections: '📚 ジャンル',
+  bulkTags: '🏷️ 一括タグ',
+  redirects: '🔀 リダイレクト',
+  files: '📁 写真・動画',
+  metaobjectDefs: '🧬 設計図',
+  discounts: '🎟️ セール',
+  menus: '🧭 メニュー',
+  customization: '🎨 選択肢',
+  homepage: '🏠 旧ホーム',
+  pageEditor: '✏️ 見た目',
+  siteConfig: '⚙️ お店情報',
+  marketing: '📣 キャンペーン',
+  analytics: '📈 分析',
   // patch 0123 Phase A: お客様クリックヒートマップ MVP
-  uxr: '🎬 お客様の動きを見る（ヒートマップ）',
-  // patch 0124 Phase B: お客様セッション再生（誰が・いつ・何を見たか）
-  sessions: '🎥 お客様セッション再生（1人の動きを時系列で）',
-  // patch 0125 Phase C: ファネル（各段階で何 % 落ちたか）
-  funnel: '🪜 ファネル（どこで離脱しているか）',
-  agents: '🤖 AI スタッフが今やっている事',
-  pipelines: '⚡ 自動化（上級者）',
-  control: '🚨 困ったときの緊急停止',
-  update: '🔧 バージョン・更新（上級者）',
+  uxr: '🎬 ヒートマップ',
+  // patch 0124 Phase B: お客様セッション再生
+  sessions: '🎥 セッション',
+  // patch 0125 Phase C: ファネル
+  funnel: '🪜 ファネル',
+  agents: '🤖 AI スタッフ',
+  pipelines: '⚡ 自動化',
+  control: '🚨 緊急停止',
+  update: '🔧 更新',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
