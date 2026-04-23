@@ -3131,6 +3131,10 @@ export class ShopifyAdminClient {
     items: ShopifyMenuSummary[];
     pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
   }> {
+    // patch 0133 (2026-04-23): Shopify Admin API 2025-10 schema 整合修正
+    // Menu 型は itemsCount / updatedAt を持たないため、items { id } を取得して
+    // length で件数算出する。CAS の updatedAt は menu には不要 (Shopify が
+    // menuUpdate で全置換するため楽観的ロックは menu レベルでは効かない)。
     const gql = `
       query listMenus($first: Int!, $after: String) {
         menus(first: $first, after: $after, sortKey: TITLE) {
@@ -3140,9 +3144,8 @@ export class ShopifyAdminClient {
               id
               handle
               title
-              itemsCount { count precision }
               isDefault
-              updatedAt
+              items { id }
             }
           }
           pageInfo { hasNextPage hasPreviousPage endCursor }
@@ -3159,32 +3162,21 @@ export class ShopifyAdminClient {
               id: string;
               handle: string;
               title: string;
-              itemsCount: {count: number; precision: string} | number | null;
               isDefault: boolean;
-              updatedAt?: string;
+              items: Array<{id: string}>;
             };
           }>;
           pageInfo: {hasNextPage: boolean; hasPreviousPage: boolean; endCursor: string | null};
         };
       }>(gql, {first: Math.max(1, Math.min(first, 100)), after: after ?? null});
 
-      const items: ShopifyMenuSummary[] = res.menus.edges.map((e) => {
-        const raw = e.node.itemsCount;
-        const count =
-          typeof raw === 'number'
-            ? raw
-            : raw && typeof raw === 'object' && 'count' in raw
-              ? raw.count
-              : 0;
-        return {
-          id: e.node.id,
-          handle: e.node.handle,
-          title: e.node.title,
-          itemsCount: count,
-          isDefault: e.node.isDefault,
-          updatedAt: e.node.updatedAt,
-        };
-      });
+      const items: ShopifyMenuSummary[] = res.menus.edges.map((e) => ({
+        id: e.node.id,
+        handle: e.node.handle,
+        title: e.node.title,
+        itemsCount: e.node.items.length,
+        isDefault: e.node.isDefault,
+      }));
 
       log.info(`[listMenus] Fetched ${items.length} menus`);
       return {items, pageInfo: res.menus.pageInfo};
@@ -3207,6 +3199,8 @@ export class ShopifyAdminClient {
       url
       tags
     `;
+    // patch 0133 (2026-04-23): Shopify Admin API 2025-10 schema 整合修正
+    // Menu 型に itemsCount / updatedAt 無し → items.length で代用
     // 深さ 3 までのネスト（Shopify 仕様上限）
     const gql = `
       query getMenu($id: ID!) {
@@ -3214,9 +3208,7 @@ export class ShopifyAdminClient {
           id
           handle
           title
-          itemsCount { count precision }
           isDefault
-          updatedAt
           items {
             ${itemFragment}
             items {
@@ -3236,9 +3228,7 @@ export class ShopifyAdminClient {
           id: string;
           handle: string;
           title: string;
-          itemsCount: {count: number; precision: string} | number | null;
           isDefault: boolean;
-          updatedAt?: string;
           items: ShopifyMenuItemRaw[];
         } | null;
       }>(gql, {id});
@@ -3247,23 +3237,14 @@ export class ShopifyAdminClient {
         throw new Error(`メニューが見つかりません: ${id}`);
       }
 
-      const raw = res.menu.itemsCount;
-      const count =
-        typeof raw === 'number'
-          ? raw
-          : raw && typeof raw === 'object' && 'count' in raw
-            ? raw.count
-            : 0;
-
       const items = normalizeMenuItemsTree(res.menu.items);
       log.info(`[getMenu] Fetched: ${id} (${items.length} top-level items)`);
       return {
         id: res.menu.id,
         handle: res.menu.handle,
         title: res.menu.title,
-        itemsCount: count,
+        itemsCount: items.length,
         isDefault: res.menu.isDefault,
-        updatedAt: res.menu.updatedAt,
         items,
       };
     } catch (err) {
