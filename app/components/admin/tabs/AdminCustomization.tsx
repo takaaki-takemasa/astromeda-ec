@@ -408,8 +408,37 @@ export default function AdminCustomization() {
   };
 
   // ── Render: 編集フォーム ──
+  // patch 0135-fu: Modal Header 直下にもタグ効果プレビューを追加 (重複ですが、
+  // 確実に Modal トップで見えるように二重配置)
   const editForm = (
     <div>
+      {/* patch 0135-fu: プルダウンが影響する商品タグ群を Modal 上部にも表示 */}
+      {form.appliesToTags && form.appliesToTags.trim() && (
+        <div
+          data-testid="admin-customization-modal-tag-preview"
+          style={{
+            marginBottom: 14,
+            padding: 10,
+            background: color.bg0,
+            border: `1px solid ${color.cyan}33`,
+            borderLeft: `3px solid ${color.cyan}`,
+            borderRadius: 6,
+          }}
+        >
+          <div style={{fontSize: 11, fontWeight: 700, color: color.cyan, marginBottom: 6}}>
+            👀 このプルダウンが付くタグの種類:
+          </div>
+          <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
+            {form.appliesToTags
+              .split(',')
+              .map((t) => t.trim())
+              .filter(Boolean)
+              .map((tag) => (
+                <TagEffectCard key={tag} tag={tag} size="compact" />
+              ))}
+          </div>
+        </div>
+      )}
       {/* プルダウン名 */}
       <div style={{ marginBottom: 14 }}>
         <label style={{ ...labelStyle, fontWeight: 700, color: color.text }}>
