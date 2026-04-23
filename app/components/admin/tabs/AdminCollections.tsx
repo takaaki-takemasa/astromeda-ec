@@ -20,6 +20,8 @@ import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineLis
 // patch 0087: useToast 統合プリミティブ
 import {useToast} from '~/components/admin/ds/Toast';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
+// patch 0140: ジャンル一覧を 7 グループに自動分類して視覚化
+import {groupCollections, COLLECTION_GROUP_META, GROUP_ORDER} from '~/lib/collection-classifier';
 
 // ── Types ──
 interface RuleInput {
@@ -415,7 +417,7 @@ export default function AdminCollections() {
     {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
     <TabHeaderHint
       title="商品をジャンルでまとめる"
-      description="コレクション = 商品をジャンル別にまとめる箱です。「ゲーミングPC」「呪術廻戦コラボ」など、お客さまが一覧で見られる単位を作ります。"
+      description="ジャンル = お客様がトップページから選ぶ商品グループ。下では 7 種類 (PC本体 / スペック別 / 価格帯 / IPコラボ / 商品の種類 / プルダウン部品 / その他) に自動分類し、各グループ内は商品数の多い順で表示します。"
       relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
     />
       <Toast />
@@ -468,21 +470,93 @@ export default function AdminCollections() {
           action={<button onClick={openNew} style={btnPrimary}>＋ 最初のコレクションを作る</button>}
         />
       ) : (
-        <div style={{...cardStyle, padding: 0, overflow: 'hidden'}}>
-          <table style={{width: '100%', borderCollapse: 'collapse', fontSize: font.sm}}>
-            <thead>
-              <tr style={{background: color.bg0, textAlign: 'left', color: color.textMuted, fontSize: font.xs, textTransform: 'uppercase', letterSpacing: 1}}>
-                <th style={{padding: '10px 12px', width: 60}}>画像</th>
-                <th style={{padding: '10px 12px'}}>タイトル</th>
-                <th style={{padding: '10px 12px'}}>handle</th>
-                <th style={{padding: '10px 12px', textAlign: 'right'}}>商品数</th>
-                <th style={{padding: '10px 12px'}}>種別</th>
-                <th style={{padding: '10px 12px'}}>更新日</th>
-                <th style={{padding: '10px 12px', width: 160}}>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map((c) => (
+        // patch 0140: 100 件のジャンルを 7 グループに自動分類してセクションヘッダー付きで表示
+        // 各グループ内は商品数の多い順
+        (() => {
+          const grouped = groupCollections(list);
+          const groupsWithItems = GROUP_ORDER.filter((g) => (grouped.get(g)?.length ?? 0) > 0);
+          return (
+            <>
+              {/* グループ概要バー (上部に「PC本体: 12 / IPコラボ: 23 / ...」と件数を一目で表示) */}
+              <div
+                style={{
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: 6,
+                  marginBottom: 14,
+                  padding: 10,
+                  background: color.bg0,
+                  border: `1px solid ${color.border}`,
+                  borderRadius: radius.md,
+                  fontSize: font.xs,
+                }}
+              >
+                <span style={{color: color.textMuted, alignSelf: 'center', marginRight: 4}}>📂 種類別件数:</span>
+                {groupsWithItems.map((g) => {
+                  const meta = COLLECTION_GROUP_META[g];
+                  const n = grouped.get(g)?.length ?? 0;
+                  return (
+                    <a
+                      key={g}
+                      href={`#group-${g}`}
+                      style={{
+                        padding: '3px 10px',
+                        background: color.bg1,
+                        border: `1px solid ${color.border}`,
+                        borderRadius: 999,
+                        color: color.text,
+                        textDecoration: 'none',
+                        fontWeight: 600,
+                      }}
+                    >
+                      {meta.icon} {meta.label}: {n}
+                    </a>
+                  );
+                })}
+              </div>
+
+              {groupsWithItems.map((g) => {
+                const meta = COLLECTION_GROUP_META[g];
+                const items = grouped.get(g) ?? [];
+                return (
+                  <div key={g} id={`group-${g}`} style={{marginBottom: space[5]}}>
+                    {/* グループ見出し */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'baseline',
+                        gap: 10,
+                        padding: '10px 12px',
+                        background: color.bg2,
+                        borderRadius: `${radius.md}px ${radius.md}px 0 0`,
+                        borderLeft: `4px solid ${color.cyan}`,
+                      }}
+                    >
+                      <h3 style={{margin: 0, fontSize: font.md, fontWeight: 800, color: color.text}}>
+                        {meta.icon} {meta.label}
+                      </h3>
+                      <span style={{fontSize: font.xs, color: color.textMuted, fontWeight: 600}}>
+                        {items.length} 件
+                      </span>
+                      <span style={{fontSize: font.xs, color: color.textMuted, marginLeft: 'auto'}}>
+                        ↓ 商品数の多い順
+                      </span>
+                    </div>
+                    <div style={{...cardStyle, padding: 0, overflow: 'hidden', borderRadius: `0 0 ${radius.md}px ${radius.md}px`, marginTop: 0}}>
+                      <table style={{width: '100%', borderCollapse: 'collapse', fontSize: font.sm}}>
+                        <thead>
+                          <tr style={{background: color.bg0, textAlign: 'left', color: color.textMuted, fontSize: font.xs, textTransform: 'uppercase', letterSpacing: 1}}>
+                            <th style={{padding: '10px 12px', width: 60}}>画像</th>
+                            <th style={{padding: '10px 12px'}}>タイトル</th>
+                            <th style={{padding: '10px 12px'}}>handle</th>
+                            <th style={{padding: '10px 12px', textAlign: 'right'}}>商品数</th>
+                            <th style={{padding: '10px 12px'}}>種別</th>
+                            <th style={{padding: '10px 12px'}}>更新日</th>
+                            <th style={{padding: '10px 12px', width: 160}}>操作</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.map((c) => (
                 <tr key={c.id} style={{borderTop: `1px solid ${color.border}`, cursor: 'pointer'}}>
                   <td style={{padding: '10px 12px'}} onClick={() => openEdit(c.id)}>
                     {c.imageUrl ? (
@@ -533,6 +607,12 @@ export default function AdminCollections() {
             </tbody>
           </table>
         </div>
+                  </div>
+                );
+              })}
+            </>
+          );
+        })()
       )}
 
       {/* 編集/新規モーダル */}
