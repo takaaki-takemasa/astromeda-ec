@@ -10,11 +10,11 @@
  *  - 割引コード Basic のみ対応（Code 入力で適用）
  *  - 種別: percentage(%OFF) or fixed_amount(¥OFF)
  *  - 一覧 / 新規作成 / 削除（編集は MVP 外）
- *  - 全顧客対象 / 全商品対象（CustomerGets All）固定
+ *  - 全お客様対象 / 全商品対象（CustomerGets All）固定
  *
  * 未対応（将来 patch 0070+）:
  *  - Code App / Bxgy / Automatic Basic / Automatic Bxgy
- *  - 顧客セグメント / 商品/コレクション限定 / 1注文上限
+ *  - お客様セグメント / 商品/コレクション限定 / 1注文上限
  *
  * 必要 Shopify scope: read_discounts, write_discounts
  */
@@ -922,7 +922,7 @@ export default function AdminDiscounts() {
                     setForm((f) => ({...f, appliesOncePerCustomer: e.target.checked}))
                   }
                 />
-                <span>1顧客につき1回のみ使用可能にする</span>
+                <span>1お客様につき1回のみ使用可能にする</span>
               </label>
               <p
                 style={{
@@ -932,7 +932,7 @@ export default function AdminDiscounts() {
                   marginLeft: 24,
                 }}
               >
-                チェックを入れると、ログイン済み顧客は同じコードを 2 回以上使えなくなります。
+                チェックを入れると、ログイン済みお客様は同じコードを 2 回以上使えなくなります。
               </p>
             </div>
 

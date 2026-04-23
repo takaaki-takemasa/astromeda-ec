@@ -7,9 +7,9 @@
  *
  * patch 0080 (2026-04-20) R0-P0-2:
  * - 「＋ 新しいプルダウンを作る」CTA 追加（旧 UI は定義初期化ボタンのみで、
- *   非エンジニアは選択肢を増やす手段がなかった）
+ *   非エンジニアはプルダウンを増やす手段がなかった）
  * - 新規/編集モーダル: 中学生が迷わず埋められる日本語フォーム +
- *   選択肢エディタ（行追加・行削除・上下並び替え）
+ *   プルダウンエディタ（行追加・行削除・上下並び替え）
  * - 削除は ConfirmDialog（contextPath breadcrumbs 付き）
  * - Skeleton / EmptyCard primitive は patch 0074-0075 を継続使用
  *
@@ -328,7 +328,7 @@ export default function AdminCustomization() {
       .map((c) => ({ value: c.value.trim(), label: c.label.trim() }))
       .filter((c) => c.label);
     if (cleanChoices.length === 0) {
-      showToast('選択肢を少なくとも 1 件入れてください', 'err');
+      showToast('プルダウンを少なくとも 1 件入れてください', 'err');
       return;
     }
     // value 未入力は label を流用
@@ -555,10 +555,10 @@ export default function AdminCustomization() {
         </div>
       </div>
 
-      {/* 選択肢エディタ */}
+      {/* プルダウンエディタ */}
       <div style={{ marginBottom: 18 }}>
         <label style={{ ...labelStyle, fontWeight: 700, color: color.text }}>
-          選択肢 <span style={{ color: color.red }}>*必須</span>
+          プルダウン <span style={{ color: color.red }}>*必須</span>
         </label>
         <div style={{ fontSize: 10, color: color.textMuted, marginBottom: 8 }}>
           お客様が選ぶ項目を並べてください。ラベル = 画面に見える文字、識別子 = 内部で使う ID (空欄なら自動)。
@@ -608,7 +608,7 @@ export default function AdminCustomization() {
               padding: '8px 12px',
             }}
           >
-            ＋ 選択肢を追加
+            ＋ プルダウンを追加
           </button>
         </div>
       </div>
@@ -721,7 +721,7 @@ export default function AdminCustomization() {
     <div>
     {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
     <TabHeaderHint
-      title="お客様が選べる選択肢"
+      title="お客様が選べるプルダウン"
       description="商品ページに表示される「色を選ぶ」「キーボード配列を選ぶ」などのプルダウンを作るタブです。"
       relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
     />
@@ -790,7 +790,7 @@ export default function AdminCustomization() {
         marginBottom: 16,
         lineHeight: 1.6,
       }}>
-        📝 商品詳細ページの「CPU」「メモリ」「キーボード配列」などの選択肢を管理します。
+        📝 商品詳細ページの「CPU」「メモリ」「キーボード配列」などのプルダウンを管理します。
         作ったプルダウンは「対象商品タグ」に合致する商品だけに表示されます。
       </div>
 
@@ -947,7 +947,7 @@ export default function AdminCustomization() {
             <div>順序</div>
             <div>プルダウン名</div>
             <div>カテゴリ</div>
-            <div>選択肢</div>
+            <div>プルダウン</div>
             <div>必須</div>
             <div>アクション</div>
           </div>
@@ -981,7 +981,7 @@ export default function AdminCustomization() {
                   <button
                     onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
                     style={btnGhost}
-                    aria-label={`${entry.name} の選択肢を${expandedId === entry.id ? '閉じる' : '開く'}`}
+                    aria-label={`${entry.name} のプルダウンを${expandedId === entry.id ? '閉じる' : '開く'}`}
                   >
                     {expandedId === entry.id ? '閉じる' : '詳細'}
                   </button>
@@ -1005,11 +1005,11 @@ export default function AdminCustomization() {
               {expandedId === entry.id && (
                 <div style={{ padding: '10px 14px 16px', background: color.bg1 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: color.textMuted, marginBottom: 8 }}>
-                    選択肢一覧:
+                    プルダウン一覧:
                   </div>
                   {entry.choices.length === 0 ? (
                     <div style={{ fontSize: 11, color: color.textMuted, fontStyle: 'italic' }}>
-                      (選択肢が登録されていません)
+                      (プルダウンが登録されていません)
                     </div>
                   ) : (
                     entry.choices.map((opt, i) => (

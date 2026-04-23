@@ -187,7 +187,7 @@ export async function loader({ request, context }: Route.LoaderArgs) {
   const contentInventory: ContentInventoryItem[] = [
     {
       route: '/',
-      title: 'ホームページ',
+      title: 'トップページ',
       hasJsonLd: true,
       hasFaq: false,
       hasCanonical: true,

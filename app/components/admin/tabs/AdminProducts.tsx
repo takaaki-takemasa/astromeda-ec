@@ -369,7 +369,7 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'DRAFT'>('ALL');
   const [inputQuery, setInputQuery] = useState('');
   // patch 0100: プルダウン部品 (Globo 旧データ: tags 空 + productType 空) を既定で隠す。
-  // CEO 指摘「商品一覧をクリックすると製品名の下に大量にプルダウンが羅列する」対応。
+  // CEO 指摘「商品一覧をクリックすると商品名の下に大量にプルダウンが羅列する」対応。
   const [showComponents, setShowComponents] = useState(false);
   const [hiddenComponentCount, setHiddenComponentCount] = useState(0);
 
@@ -1062,13 +1062,13 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             </button>
           ))}
         </div>
-        {/* patch 0100: 部品 (Globo 旧プルダウン選択肢) を含めて表示するトグル */}
+        {/* patch 0100: 部品 (Globo 旧プルダウンプルダウン) を含めて表示するトグル */}
         <button
           type="button"
           onClick={() => setShowComponents((v) => !v)}
           aria-pressed={showComponents}
           style={tabStyle(showComponents)}
-          title="プルダウンの選択肢として登録されている部品商品も一覧に表示します"
+          title="プルダウンのプルダウンとして登録されている部品商品も一覧に表示します"
         >
           {showComponents ? '🧩 部品も表示中' : '🧩 部品を表示'}
         </button>
@@ -2081,7 +2081,7 @@ export default function AdminProducts() {
       {/* patch 0119: 高校生向け「このタブで何ができるか」1 行説明 */}
       <TabHeaderHint
         title="商品を作る・直す"
-        description="お店で売っている商品（PC・グッズ）の追加・編集・削除をします。商品の選択肢（色やサイズなど）は「お客様が選べる選択肢」タブで設定します。"
+        description="お店で売っている商品（PC・グッズ）の追加・編集・削除をします。商品のプルダウン（色やサイズなど）は「お客様が選べるプルダウン」タブで設定します。"
       />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>

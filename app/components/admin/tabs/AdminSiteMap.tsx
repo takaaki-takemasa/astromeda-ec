@@ -122,7 +122,7 @@ export default function AdminSiteMap() {
   const groups: PageGroup[] = [
     {
       icon: '🏠',
-      title: 'ホームページ',
+      title: 'トップページ',
       path: '/',
       nodes: [
         {
@@ -213,7 +213,7 @@ export default function AdminSiteMap() {
         },
         {
           label: 'カスタマイズプルダウン',
-          desc: 'CPU/GPU/メモリ等の選択肢',
+          desc: 'CPU/GPU/メモリ等のプルダウン',
           target: 'internal',
           tab: 'customization',
           metaCount: counts?.metaCustomOptions ?? null,

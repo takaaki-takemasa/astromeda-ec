@@ -20,7 +20,7 @@
  *   return (
  *     <>
  *       <TabHeaderHint
- *         title="お客様が選べる選択肢"
+ *         title="お客様が選べるプルダウン"
  *         description="商品ページに表示される「色を選ぶ」「キーボード配列を選ぶ」などの
  *           プルダウンを作るタブです。"
  *         relatedTabs={[

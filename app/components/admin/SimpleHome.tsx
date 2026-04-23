@@ -76,12 +76,12 @@ const CARDS: CardDef[] = [
   {
     emoji: '🛍️',
     title: '商品を準備する',
-    description: 'お客さまに売る商品を作ります。色・サイズなどの選択肢もここで設定',
+    description: 'お客さまに売る商品を作ります。色・サイズなどのプルダウンもここで設定',
     accent: '#FFD700',
     actions: [
       { label: '➕ 新しい商品を追加する', tab: 'products', hint: '商品名・写真・価格を入力して新商品を登録します' },
       { label: '✏️ 既存の商品を直す', tab: 'products', hint: '商品の説明や価格を編集します' },
-      { label: '🎨 色・キーボード配列など選択肢を作る', tab: 'customization', hint: 'プルダウンで選べる選択肢の設定です' },
+      { label: '🎨 色・キーボード配列などプルダウンを作る', tab: 'customization', hint: 'プルダウンで選べるプルダウンの設定です' },
       { label: '📚 商品をジャンルでまとめる', tab: 'collections', hint: 'コレクション = 商品をジャンル別にまとめる箱' },
       { label: '🏷️ たくさんの商品にラベルを一気に付ける', tab: 'bulkTags', hint: 'タグを一括で付けたり外したりできます' },
     ],

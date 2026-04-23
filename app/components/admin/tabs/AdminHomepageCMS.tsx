@@ -258,7 +258,7 @@ export default function AdminHomepageCMS() {
     <div>
     {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
     <TabHeaderHint
-      title="ホームページ（古いタブ）"
+      title="トップページ（古いタブ）"
       description="将来的に「お店の見た目を変える」タブと統合予定です。現状は IPコラボ・ヒーローバナー・8色カラー・マーキーの編集ができます。"
       relatedTabs={[{label: 'お店の見た目を変える', tab: 'pageEditor'}]}
     />
@@ -889,7 +889,7 @@ function ColorList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onRef
         <div style={{ gridColumn: '1 / -1' }}>
           {/* patch 0083 R1-P1-1: URL 手打ちから ImagePicker(アップロード/ライブラリ/URL) 3モードへ */}
           <ImagePicker
-            label="バナー画像（ホームページ 8色カラーで表示）"
+            label="バナー画像（トップページ 8色カラーで表示）"
             optional
             value={form.image_url}
             onChange={(url) => setForm({ ...form, image_url: url })}

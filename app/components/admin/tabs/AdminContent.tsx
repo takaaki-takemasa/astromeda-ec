@@ -606,7 +606,7 @@ function BannerList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => void
         <button onClick={() => setEditId(null)} style={btnOutline}>キャンセル</button>
       </div>
       <div style={{ fontSize: 11, color: color.textMuted, marginTop: 12, padding: 10, background: color.bg0, borderRadius: 6 }}>
-        💡 右側プレビューはホームページのIPコラボグリッド全体を表示。編集中のIPはフォーム入力で即時反映されます。
+        💡 右側プレビューはトップページのIPコラボグリッド全体を表示。編集中のIPはフォーム入力で即時反映されます。
       </div>
     </>
   );

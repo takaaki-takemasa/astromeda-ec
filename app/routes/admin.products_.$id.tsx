@@ -128,7 +128,7 @@ export default function AdminProductDetail() {
   const [images, setImages] = useState(product.images);
 
   // patch 0120 (CEO P0 2026-04-23): 基本情報タブに「販売価格（代表）」を追加。
-  // CEO 指摘「製品の価格をいれるところがない」への対処。
+  // CEO 指摘「商品の価格をいれるところがない」への対処。
   // 多くの商品はバリアント1つ＝価格1つの単純構成のため、基本タブから直接編集
   // できないと「価格をどこで入れるのか分からない」状態が発生していた。
   // - variants[0] の price を「代表価格」として basic タブに露出する。
@@ -152,7 +152,7 @@ export default function AdminProductDetail() {
   }, [product.variants]);
 
   // ── patch 0110 (CEO P0): プルダウン項目選択 ──
-  // 製品 tag 内の `pulldown:<name>` / `pulldown:none` を見て手動指定状態を組み立てる。
+  // 商品 tag 内の `pulldown:<name>` / `pulldown:none` を見て手動指定状態を組み立てる。
   // チェックボックス UI で更新したら basic.tagsCsv に sync して保存ボタンで Shopify 反映。
   type PulldownMode = 'auto' | 'manual' | 'none';
   const parseCsvTags = useCallback((csv: string): string[] =>
@@ -571,7 +571,7 @@ export default function AdminProductDetail() {
         </div>
 
         {/* patch 0100: プルダウン部品 (Globo 旧データ) のお知らせ。
-            tags 空 + productType 空 = カスタマイズ選択肢として使われている部品商品。
+            tags 空 + productType 空 = カスタマイズプルダウンとして使われている部品商品。
             中学生が誤って「商品」として編集しないようにガイドする。 */}
         {(basic.tagsCsv.trim() === '' && basic.productType.trim() === '') && (
           <div
@@ -593,10 +593,10 @@ export default function AdminProductDetail() {
             <span style={{fontSize: 18, lineHeight: 1}}>🧩</span>
             <div style={{flex: 1, lineHeight: 1.55}}>
               <strong style={{display: 'block', marginBottom: 4, fontSize: 13}}>
-                これはプルダウンの選択肢として使われている部品商品です
+                これはプルダウンのプルダウンとして使われている部品商品です
               </strong>
               <span style={{color: T.t4}}>
-                お客様には「商品」として見えず、商品ページのプルダウン (例: SSD容量 / マザーボード) の選択肢として読み込まれます。
+                お客様には「商品」として見えず、商品ページのプルダウン (例: SSD容量 / マザーボード) のプルダウンとして読み込まれます。
                 価格・表題・在庫をまとめて管理したいときは
                 <Link
                   to="/admin?tab=customization"
@@ -766,7 +766,7 @@ export default function AdminProductDetail() {
               </div>
 
               {/* patch 0120 (CEO P0 2026-04-23): 販売価格を基本タブから直接編集可能に。
-                  CEO 指摘「製品の価格をいれるところがない」への構造的対処。
+                  CEO 指摘「商品の価格をいれるところがない」への構造的対処。
                   - 単一バリアント商品: そのまま代表価格を編集して保存ボタンで Shopify に反映
                   - 複数バリアント商品: 範囲表示 + 「種類タブで個別に編集」の導線案内
                   入力値は数字のみ（半角・小数2桁まで）。保存時に正規表現でガード。 */}
@@ -845,7 +845,7 @@ export default function AdminProductDetail() {
                 )}
               </div>
 
-              {/* patch 0110 (CEO P0): プルダウン項目を「製品編集ページから直接プルダウン選択できる」UI。
+              {/* patch 0110 (CEO P0): プルダウン項目を「商品編集ページから直接プルダウン選択できる」UI。
                   patch 0109 の「ルール説明カード」を CEO 訂正で実選択 UI に置換。
                   - 自動 / 手動 / 表示しない の 3 モードを segmented control で切替
                   - 手動モードでは PC 17項目 + キーボード 1項目を多段チェックボックスで個別 ON/OFF
@@ -1068,7 +1068,7 @@ export default function AdminProductDetail() {
 
                 {/* カスタマイズタブへの導線（中身編集はここではなくタブで） */}
                 <div style={{marginTop: 12, marginLeft: 28, fontSize: 11, color: T.t4}}>
-                  選択肢の中身（例: CPU の値段や追加候補）を編集するときは
+                  プルダウンの中身（例: CPU の値段や追加候補）を編集するときは
                   <Link
                     to="/admin?tab=customization"
                     style={{

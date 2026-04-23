@@ -53,7 +53,7 @@ interface PageInfo {
   endCursor: string | null;
 }
 
-// Shopify が受け入れる主要 field type を UI 選択肢として提供
+// Shopify が受け入れる主要 field type を UI プルダウンとして提供
 const FIELD_TYPE_OPTIONS: Array<{value: string; label: string; group: string}> = [
   {value: 'single_line_text_field', label: '一行テキスト', group: 'テキスト'},
   {value: 'multi_line_text_field', label: '複数行テキスト', group: 'テキスト'},

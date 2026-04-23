@@ -220,7 +220,7 @@ function CategoryCardPreview({ form, items, editingId, isCreating }: { form: Rec
   return (
     <div style={{ fontFamily: 'system-ui, sans-serif', background: '#000', color: '#fff', padding: 20, minHeight: 400 }}>
       <div style={{ fontSize: 11, color: '#00D4FF', letterSpacing: 3, marginBottom: 4 }}>CATEGORY</div>
-      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 16 }}>カテゴリーから探す</div>
+      <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 16 }}>ジャンルから探す</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
         {cards.length === 0 && (
           <div style={{ gridColumn: '1 / -1', fontSize: 12, color: '#666', textAlign: 'center', padding: 20 }}>

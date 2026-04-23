@@ -56,7 +56,7 @@ const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepag
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
 const AdminSiteMap = lazy(() => import('~/components/admin/tabs/AdminSiteMap'));
 const AdminSiteConfig = lazy(() => import('~/components/admin/tabs/AdminSiteConfig'));
-// patch 0059: 非エンジニア向け 出品ガイド（新IPコラボ→新製品→販売 全工程ナビ）
+// patch 0059: 非エンジニア向け 出品ガイド（新IPコラボ→新商品→販売 全工程ナビ）
 const AdminOnboarding = lazy(() => import('~/components/admin/tabs/AdminOnboarding'));
 // 2026-04-22: CEO「中学生・高校生にわかる管理画面か」を受けたタスク中心ホーム
 // 22 タブを破壊せず、上に「業務語の 6 カード」を被せる（既存ロジック・テスト・データを壊さない）
@@ -289,7 +289,7 @@ type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 
 type CommerceGroup = 'catalog' | 'content' | 'navmarketing';
 
 // patch 0119 (Apple CEO ライフサイクル監査): 各グループ内のタブ順を業務フローに沿って並び替え
-//   catalog       — 商品 → 選択肢 → ジャンル → 一括タグ → セール（商品準備の自然な順）
+//   catalog       — 商品 → プルダウン → ジャンル → 一括タグ → セール（商品準備の自然な順）
 //   content       — 見た目編集 → 説明ページ → 基本情報 → 写真 → 旧 homepage（接客準備の自然な順）
 //   navmarketing  — マーケ → メニュー → URL転送 → 分析 → CMS定義（集客→分析→上級者の順）
 const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; default: SubTab}> = {
@@ -366,7 +366,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   metaobjectDefs: '🧬 設計図',
   discounts: '🎟️ セール',
   menus: '🧭 メニュー',
-  customization: '🎨 選択肢',
+  customization: '🎨 プルダウン',
   homepage: '🏠 旧ホーム',
   pageEditor: '✏️ 見た目',
   siteConfig: '⚙️ お店情報',

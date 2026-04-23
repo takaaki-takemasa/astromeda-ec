@@ -41,7 +41,7 @@ interface ContentStatus {
 
 // Known routes with verification status
 const KNOWN_ROUTES: RouteInfo[] = [
-  { path: '/', name: 'ホームページ', hasLoader: true, hasMeta: true, hasErrorBoundary: true, status: 'ready' },
+  { path: '/', name: 'トップページ', hasLoader: true, hasMeta: true, hasErrorBoundary: true, status: 'ready' },
   { path: '/collections', name: 'コレクション一覧', hasLoader: true, hasMeta: true, hasErrorBoundary: true, status: 'ready' },
   { path: '/collections/:handle', name: 'コレクション詳細', hasLoader: true, hasMeta: true, hasErrorBoundary: true, status: 'ready' },
   { path: '/products/:handle', name: '商品詳細', hasLoader: true, hasMeta: true, hasErrorBoundary: true, status: 'ready' },

@@ -190,7 +190,7 @@ export function UrlPicker({
     onChange(buildUrl(kind, next));
   };
 
-  // 種類別の選択肢
+  // 種類別のプルダウン
   const options: DestinationOption[] = useMemo(() => {
     if (!catalog) return [];
     switch (kind) {

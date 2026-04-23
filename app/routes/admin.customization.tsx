@@ -208,7 +208,7 @@ export default function AdminCustomization() {
                 <tr style={{textAlign: 'left', color: T.t4, borderBottom: `1px solid ${al(T.tx, 0.1)}`}}>
                   <th style={{padding: 8}}>名前</th>
                   <th style={{padding: 8}}>カテゴリ</th>
-                  <th style={{padding: 8}}>選択肢数</th>
+                  <th style={{padding: 8}}>プルダウン数</th>
                   <th style={{padding: 8}}>対象タグ</th>
                   <th style={{padding: 8}}>必須</th>
                   <th style={{padding: 8}}>順</th>
@@ -381,7 +381,7 @@ function CustomOptionForm({
             </select>
           </div>
           <div>
-            <label style={labelStyle}>選択肢 ({choices.length} 件)</label>
+            <label style={labelStyle}>プルダウン ({choices.length} 件)</label>
             <div style={{display: 'grid', gap: 6}}>
               {choices.map((c, i) => (
                 <div key={i} style={{display: 'grid', gridTemplateColumns: '1fr 1fr auto auto auto', gap: 4, alignItems: 'center'}}>
@@ -392,7 +392,7 @@ function CustomOptionForm({
                   <button type="button" onClick={() => removeChoice(i)} style={btnStyle(false, true)}>−</button>
                 </div>
               ))}
-              <button type="button" onClick={addChoice} style={{...btnStyle(), alignSelf: 'flex-start'}}>＋ 選択肢追加</button>
+              <button type="button" onClick={addChoice} style={{...btnStyle(), alignSelf: 'flex-start'}}>＋ プルダウン追加</button>
             </div>
           </div>
           <div>

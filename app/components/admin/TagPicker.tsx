@@ -36,7 +36,7 @@ interface TagPickerProps {
   /**
    * patch 0117: true にするとプルダウン部品マーカータグ
    * (pulldown-component / globo-product-options) を候補から除外する。
-   * 商品編集・新規作成・一括タグなど「製品に付けるタグ」を扱う UI で true にする。
+   * 商品編集・新規作成・一括タグなど「商品に付けるタグ」を扱う UI で true にする。
    * 既定 false で後方互換。
    */
   excludePulldown?: boolean;
