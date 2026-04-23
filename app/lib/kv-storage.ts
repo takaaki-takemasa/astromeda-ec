@@ -177,18 +177,39 @@ let kvInstance: KVStore | null = null;
 /**
  * KVストアを初期化（Worker起動時に1回呼ぶ）
  *
- * @param env - Oxygen環境変数（KV_STORE バインディングを含む）
+ * @param env - Oxygen環境変数（KV_STORE または AGENT_KV バインディングを含む）
  * @returns 初期化されたKVストア
  *
  * 医学メタファー: 出生時の海馬形成
  * KVバインディングがあれば長期記憶（永続化）、なければ短期記憶（インメモリ）で動作
+ *
+ * patch 0127: production の binding 名は AGENT_KV であり KV_STORE は存在しない。
+ * env.KV_STORE のみ参照していたため全 isolate が InMemoryKV に lock され、
+ * isolate を跨いだ KV read/write が不可能になっていた。
+ * AGENT_KV も探索する＋ InMemory → Cloudflare へのアップグレードを許可する。
  */
 export function initKVStore(env: Record<string, unknown>): KVStore {
+  // KV_STORE 優先・無ければ AGENT_KV (Oxygen 本番 binding)
+  const kvBinding =
+    (env.KV_STORE as KVNamespace | undefined) ||
+    (env.AGENT_KV as KVNamespace | undefined);
+  const hasRealBinding = !!(kvBinding && typeof kvBinding.get === 'function');
+
+  // 既に CloudflareKV ならそのまま返す（再初期化不要）
+  if (kvInstance instanceof CloudflareKV) return kvInstance;
+
+  // 既に InMemoryKV だが今回 real binding が来た → Cloudflare に昇格（isolate lock 解消）
+  if (kvInstance instanceof InMemoryKV && hasRealBinding) {
+    kvInstance = new CloudflareKV(kvBinding!);
+    return kvInstance;
+  }
+
+  // 既存 instance を維持（real binding 不在で再呼び出された場合）
   if (kvInstance) return kvInstance;
 
-  const kvBinding = env.KV_STORE as KVNamespace | undefined;
-  if (kvBinding && typeof kvBinding.get === 'function') {
-    kvInstance = new CloudflareKV(kvBinding);
+  // 初回初期化
+  if (hasRealBinding) {
+    kvInstance = new CloudflareKV(kvBinding!);
     if (typeof process !== 'undefined' && process.env.NODE_ENV === 'development') {
       console.info('[KV] Cloudflare KV initialized (persistent storage)');
     }

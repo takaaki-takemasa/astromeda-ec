@@ -264,6 +264,54 @@ describe('KV Storage (Memory 脳幹)', () => {
       expect(kv1).toBe(kv2);
     });
 
+    it('should recognize AGENT_KV as KV binding (production binding name) — patch 0127', async () => {
+      _resetKVStore();
+      const mockKV = {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue({ keys: [] }),
+      } as unknown as KVNamespace;
+      const kv = initKVStore({ AGENT_KV: mockKV });
+      expect(kv).toBeDefined();
+      // Verify it actually delegates to the binding
+      await kv.get('test-key');
+      expect(mockKV.get).toHaveBeenCalledWith('test-key');
+    });
+
+    it('should upgrade from InMemoryKV to CloudflareKV when binding later becomes available — patch 0127', async () => {
+      _resetKVStore();
+      // First call: no binding → InMemoryKV
+      const kv1 = initKVStore({});
+      await kv1.put('before-upgrade', 'inmemory-only');
+      // Second call: AGENT_KV binding now present → must upgrade to Cloudflare
+      const mockKV = {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue({ keys: [] }),
+      } as unknown as KVNamespace;
+      const kv2 = initKVStore({ AGENT_KV: mockKV });
+      // Distinct instances — InMemory was replaced by CloudflareKV
+      expect(kv1).not.toBe(kv2);
+      // Subsequent put delegates to the real binding (not InMemory)
+      await kv2.put('after-upgrade', 'cloudflare-bound');
+      expect(mockKV.put).toHaveBeenCalled();
+    });
+
+    it('should keep CloudflareKV stable across subsequent calls — patch 0127', () => {
+      _resetKVStore();
+      const mockKV = {
+        get: vi.fn().mockResolvedValue(null),
+        put: vi.fn().mockResolvedValue(undefined),
+        delete: vi.fn().mockResolvedValue(undefined),
+        list: vi.fn().mockResolvedValue({ keys: [] }),
+      } as unknown as KVNamespace;
+      const kv1 = initKVStore({ AGENT_KV: mockKV });
+      const kv2 = initKVStore({}); // call without binding should NOT downgrade
+      expect(kv1).toBe(kv2);
+    });
+
     it('_resetKVStore should clear singleton', async () => {
       const kv1 = initKVStore({});
       await kv1.put('test', 'value');
