@@ -22,6 +22,8 @@ import { ImageUploader } from '~/components/admin/ImageUploader';
 import type { ImageUploadResult } from '~/components/admin/ImageUploader';
 // patch 0099: タグ入力を TagPicker に統一
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0135 Phase B: 選択タグの効果リアルタイムプレビュー
+import { TagEffectCard } from '~/components/admin/ds/TagEffectCard';
 // patch 0107: 商品説明をリッチテキストエディタに統一
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 import {
@@ -364,6 +366,18 @@ function ProductModal({
             <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
               💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
             </div>
+            {/* patch 0135 Phase B: 選択タグの効果リアルタイムプレビュー */}
+            {form.tags && form.tags.trim() && (
+              <div style={{marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6}}>
+                {form.tags
+                  .split(',')
+                  .map((t) => t.trim())
+                  .filter(Boolean)
+                  .map((tag) => (
+                    <TagEffectCard key={tag} tag={tag} size="compact" />
+                  ))}
+              </div>
+            )}
           </div>
 
           <div>

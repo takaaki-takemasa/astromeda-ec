@@ -15,6 +15,8 @@ import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/Previ
 import {productStatusLabel, productStatusColor} from '~/lib/admin-utils';
 // patch 0099: タグ入力を TagPicker に統一（既存タグを autocomplete 選択）
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0135 Phase B: タグ効果リアルタイムプレビュー
+import {TagEffectCard} from '~/components/admin/ds/TagEffectCard';
 // patch 0107 (CEO P0-α): 商品説明の生 HTML 編集を、中学生でも触れる
 // WYSIWYG + プレビュー + 上級者向け HTML の 3 モード切替に置換
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
@@ -728,6 +730,18 @@ export default function AdminProductDetail() {
                 <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
                   💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
                 </div>
+                {/* patch 0135 Phase B: 各タグの効果リアルタイムプレビュー (compact chip) */}
+                {basic.tagsCsv && basic.tagsCsv.trim() && (
+                  <div style={{marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6}}>
+                    {basic.tagsCsv
+                      .split(',')
+                      .map((t) => t.trim())
+                      .filter(Boolean)
+                      .map((tag) => (
+                        <TagEffectCard key={tag} tag={tag} size="compact" />
+                      ))}
+                  </div>
+                )}
               </div>
               {/* patch 0109 (CEO P0): 生 ENUM (ACTIVE/DRAFT/ARCHIVED) → 自然日本語 + 絵文字 + ヒント */}
               <div>

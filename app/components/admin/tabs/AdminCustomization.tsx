@@ -27,6 +27,8 @@ import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 import TagPicker from '~/components/admin/TagPicker';
 import CustomizationMatrix from '~/components/admin/CustomizationMatrix';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
+// patch 0135 Phase B: 選択中タグの効果リアルタイムプレビュー
+import { TagEffectCard } from '~/components/admin/ds/TagEffectCard';
 
 // ── Types ──
 interface Choice {
@@ -501,6 +503,18 @@ export default function AdminCustomization() {
               <>💡 このプルダウンは <strong>約 {affectedCount} 件</strong> の商品詳細ページに表示されます</>
             )}
           </div>
+          {/* patch 0135 Phase B: 選択タグの効果リアルタイムプレビュー (compact chip) */}
+          {form.appliesToTags && form.appliesToTags.trim() && (
+            <div style={{ marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {form.appliesToTags
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .map((tag) => (
+                  <TagEffectCard key={tag} tag={tag} size="compact" />
+                ))}
+            </div>
+          )}
         </div>
         <div>
           <ToggleSwitch

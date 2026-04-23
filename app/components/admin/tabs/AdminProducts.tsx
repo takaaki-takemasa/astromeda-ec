@@ -29,6 +29,8 @@ import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineL
 import { useToast } from '~/components/admin/ds/Toast';
 // patch 0099: IPタグ入力を TagPicker に統一（既存タグを autocomplete 選択）
 import TagPicker from '~/components/admin/TagPicker';
+// patch 0135 Phase B: タグ効果リアルタイムプレビュー
+import {TagEffectCard} from '~/components/admin/ds/TagEffectCard';
 // patch 0119 (Apple CEO ライフサイクル監査): 高校生向け「このタブで何ができるか」1 行説明
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 // patch 0107 (CEO P0-α): 新規商品作成モーダルでも生 HTML textarea を WYSIWYG に置換
@@ -941,6 +943,18 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             上のIPコラボを選ぶとタグは自動で付きます。ここは既存のキャンペーンタグや特殊タグを
             付けたい場合だけ使ってください。
           </div>
+          {/* patch 0135 Phase B: 選択タグのリアルタイム効果プレビュー */}
+          {form.ipTag && form.ipTag.trim() && (
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {form.ipTag
+                .split(',')
+                .map((t) => t.trim())
+                .filter(Boolean)
+                .map((tag) => (
+                  <TagEffectCard key={tag} tag={tag} size="compact" />
+                ))}
+            </div>
+          )}
         </div>
       </details>
 
