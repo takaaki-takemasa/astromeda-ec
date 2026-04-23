@@ -870,7 +870,8 @@ export default function Homepage() {
       />
 
       {/* PC Showcase — ATFデータはawait済み */}
-      <div style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)'}}>
+      {/* patch 0144 P0: id="colors" を付与して admin TagPipelineMap の /#colors link を実機能化 */}
+      <div id="colors" style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', scrollMarginTop: 80}}>
         <PCShowcase
           colorImages={(data.pcColorProducts as Record<string, string>) ?? {}}
           metaColors={data.metaColors}
@@ -1091,10 +1092,13 @@ export default function Homepage() {
       </div>
 
       {/* Collab Grid — ATFデータはawait済み */}
+      {/* patch 0144 P0: id="collabs" を付与して admin TagPipelineMap の /#collabs link を実機能化 */}
+      <div id="collabs" style={{scrollMarginTop: 80}}>
         <CollabGrid
           collections={data.ipCollections?.collections?.nodes ?? null}
           metaCollabs={data.metaCollabs}
         />
+      </div>
 
       {/* Featured products from Shopify — Sprint 2 Part 3-3: Metaobject product shelf 優先 */}
       {(() => {
