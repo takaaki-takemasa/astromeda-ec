@@ -46,37 +46,36 @@ export function TagDefinitionCard() {
             タグとは
           </div>
           <div style={{fontSize: 13, fontWeight: 700, color: color.text, lineHeight: 1.3}}>
-            商品に貼る目印 (シール)
+            ストア表示の司令塔
           </div>
         </div>
       </div>
 
-      {/* 関係図解: 📦 + 🏷️ → 📚 */}
+      {/* 関係図解: 🏷️ → 4 配線先 */}
       <div
         aria-hidden
         style={{
-          flex: '1 1 320px',
+          flex: '1 1 360px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 8,
+          gap: 6,
           padding: '8px 12px',
           background: color.bg1,
           border: `1px solid ${color.border}`,
           borderRadius: radius.md,
-          fontSize: 13,
+          fontSize: 12,
           color: color.text,
           fontWeight: 600,
+          flexWrap: 'wrap',
         }}
       >
-        <span style={{fontSize: 22}}>📦</span>
-        <span style={{color: color.textMuted}}>+</span>
         <span style={{fontSize: 22}}>🏷️</span>
-        <span style={{fontSize: 16, color: color.cyan, fontWeight: 900, margin: '0 4px'}}>→</span>
-        <span style={{fontSize: 22}}>📚</span>
-        <span style={{fontSize: 12, color: color.textMuted, marginLeft: 4}}>
-          ジャンルに自動で振り分け
-        </span>
+        <span style={{fontSize: 16, color: color.cyan, fontWeight: 900}}>→</span>
+        <span style={{padding: '2px 8px', background: '#a78bfa20', borderRadius: 999, color: '#a78bfa'}}>🎬 IPバナー</span>
+        <span style={{padding: '2px 8px', background: '#22d3ee20', borderRadius: 999, color: '#22d3ee'}}>💻 上部タブ</span>
+        <span style={{padding: '2px 8px', background: '#34d39920', borderRadius: 999, color: '#34d399'}}>📁 中分類</span>
+        <span style={{padding: '2px 8px', background: '#fb923c20', borderRadius: 999, color: '#fb923c'}}>📚 ジャンル</span>
       </div>
 
       {/* ジャンル管理タブへのリンク */}
@@ -96,7 +95,7 @@ export function TagDefinitionCard() {
           whiteSpace: 'nowrap',
         }}
       >
-        ジャンル管理を見る →
+        ジャンル管理 →
       </Link>
     </section>
   );

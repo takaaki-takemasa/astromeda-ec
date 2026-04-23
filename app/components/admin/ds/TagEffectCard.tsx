@@ -16,6 +16,8 @@
 
 import {color, font, radius, space} from '~/lib/design-tokens';
 import {classifyTag, TAG_CATEGORY_META, type TagCategory} from '~/lib/tag-classifier';
+// patch 0143 P0: タグ→storefront 配線を視覚化
+import {TagPipelineMap} from './TagPipelineMap';
 
 interface TagEffectCardProps {
   /** 解析対象のタグ名 */
@@ -179,42 +181,8 @@ export function TagEffectCard({tag, productCount, size = 'default', onRemove}: T
         <strong style={{color: accent}}>このタグを付けると:</strong> {info.effect}
       </p>
 
-      {info.whereVisible.length > 0 && (
-        <div style={{marginTop: 8}}>
-          <div
-            style={{
-              fontSize: font.xs,
-              color: color.textMuted,
-              marginBottom: 4,
-              fontWeight: 600,
-            }}
-          >
-            お客様に見える場所:
-          </div>
-          <ul
-            style={{
-              margin: 0,
-              padding: '0 0 0 16px',
-              fontSize: font.xs,
-              color: color.text,
-              lineHeight: 1.6,
-            }}
-          >
-            {info.whereVisible.map((w, i) => (
-              <li key={i}>
-                <a
-                  href={w.url}
-                  target={w.url.startsWith('http') || w.url.startsWith('/') ? '_blank' : undefined}
-                  rel="noopener noreferrer"
-                  style={{color: color.cyan, textDecoration: 'none'}}
-                >
-                  {w.label} ↗
-                </a>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {/* patch 0143: 旧 whereVisible (静的リスト) を TagPipelineMap (決定論的配線図) に置換 */}
+      <TagPipelineMap tag={tag} compact={false} />
 
       {info.warning && (
         <div
