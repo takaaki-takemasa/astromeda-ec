@@ -6,7 +6,7 @@
  * - 1100px 以下で自動的に 1 カラムへ折り返し
  */
 
-import React from 'react';
+import React, {useEffect, useId, useRef} from 'react';
 import {T, al} from '~/lib/astromeda-data';
 
 interface ModalProps {
@@ -17,8 +17,37 @@ interface ModalProps {
   maxWidth?: number;
 }
 
+/**
+ * patch 0132 (2026-04-23): CEO admin walk 監査 P0 — Modal a11y 完全準拠化
+ * - role="dialog" + aria-modal="true" + aria-labelledby で screen reader 対応
+ * - title を h2 化 (WCAG 1.3.1 / Apple/Stripe 必須)
+ * - ESC キーで閉じる (Apple/Stripe Modal 必須挙動)
+ * - 開いた時に Modal にフォーカス移動 (Apple/Stripe 必須)
+ *
+ * 8 admin タブの「+ 新規...」モーダルが全て role/aria/h2 欠落だった構造バグを
+ * 共通プリミティブ修正で一斉解消する。
+ */
 export function Modal({title, onClose, children, preview, maxWidth}: ModalProps) {
   const isTwoPane = !!preview;
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // ESC キーで閉じる + 初期 focus
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', onKey, true);
+    // 開いた時に dialog 自体に focus (内部フォーム要素は tab で辿れる)
+    if (dialogRef.current) {
+      dialogRef.current.focus();
+    }
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [onClose]);
+
   return (
     <div
       style={{
@@ -37,6 +66,11 @@ export function Modal({title, onClose, children, preview, maxWidth}: ModalProps)
       }}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         style={{
           background: T.bg,
           border: `1px solid ${al(T.tx, 0.15)}`,
@@ -47,6 +81,7 @@ export function Modal({title, onClose, children, preview, maxWidth}: ModalProps)
           display: 'flex',
           flexDirection: 'column',
           boxShadow: '0 12px 32px rgba(0,0,0,.6)',
+          outline: 'none',
         }}
       >
         <div
@@ -59,7 +94,18 @@ export function Modal({title, onClose, children, preview, maxWidth}: ModalProps)
             flexShrink: 0,
           }}
         >
-          <div style={{fontSize: 14, fontWeight: 900, color: T.tx}}>{title}</div>
+          <h2
+            id={titleId}
+            style={{
+              margin: 0,
+              fontSize: 14,
+              fontWeight: 900,
+              color: T.tx,
+              lineHeight: 1.3,
+            }}
+          >
+            {title}
+          </h2>
           <button
             type="button"
             onClick={onClose}
