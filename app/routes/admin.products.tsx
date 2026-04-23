@@ -360,7 +360,7 @@ function ProductModal({
               id="product-create-tags-picker"
               value={form.tags}
               onChange={(csv) => setForm({ ...form, tags: csv })}
-              placeholder="タグを検索して追加（既存タグから選べます）"
+              placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加"
               excludePulldown
             />
             <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>

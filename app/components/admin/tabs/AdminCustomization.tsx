@@ -513,7 +513,7 @@ export default function AdminCustomization() {
             value={form.appliesToTags}
             onChange={(csv) => setForm({ ...form, appliesToTags: csv })}
             onAffectedCountChange={setAffectedCount}
-            placeholder="タグを検索して追加（空欄なら全商品に表示）"
+            placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加（空欄=全商品）"
             excludePulldown
           />
           <div

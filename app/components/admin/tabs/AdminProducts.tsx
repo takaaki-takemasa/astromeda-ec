@@ -936,7 +936,7 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
             id="admin-products-create-iptag-picker"
             value={form.ipTag}
             onChange={(csv) => setForm({ ...form, ipTag: csv })}
-            placeholder="タグを検索して追加（既存タグから選べます）"
+            placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加"
             excludePulldown
           />
           <div style={{ fontSize: 10, color: color.textMuted, marginTop: 4 }}>

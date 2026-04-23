@@ -152,7 +152,7 @@ export default function TagPicker({
   value,
   onChange,
   onAffectedCountChange,
-  placeholder = 'タグを検索して追加…',
+  placeholder = '既存タグを検索 / 新しいタグ名を入力 → Enter で追加',
   disabled = false,
   id,
   excludePulldown = false,
@@ -371,6 +371,7 @@ export default function TagPicker({
             candidates.map((t, i) => {
               const isNew = !knownSet.has(t.name);
               const active = i === activeIndex;
+              // patch 0138: 新規タグは「+ ＋『XXX』を新しいタグとして追加」とアクションとして表示
               return (
                 <div
                   key={t.name}
@@ -385,12 +386,16 @@ export default function TagPicker({
                 >
                   <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {isNew ? (
-                      <span style={{ fontSize: 10, padding: '1px 6px', borderRadius: 8, background: '#ffb020', color: '#1a1a1a', fontWeight: 700 }}>新規</span>
-                    ) : null}
-                    <span>{t.name}</span>
+                      <>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: active ? '#000' : '#22c55e' }}>＋</span>
+                        <span>『{t.name}』を新しいタグとして追加</span>
+                      </>
+                    ) : (
+                      <span>{t.name}</span>
+                    )}
                   </span>
                   <span style={{ fontSize: 11, color: active ? '#000' : color.textMuted }}>
-                    {isNew ? '未登録' : `${t.productCount} 件`}
+                    {isNew ? '↵ Enter キーで追加' : `${t.productCount} 件`}
                   </span>
                 </div>
               );

@@ -482,7 +482,7 @@ export default function AdminBulkTags() {
             id="admin-bulk-tags-picker"
             value={tagInput}
             onChange={(csv) => setTagInput(csv)}
-            placeholder="タグを検索して追加（既存タグから選べます）"
+            placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加"
             excludePulldown
           />
           <div style={{marginTop: 6, fontSize: font.xs, color: color.textMuted}}>

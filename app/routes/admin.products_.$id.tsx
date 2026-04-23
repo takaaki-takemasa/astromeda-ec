@@ -728,7 +728,7 @@ export default function AdminProductDetail() {
                   id="product-tags-picker"
                   value={basic.tagsCsv}
                   onChange={(csv) => setBasic({...basic, tagsCsv: csv})}
-                  placeholder="タグを検索して追加（既存タグから選べます）"
+                  placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加"
                   excludePulldown
                 />
                 <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
