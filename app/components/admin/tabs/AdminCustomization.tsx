@@ -29,6 +29,8 @@ import CustomizationMatrix from '~/components/admin/CustomizationMatrix';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 // patch 0135 Phase B: 選択中タグの効果リアルタイムプレビュー
 import { TagEffectCard } from '~/components/admin/ds/TagEffectCard';
+// patch 0142 P0: 「タグとは何か」の定義カード (タグを使う UI の冒頭に配置)
+import { TagDefinitionCard } from '~/components/admin/ds/TagDefinitionCard';
 
 // ── Types ──
 interface Choice {
@@ -722,9 +724,11 @@ export default function AdminCustomization() {
     {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
     <TabHeaderHint
       title="お客様が選べるプルダウン"
-      description="商品ページに表示される「色を選ぶ」「キーボード配列を選ぶ」などのプルダウンを作るタブです。"
+      description="商品ページに表示される「色を選ぶ」「キーボード配列を選ぶ」などのプルダウンを作るタブです。下のタグ条件で「このタグの商品にだけプルダウンを表示」と振り分けます。"
       relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
     />
+    {/* patch 0142 P0: 「タグとは何か」の定義カード (このタブもタグを条件として使うため) */}
+    <TagDefinitionCard />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 20, fontWeight: 800, color: color.text, margin: 0 }}>
           🎛️ プルダウン管理

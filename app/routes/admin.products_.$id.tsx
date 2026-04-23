@@ -19,6 +19,8 @@ import TagPicker from '~/components/admin/TagPicker';
 import {TagEffectCard} from '~/components/admin/ds/TagEffectCard';
 // patch 0136 P0: 一括 vs 個別の使い分けガイド
 import {TagWorkflowGuide} from '~/components/admin/ds/TagWorkflowGuide';
+// patch 0142 P0: 「タグとは何か」の定義カード
+import {TagDefinitionCard} from '~/components/admin/ds/TagDefinitionCard';
 // patch 0107 (CEO P0-α): 商品説明の生 HTML 編集を、中学生でも触れる
 // WYSIWYG + プレビュー + 上級者向け HTML の 3 モード切替に置換
 import RichTextEditor from '~/components/admin/ds/RichTextEditor';
@@ -721,6 +723,8 @@ export default function AdminProductDetail() {
                 </div>
               </div>
               <div>
+                {/* patch 0142 P0: 「タグとは何か」の定義カード */}
+                <TagDefinitionCard />
                 {/* patch 0136 P0: 「個別 vs 一括」使い分けガイド (個別ハイライト) */}
                 <TagWorkflowGuide highlight="individual" />
                 <label style={labelStyle}>タグ</label>

@@ -29,6 +29,8 @@ import {TagEffectCard} from '~/components/admin/ds/TagEffectCard';
 import {TAG_CATEGORY_META, type TagCategory} from '~/lib/tag-classifier';
 // patch 0136 P0: 一括 vs 個別の使い分けガイド
 import {TagWorkflowGuide} from '~/components/admin/ds/TagWorkflowGuide';
+// patch 0142 P0: 「タグとは何か」の定義カード
+import {TagDefinitionCard} from '~/components/admin/ds/TagDefinitionCard';
 
 // ── Types ──
 interface ProductListItem {
@@ -368,6 +370,8 @@ export default function AdminBulkTags() {
       description="たくさんの商品に同じタグ（ラベル）を一気に付けたり外したりできます。コレクションの自動振り分け条件にも使われます。"
       relatedTabs={[{label: '商品をジャンルでまとめる', tab: 'collections'}, {label: '商品を作る・直す', tab: 'products'}]}
     />
+    {/* patch 0142 P0: 「タグとは何か」を一目で示す定義カード */}
+    <TagDefinitionCard />
     {/* patch 0136 P0: 「一括 vs 個別」の使い分けを冒頭で必ず示す */}
     <TagWorkflowGuide highlight="bulk" />
       <Toast />
