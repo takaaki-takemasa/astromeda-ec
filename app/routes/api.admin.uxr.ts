@@ -22,6 +22,7 @@ import {
   readEventsForSession,
   computeFunnel,
 } from '~/lib/uxr-storage';
+import { generateInsights } from '~/lib/uxr-insights';
 
 async function authenticateAdmin(request: Request, contextEnv: Env, context: unknown) {
   const { verifyAdminAuth } = await import('~/lib/admin-auth');
@@ -209,6 +210,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         action: 'api_access',
         role: authResult.role,
         resource: `api/admin/uxr?action=funnel&days=${days}`,
+        success: true,
+      });
+      return data({
+        success: true,
+        ...result,
+      });
+    }
+
+    // patch 0126 Phase D: AI マーケアシスタント（Top3 おすすめアクション生成）
+    if (action === 'insights') {
+      const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days') || '7')));
+      const result = await generateInsights(
+        contextEnv as unknown as Record<string, unknown>,
+        { days },
+      );
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: `api/admin/uxr?action=insights&days=${days}`,
         success: true,
       });
       return data({

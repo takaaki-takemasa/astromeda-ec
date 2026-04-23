@@ -757,6 +757,16 @@ export default function AdminDashboard() {
               pendingApprovals={pendingApprovals}
               // patch 0122 follow-up: 「今日やることTop3」CTA から関連タブへ遷移
               onNavigate={(s) => handleTabChange(s as SubTab)}
+              // patch 0126 Phase D: AI insight CTA → tab + path/sid を URL に積んで deep-link
+              onDeepLink={({ tab, path, sid }) => {
+                const next: Record<string, string> = { tab };
+                if (path) next.path = path;
+                if (sid) next.sid = sid;
+                setSubTab(tab as SubTab);
+                const grp = COMMERCE_TAB_TO_GROUP[tab as SubTab];
+                if (grp) setCommerceGroup(grp);
+                setSearchParams(next);
+              }}
             />
           )}
           {subTab === 'content' && (

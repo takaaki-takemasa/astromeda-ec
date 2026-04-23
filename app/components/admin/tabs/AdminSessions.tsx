@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { color } from '~/lib/design-tokens';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
@@ -74,10 +75,14 @@ const MINI_W = 320;
 const MINI_H = 180;
 
 export default function AdminSessions() {
+  // patch 0126 Phase D: AI insight からの deep-link で ?sid=... が来たら初期選択
+  const [searchParams] = useSearchParams();
+  const initialSid = searchParams.get('sid') || '';
+
   const [days, setDays] = useState<number>(7);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
-  const [selectedSid, setSelectedSid] = useState<string>('');
+  const [selectedSid, setSelectedSid] = useState<string>(initialSid);
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);

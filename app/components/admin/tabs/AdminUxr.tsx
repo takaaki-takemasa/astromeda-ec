@@ -19,6 +19,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { color } from '~/lib/design-tokens';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
@@ -66,9 +67,13 @@ const HEATMAP_H = 540;
 const DOT_RADIUS = 18;
 
 export default function AdminUxr() {
+  // patch 0126 Phase D: AI insight からの deep-link で ?path=... が来たら初期選択
+  const [searchParams] = useSearchParams();
+  const initialPath = searchParams.get('path') || '';
+
   const [pages, setPages] = useState<PageEntry[]>([]);
   const [loadingPages, setLoadingPages] = useState(true);
-  const [selectedPage, setSelectedPage] = useState<string>('');
+  const [selectedPage, setSelectedPage] = useState<string>(initialPath);
   const [days, setDays] = useState<number>(7);
   const [data, setData] = useState<HeatmapData | null>(null);
   const [loadingHeatmap, setLoadingHeatmap] = useState(false);
@@ -84,7 +89,12 @@ export default function AdminUxr() {
         if (cancelled) return;
         const arr = Array.isArray(d.pages) ? d.pages : [];
         setPages(arr);
-        if (arr.length > 0) setSelectedPage(arr[0].path);
+        // 初期選択: ?path= 指定 + その path がデータに存在 → そのまま
+        // ?path= 指定だがデータに無い → そのまま（後で「データなし」表示）
+        // ?path= 未指定 → 最初の path
+        if (!initialPath && arr.length > 0) {
+          setSelectedPage(arr[0].path);
+        }
         setLoadingPages(false);
       })
       .catch(() => {
@@ -94,7 +104,7 @@ export default function AdminUxr() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPath]);
 
   // ── 2. 選択ページのヒートマップ取得 ──
   useEffect(() => {

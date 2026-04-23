@@ -27,6 +27,38 @@ interface AdminHomeProps {
   revenue365d?: RevenueData;
   pendingApprovals: number;
   onNavigate?: (section: string) => void;
+  /**
+   * patch 0126 Phase D: AI insight からの deep-link
+   * tab だけでなく path/sid も渡せる（uxr ヒートマップ・sessions 再生に直接飛ぶ）
+   */
+  onDeepLink?: (target: { tab: string; path?: string; sid?: string }) => void;
+}
+
+// patch 0126 Phase D: AI insight 型
+interface MarketingInsight {
+  id: string;
+  severity: 'critical' | 'warning' | 'info';
+  title: string;
+  reason: string;
+  hint: string;
+  metrics: Array<{ label: string; value: string; tone?: 'red' | 'orange' | 'cyan' | 'green' }>;
+  ctas: Array<{
+    label: string;
+    tab: 'funnel' | 'uxr' | 'sessions' | 'marketing' | 'products' | 'homepage';
+    path?: string;
+    sid?: string;
+  }>;
+}
+
+interface InsightsData {
+  success: boolean;
+  days?: number;
+  insights?: MarketingInsight[];
+  meta?: {
+    totalSessions: number;
+    productPathsAnalyzed: number;
+    cartPathsAnalyzed: number;
+  };
 }
 
 // ── 「これって何？」ツールチップ（中学生向け説明） ──
@@ -121,11 +153,15 @@ export default function AdminHome({
   revenue365d,
   pendingApprovals,
   onNavigate,
+  onDeepLink,
 }: AdminHomeProps) {
   const [showTechDetails, setShowTechDetails] = useState(false);
   const [cartData, setCartData] = useState<CartAbandonmentData | null>(null);
   const [invData, setInvData] = useState<InventoryAlertsData | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(true);
+  // patch 0126 Phase D: AI マーケアシスタント insights
+  const [insightsData, setInsightsData] = useState<InsightsData | null>(null);
+  const [loadingInsights, setLoadingInsights] = useState(true);
 
   // ── 「今日のお店日報」用データ取得（カート離脱 + 在庫アラート） ──
   useEffect(() => {
@@ -139,6 +175,23 @@ export default function AdminHome({
       if (inv.status === 'fulfilled') setInvData(inv.value as InventoryAlertsData);
       setLoadingDaily(false);
     });
+    return () => { cancelled = true; };
+  }, []);
+
+  // patch 0126 Phase D: AI insight 取得（自社製 UXR + funnel からルールベース生成）
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/admin/uxr?action=insights&days=7', { credentials: 'include' })
+      .then((r) => r.json() as Promise<InsightsData>)
+      .then((j) => {
+        if (cancelled) return;
+        setInsightsData(j);
+        setLoadingInsights(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLoadingInsights(false);
+      });
     return () => { cancelled = true; };
   }, []);
 
@@ -483,6 +536,158 @@ export default function AdminHome({
             </div>
           )}
         </div>
+      </section>
+
+      {/* ════════════════════════════════════════════ */}
+      {/* ── 🤖 AI マーケアシスタント (patch 0126 Phase D) ── */}
+      {/* ════════════════════════════════════════════ */}
+      <section
+        aria-labelledby="ai-insights-heading"
+        style={{
+          background: `linear-gradient(135deg, ${color.bg1} 0%, rgba(167,139,250,.04) 100%)`,
+          border: `1px solid rgba(167,139,250,.30)`,
+          borderRadius: 20,
+          padding: 24,
+          marginBottom: 24,
+        }}
+      >
+        <div style={{display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8}}>
+          <h2 id="ai-insights-heading" style={{fontSize: 20, fontWeight: 900, color: color.text, margin: 0, letterSpacing: -0.5}}>
+            🤖 AI マーケアシスタント
+            <span style={{fontSize: 11, color: color.textMuted, fontWeight: 600, marginLeft: 10, letterSpacing: 0}}>
+              お客様の動きから自動でおすすめを生成
+            </span>
+          </h2>
+          <span style={{fontSize: 11, color: color.textMuted, fontWeight: 600}}>
+            過去{insightsData?.days ?? 7}日 ·
+            セッション {insightsData?.meta?.totalSessions ?? 0} ·
+            ページ {(insightsData?.meta?.productPathsAnalyzed ?? 0) + (insightsData?.meta?.cartPathsAnalyzed ?? 0)}
+          </span>
+        </div>
+
+        {loadingInsights ? (
+          <div style={{
+            padding: 20,
+            background: color.bg1,
+            borderRadius: 12,
+            border: `1px solid ${color.border}`,
+            color: color.textMuted,
+            fontSize: 13,
+            textAlign: 'center',
+          }}>
+            お客様の動きを分析中…
+          </div>
+        ) : (insightsData?.insights ?? []).length === 0 ? (
+          <div style={{
+            padding: 20,
+            background: color.bg1,
+            borderRadius: 12,
+            border: `1px solid ${color.border}`,
+            color: color.textMuted,
+            fontSize: 13,
+            textAlign: 'center',
+          }}>
+            まだおすすめできるデータがありません。お客様がサイトを訪れると、ここに自動でおすすめが表示されます。
+          </div>
+        ) : (
+          <div style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+            {(insightsData?.insights ?? []).map((ins) => {
+              const sevColor = ins.severity === 'critical' ? color.red : ins.severity === 'warning' ? color.orange : color.cyan;
+              const sevIcon = ins.severity === 'critical' ? '🚨' : ins.severity === 'warning' ? '⚠️' : '💡';
+              const toneColor = (t?: 'red' | 'orange' | 'cyan' | 'green') => {
+                if (t === 'red') return color.red;
+                if (t === 'orange') return color.orange;
+                if (t === 'cyan') return color.cyan;
+                if (t === 'green') return color.green;
+                return color.textMuted;
+              };
+              return (
+                <div
+                  key={ins.id}
+                  style={{
+                    background: color.bg1,
+                    border: `1px solid ${sevColor}40`,
+                    borderLeft: `4px solid ${sevColor}`,
+                    borderRadius: 12,
+                    padding: 16,
+                  }}
+                >
+                  <div style={{display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 8}}>
+                    <span style={{fontSize: 18, lineHeight: 1, flexShrink: 0}}>{sevIcon}</span>
+                    <div style={{flex: 1, minWidth: 0}}>
+                      <div style={{fontSize: 14, fontWeight: 800, color: color.text, marginBottom: 6}}>
+                        {ins.title}
+                      </div>
+                      <div style={{fontSize: 12, color: color.textMuted, lineHeight: 1.6, marginBottom: 6}}>
+                        <span style={{color: sevColor, fontWeight: 700}}>なぜ？ </span>
+                        {ins.reason}
+                      </div>
+                      <div style={{fontSize: 12, color: color.textMuted, lineHeight: 1.6}}>
+                        <span style={{color: color.cyan, fontWeight: 700}}>次にどうする？ </span>
+                        {ins.hint}
+                      </div>
+                    </div>
+                  </div>
+
+                  {ins.metrics.length > 0 && (
+                    <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10, marginLeft: 30}}>
+                      {ins.metrics.map((m, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            padding: '3px 10px',
+                            borderRadius: 999,
+                            background: `${toneColor(m.tone)}15`,
+                            border: `1px solid ${toneColor(m.tone)}40`,
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: toneColor(m.tone),
+                          }}
+                        >
+                          <span style={{opacity: .8, fontWeight: 600}}>{m.label}:</span>
+                          {m.value}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {ins.ctas.length > 0 && (
+                    <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginLeft: 30}}>
+                      {ins.ctas.map((cta, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            if (onDeepLink) {
+                              onDeepLink({ tab: cta.tab, path: cta.path, sid: cta.sid });
+                            } else if (onNavigate) {
+                              onNavigate(cta.tab);
+                            }
+                          }}
+                          style={{
+                            background: `${sevColor}15`,
+                            border: `1px solid ${sevColor}50`,
+                            borderRadius: 8,
+                            padding: '6px 14px',
+                            color: sevColor,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {cta.label} →
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </section>
 
       {/* ── アラートバナー（システム異常など、ある時だけ） ── */}
