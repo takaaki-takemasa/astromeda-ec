@@ -20,6 +20,7 @@ import {
   readBatchesForPath,
   listRecentSessions,
   readEventsForSession,
+  computeFunnel,
 } from '~/lib/uxr-storage';
 
 async function authenticateAdmin(request: Request, contextEnv: Env, context: unknown) {
@@ -197,6 +198,22 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         eventCount: result.events.length,
         batches: batchMeta,
         events: flatEvents,
+      });
+    }
+
+    // patch 0125 Phase C: ファネル可視化（来訪 → 商品 → カート → 購入手続き）
+    if (action === 'funnel') {
+      const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days') || '7')));
+      const result = await computeFunnel(contextEnv as unknown as Record<string, unknown>, { days });
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: `api/admin/uxr?action=funnel&days=${days}`,
+        success: true,
+      });
+      return data({
+        success: true,
+        ...result,
       });
     }
 

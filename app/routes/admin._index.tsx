@@ -30,6 +30,8 @@ const AdminAnalytics = lazy(() => import('~/components/admin/tabs/AdminAnalytics
 const AdminUxr = lazy(() => import('~/components/admin/tabs/AdminUxr'));
 // patch 0124 Phase B: お客様セッション再生（誰が・いつ・何を見たか）
 const AdminSessions = lazy(() => import('~/components/admin/tabs/AdminSessions'));
+// patch 0125 Phase C: ファネル（来訪→商品→カート→購入手続き の各段階で何 % 落ちたか）
+const AdminFunnel = lazy(() => import('~/components/admin/tabs/AdminFunnel'));
 const AdminAgents = lazy(() => import('~/components/admin/tabs/AdminAgents'));
 const AdminPipelines = lazy(() => import('~/components/admin/tabs/AdminPipelines'));
 const AdminControl = lazy(() => import('~/components/admin/tabs/AdminControl'));
@@ -280,7 +282,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -305,7 +307,8 @@ const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; def
     label: '🧭 ナビ・マーケ・分析',
     // patch 0123 Phase A: 分析の隣に「お客様の動き（uxr）」を配置
     // patch 0124 Phase B: uxr の隣に「お客様セッション再生（sessions）」を配置
-    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'uxr', 'sessions', 'metaobjectDefs'],
+    // patch 0125 Phase C: sessions の隣に「ファネル（離脱率の見える化）」を配置
+    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'uxr', 'sessions', 'funnel', 'metaobjectDefs'],
     default: 'marketing',
   },
 };
@@ -334,7 +337,8 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0071 R0-2: commerce 全タブ（deep link 逆引き用）。実 UI 描画は COMMERCE_GROUPS 側で行う
   // patch 0123 Phase A: uxr (お客様の動きを見る) を analytics の隣に追加
   // patch 0124 Phase B: sessions (お客様セッション再生) を uxr の隣に追加
-  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics', 'uxr', 'sessions'], default: 'products' },
+  // patch 0125 Phase C: funnel (来訪→商品→カート→購入手続きの離脱率) を sessions の隣に追加
+  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   settings: { tabs: ['update'], default: 'update' },
@@ -368,6 +372,8 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   uxr: '🎬 お客様の動きを見る（ヒートマップ）',
   // patch 0124 Phase B: お客様セッション再生（誰が・いつ・何を見たか）
   sessions: '🎥 お客様セッション再生（1人の動きを時系列で）',
+  // patch 0125 Phase C: ファネル（各段階で何 % 落ちたか）
+  funnel: '🪜 ファネル（どこで離脱しているか）',
   agents: '🤖 AI スタッフが今やっている事',
   pipelines: '⚡ 自動化（上級者）',
   control: '🚨 困ったときの緊急停止',
@@ -843,6 +849,12 @@ export default function AdminDashboard() {
           {subTab === 'sessions' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSessions />
+            </Suspense>
+          )}
+          {/* patch 0125 Phase C: ファネル（来訪→商品→カート→購入手続き 離脱率の見える化） */}
+          {subTab === 'funnel' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminFunnel />
             </Suspense>
           )}
           {subTab === 'agents' && (

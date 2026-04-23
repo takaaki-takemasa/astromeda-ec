@@ -396,3 +396,245 @@ export async function readEventsForSession(
 export function _resetSessionsCache(): void {
   cachedSessions = null;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// patch 0125 Phase C: ファネル可視化（来訪 → 商品 → カート → 購入手続き）
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * ファネルの各段階。お客様がどこで離脱しているかを把握するための 4 段階。
+ * - landing: トップ or 任意ページに到達
+ * - product: 商品詳細ページを見た
+ * - cart: カート追加 click または /cart 系 path 訪問
+ * - checkout: 購入手続き開始（/checkout 系 path or 「購入」「ご注文」ボタン click）
+ */
+export type FunnelStage = 'landing' | 'product' | 'cart' | 'checkout';
+
+export const FUNNEL_STAGES: FunnelStage[] = ['landing', 'product', 'cart', 'checkout'];
+
+export interface FunnelStageStat {
+  stage: FunnelStage;
+  /** ラベル（admin に表示する日本語） */
+  label: string;
+  /** この段階に到達したセッション数 */
+  sessions: number;
+  /** 前段階からの到達率 (%) */
+  conversionFromPrev: number;
+  /** 1段目（landing）からの到達率 (%) */
+  conversionFromTop: number;
+  /** 前段階からの離脱数 */
+  dropoffCount: number;
+  /** 前段階からの離脱率 (%) */
+  dropoffRate: number;
+}
+
+export interface FunnelResult {
+  /** 集計対象期間（日数） */
+  days: number;
+  /** 集計したセッション総数（= landing と同じ。少なくとも何かを送ってきたセッション） */
+  totalSessions: number;
+  /** 各段階の集計 */
+  stages: FunnelStageStat[];
+  /** よく訪れる商品 path の Top5（cart 段階に到達できなかったセッションでも商品を見ているケースの diagnostic） */
+  topProductPaths: Array<{ path: string; sessions: number }>;
+  /** よく追加されるカート path Top5 */
+  topCartPaths: Array<{ path: string; sessions: number }>;
+}
+
+/**
+ * 1 セッションがどの段階まで進んだかを判定する。
+ *
+ * 判定ルール:
+ * - landing: 何かしらバッチがあれば true
+ * - product: いずれかのバッチで path が `/products/` を含む or nav.to が `/products/` を含む
+ * - cart: いずれかのイベントで sel に `cart`/`add-to-cart`/`buy`/`購入`/`カート` を含む click、
+ *         または path/nav.to が `/cart` を含む
+ * - checkout: path/nav.to が `/checkout` または `/checkouts/` を含む、
+ *             または sel/txt が `購入` `ご注文` `お支払い` を含む click
+ */
+function classifySessionStage(batches: UxrBatch[]): {
+  reachedProduct: boolean;
+  reachedCart: boolean;
+  reachedCheckout: boolean;
+  productPaths: Set<string>;
+  cartPaths: Set<string>;
+} {
+  let reachedProduct = false;
+  let reachedCart = false;
+  let reachedCheckout = false;
+  const productPaths = new Set<string>();
+  const cartPaths = new Set<string>();
+
+  const isProductPath = (p: string) => p.includes('/products/');
+  const isCartPath = (p: string) => p === '/cart' || p.startsWith('/cart');
+  const isCheckoutPath = (p: string) =>
+    p.startsWith('/checkout') || p.startsWith('/checkouts');
+
+  const cartKeywords = ['cart', 'add-to-cart', 'add_to_cart', 'addtocart', 'カート', 'カートに入れる', '追加'];
+  const buyKeywords = ['buy', '購入', 'ご注文', 'お支払い', 'checkout', 'レジへ'];
+
+  for (const b of batches) {
+    if (isProductPath(b.path)) {
+      reachedProduct = true;
+      productPaths.add(b.path);
+    }
+    if (isCartPath(b.path)) {
+      reachedCart = true;
+      cartPaths.add(b.path);
+    }
+    if (isCheckoutPath(b.path)) {
+      reachedCheckout = true;
+    }
+    for (const e of b.events) {
+      if (e.t === 'nav' && e.to) {
+        if (isProductPath(e.to)) {
+          reachedProduct = true;
+          productPaths.add(e.to);
+        }
+        if (isCartPath(e.to)) {
+          reachedCart = true;
+          cartPaths.add(e.to);
+        }
+        if (isCheckoutPath(e.to)) reachedCheckout = true;
+      }
+      if (e.t === 'click') {
+        const sel = (e.sel || '').toLowerCase();
+        const txt = (e.txt || '').toLowerCase();
+        const hay = sel + '|' + txt;
+        if (cartKeywords.some((k) => hay.includes(k.toLowerCase()))) {
+          reachedCart = true;
+          cartPaths.add(b.path);
+        }
+        if (buyKeywords.some((k) => hay.includes(k.toLowerCase()))) {
+          reachedCheckout = true;
+        }
+      }
+    }
+  }
+
+  return { reachedProduct, reachedCart, reachedCheckout, productPaths, cartPaths };
+}
+
+let cachedFunnel: { ts: number; key: string; result: FunnelResult } | null = null;
+const FUNNEL_CACHE_MS = 30_000;
+
+/**
+ * ファネル集計（直近 N 日）。
+ *
+ * 30秒キャッシュ（admin の頻繁リロードに耐える）。
+ */
+export async function computeFunnel(
+  env: Record<string, unknown> | null | undefined,
+  options?: { days?: number },
+): Promise<FunnelResult> {
+  const days = options?.days ?? 7;
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const cacheKey = `d=${days}`;
+
+  const now = Date.now();
+  if (cachedFunnel && cachedFunnel.key === cacheKey && now - cachedFunnel.ts < FUNNEL_CACHE_MS) {
+    return cachedFunnel.result;
+  }
+
+  const kv = resolveKv(env);
+  const list = await kv.list({ prefix: UXR_KEY_PREFIX, limit: 1000 });
+
+  const filtered = list.keys
+    .map((k) => {
+      const parts = k.name.split(':');
+      const ts = Number(parts[3] || 0);
+      return { name: k.name, ts };
+    })
+    .filter((x) => x.ts >= sinceMs)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 1000);
+
+  const batches = await Promise.all(
+    filtered.map(async (x) => {
+      try {
+        return await kv.get<UxrBatch>(x.name);
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  // sid 別に集約
+  const bySid: Record<string, UxrBatch[]> = {};
+  for (const b of batches) {
+    if (!b || !b.sid) continue;
+    (bySid[b.sid] ||= []).push(b);
+  }
+
+  let landing = 0;
+  let product = 0;
+  let cart = 0;
+  let checkout = 0;
+  const productPathCount: Record<string, number> = {};
+  const cartPathCount: Record<string, number> = {};
+
+  for (const sid of Object.keys(bySid)) {
+    landing++;
+    const cls = classifySessionStage(bySid[sid]);
+    if (cls.reachedProduct) {
+      product++;
+      for (const p of cls.productPaths) productPathCount[p] = (productPathCount[p] || 0) + 1;
+    }
+    if (cls.reachedCart) {
+      cart++;
+      for (const p of cls.cartPaths) cartPathCount[p] = (cartPathCount[p] || 0) + 1;
+    }
+    if (cls.reachedCheckout) checkout++;
+  }
+
+  const counts: Record<FunnelStage, number> = { landing, product, cart, checkout };
+  const labels: Record<FunnelStage, string> = {
+    landing: '👀 サイトに来た',
+    product: '🛍 商品ページを見た',
+    cart: '🛒 カートに入れた',
+    checkout: '💳 購入手続きに進んだ',
+  };
+
+  const stages: FunnelStageStat[] = FUNNEL_STAGES.map((stage, idx) => {
+    const sessions = counts[stage];
+    const prev = idx === 0 ? landing : counts[FUNNEL_STAGES[idx - 1]];
+    const conversionFromPrev = prev > 0 ? Math.round((sessions / prev) * 1000) / 10 : 0;
+    const conversionFromTop = landing > 0 ? Math.round((sessions / landing) * 1000) / 10 : 0;
+    const dropoffCount = Math.max(0, prev - sessions);
+    const dropoffRate = prev > 0 ? Math.round((dropoffCount / prev) * 1000) / 10 : 0;
+    return {
+      stage,
+      label: labels[stage],
+      sessions,
+      conversionFromPrev,
+      conversionFromTop,
+      dropoffCount,
+      dropoffRate,
+    };
+  });
+
+  const topProductPaths = Object.entries(productPathCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([path, sessions]) => ({ path, sessions }));
+
+  const topCartPaths = Object.entries(cartPathCount)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([path, sessions]) => ({ path, sessions }));
+
+  const result: FunnelResult = {
+    days,
+    totalSessions: landing,
+    stages,
+    topProductPaths,
+    topCartPaths,
+  };
+  cachedFunnel = { ts: now, key: cacheKey, result };
+  return result;
+}
+
+/** テスト用: ファネルキャッシュをリセット */
+export function _resetFunnelCache(): void {
+  cachedFunnel = null;
+}
