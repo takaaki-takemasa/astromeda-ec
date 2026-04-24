@@ -91,6 +91,9 @@ export interface IpBanner {
   label: string | null;
   sortOrder: number;
   featured: boolean;
+  // patch 0152 (2026-04-24): リンク先を自由化。記事 (/blog/xxx) や外部 URL も指定可。
+  // 空のときは shopHandle から /collections/<shopHandle> を組み立てる従来動作を維持。
+  linkUrl?: string | null;
 }
 export interface HeroBanner {
   id: string;

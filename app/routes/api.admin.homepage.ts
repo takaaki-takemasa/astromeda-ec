@@ -43,6 +43,8 @@ const HomepageActionSchema = z.discriminatedUnion('action', [
     image: safeString(2048).optional(),
     tagline: safeString(255).optional(),
     label: safeString(50).optional(),
+    // patch 0152 (2026-04-24): リンク先 URL を自由化 (記事/外部 URL も指定可)
+    linkUrl: safeString(2048).optional(),
   }).strict(),
 
   // IPコラボ更新
@@ -57,6 +59,8 @@ const HomepageActionSchema = z.discriminatedUnion('action', [
     image: safeString(2048).optional(),
     tagline: safeString(255).optional(),
     label: safeString(50).optional(),
+    // patch 0152 (2026-04-24): リンク先 URL を自由化
+    linkUrl: safeString(2048).optional(),
   }).strict(),
 
   // IPコラボ削除
@@ -143,6 +147,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         label: f['label'] || null,
         sortOrder: parseInt(f['display_order'] || '0', 10),
         featured: f['is_active'] === 'true',
+        // patch 0152: リンク先自由化 (空のときは shopHandle から /collections/<x> を組む既存動作)
+        linkUrl: f['link_url'] || null,
       };
     }).sort((a, b) => a.sortOrder - b.sortOrder);
 
@@ -236,6 +242,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.image) fields.push({ key: 'image', value: v.image });
         if (v.tagline) fields.push({ key: 'tagline', value: v.tagline });
         if (v.label) fields.push({ key: 'label', value: v.label });
+        // patch 0152: 自由リンク (記事/外部) を保存
+        if (v.linkUrl) fields.push({ key: 'link_url', value: v.linkUrl });
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.name);
         const result = await client.createMetaobject(COLLABS_TYPE, v.handle, fields);
@@ -253,6 +261,8 @@ export async function action({ request, context }: Route.ActionArgs) {
         if (v.image !== undefined) fields.push({ key: 'image', value: v.image });
         if (v.tagline !== undefined) fields.push({ key: 'tagline', value: v.tagline });
         if (v.label !== undefined) fields.push({ key: 'label', value: v.label });
+        // patch 0152: 自由リンク (記事/外部) を保存
+        if (v.linkUrl !== undefined) fields.push({ key: 'link_url', value: v.linkUrl });
 
         // patch 0026: file_reference は GID しか受け付けないため、URL→GID 変換を挟む。
         const imgNotes = await normalizeFileReferenceField(client, fields, 'image', v.name || 'ip_banner');

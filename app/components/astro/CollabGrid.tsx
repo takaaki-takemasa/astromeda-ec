@@ -29,6 +29,9 @@ export interface MetaCollab {
   label?: string | null;
   sortOrder: number;
   featured: boolean;
+  // patch 0152 (2026-04-24): リンク先自由化。空のときは shopHandle から /collections/<handle> を組む既存動作。
+  // 記事 (/blog/...) や外部 URL も指定可能。
+  linkUrl?: string | null;
 }
 
 interface CollabGridProps {
@@ -80,12 +83,16 @@ function CollabGridComponent({collections, metaCollabs}: CollabGridProps) {
       const hasImage = !!imgUrl;
       const accent = T.c;
 
+      // patch 0152 (2026-04-24): リンク先優先順位 = linkUrl (記事/外部含む) > /collections/<shopHandle>
+      const targetUrl = (m.linkUrl && m.linkUrl.trim().length > 0)
+        ? m.linkUrl.trim()
+        : `/collections/${m.shopHandle}`;
       return (
         <Link
           key={m.id}
-          to={`/collections/${m.shopHandle}`}
+          to={targetUrl}
           className="collab-card"
-          aria-label={`${m.name} コレクションを見る`}
+          aria-label={`${m.name} を見る`}
           style={{
             border: `1px solid ${al(accent, 0.12)}`,
             textDecoration: 'none',

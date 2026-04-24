@@ -17,6 +17,8 @@ import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/Previ
 import {CollabGrid} from '~/components/astro/CollabGrid';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {Wizard, type WizardStep} from '~/components/admin/ds/Wizard';
+// patch 0152 (2026-04-24): IPバナーのリンク先を「コレクション/記事/外部URL」から選べるようにする
+import {UrlPicker} from '~/components/admin/ds/UrlPicker';
 import {
   type IpBanner,
   type SectionProps,
@@ -89,6 +91,8 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
           image: form.image || undefined,
           tagline: form.tagline || undefined,
           label: form.label || undefined,
+          // patch 0152: 自由リンク先 (記事/外部) を保存
+          linkUrl: form.linkUrl || undefined,
         }
       : {
           action: 'update_collab',
@@ -100,6 +104,8 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
           image: form.image || undefined,
           tagline: form.tagline || undefined,
           label: form.label || undefined,
+          // patch 0152: 自由リンク先 (記事/外部) を保存
+          linkUrl: form.linkUrl || undefined,
         };
     const res = await apiPost('/api/admin/homepage', body);
     setSaving(false);
@@ -357,6 +363,8 @@ function IpBannerForm({
   const [label, setLabel] = useState(initial.label || '');
   const [sortOrder, setSortOrder] = useState(initial.sortOrder ?? 0);
   const [featured, setFeatured] = useState(initial.featured ?? true);
+  // patch 0152 (2026-04-24): 自由リンク先 (空のときは shopHandle から自動算出)
+  const [linkUrl, setLinkUrl] = useState(initial.linkUrl || '');
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
   // patch 0006: Live preview — Shopify collection 画像フォールバックを image URL に組込
@@ -421,6 +429,27 @@ function IpBannerForm({
           <label style={labelStyle}>表示順</label>
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
         </div>
+        {/* patch 0152 (2026-04-24): リンク先を自由化。空の場合は shopHandle から /collections/ を自動算出。
+            記事 (/blog/...) や外部 URL も指定可能。 */}
+        <div style={{
+          background: al(T.c, 0.06),
+          border: `1px dashed ${al(T.c, 0.4)}`,
+          borderRadius: 8,
+          padding: '12px 14px',
+        }}>
+          <div style={{fontSize: 12, fontWeight: 700, color: T.tx, marginBottom: 6}}>
+            🔗 リンク先 (任意・空の場合は上のコレクションが自動でリンク先になります)
+          </div>
+          <div style={{fontSize: 11, color: T.t4, marginBottom: 10}}>
+            「記事」「外部 URL」など、コレクション以外をリンク先にしたい場合だけここを設定してください。
+          </div>
+          <UrlPicker
+            value={linkUrl}
+            onChange={setLinkUrl}
+            optional
+            label=""
+          />
+        </div>
         <div>
           <ToggleSwitch
             checked={featured}
@@ -433,7 +462,7 @@ function IpBannerForm({
           <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>
           <button
             type="button"
-            onClick={() => onSubmit({id: initial.id, handle, name, shopHandle, image, tagline, label, sortOrder, featured})}
+            onClick={() => onSubmit({id: initial.id, handle, name, shopHandle, image, tagline, label, sortOrder, featured, linkUrl: linkUrl || null})}
             style={btn(true)}
             disabled={saving}
           >

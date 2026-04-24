@@ -253,6 +253,8 @@ export async function loader({context}: Route.LoaderArgs) {
       label: f['label'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
       featured: f['is_active'] === 'true',
+      // patch 0152 (2026-04-24): リンク先自由化。空のときは shopHandle から /collections/ を組む既存動作。
+      linkUrl: f['link_url'] || null,
     };
   });
 
