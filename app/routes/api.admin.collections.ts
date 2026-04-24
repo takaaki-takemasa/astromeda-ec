@@ -314,6 +314,9 @@ export async function action({request, context}: Route.ActionArgs) {
           id: result.id,
           handle: result.handle,
           publishedToCount: result.publishedToCount ?? 0,
+          // patch 0148: Apple/Stripe Graceful — publish 失敗時のフォールバック導線
+          publishUrl: result.publishUrl,
+          needsManualPublish: result.needsManualPublish ?? false,
         });
       }
       case 'update': {

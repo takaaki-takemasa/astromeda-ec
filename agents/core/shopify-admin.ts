@@ -1057,7 +1057,7 @@ export class ShopifyAdminClient {
   async createCollection(
     input: CollectionCreateInput,
     options: {publish?: boolean} = {},
-  ): Promise<{id: string; handle: string; publishedToCount?: number}> {
+  ): Promise<{id: string; handle: string; publishedToCount?: number; publishUrl?: string; needsManualPublish?: boolean}> {
     const shouldPublish = options.publish !== false; // default true
     const gql = `
       mutation collectionCreate($input: CollectionInput!) {
@@ -1085,7 +1085,8 @@ export class ShopifyAdminClient {
       log.info(`[createCollection] Created: ${collection.handle} (${collection.id})`);
 
       // patch 0147: 自動 publish (Online Store / Hydrogen 等の全 publishable channels へ)
-      let publishedToCount: number | undefined;
+      let publishedToCount = 0;
+      let publishFailed = false;
       if (shouldPublish) {
         try {
           const pubs = await this.getPublications(20);
@@ -1094,14 +1095,30 @@ export class ShopifyAdminClient {
             await this.publishablePublish(collection.id, targetIds);
             publishedToCount = targetIds.length;
             log.info(`[createCollection] Auto-published to ${targetIds.length} channels`);
+          } else {
+            publishFailed = true;
           }
         } catch (pubErr) {
           // publish に失敗しても collection 自体は作成済みなので、warning で済ませる
           log.warn(`[createCollection] Auto-publish failed (collection 自体は作成済み): ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`);
+          publishFailed = true;
         }
       }
 
-      return {id: collection.id, handle: collection.handle, publishedToCount};
+      // patch 0148: Apple/Stripe Graceful Degradation
+      // publish に失敗した場合 (scope 不足等)、Shopify admin の collection 編集ページ URL を返す
+      // → admin UI で「1 クリックで公開」リンクを表示できる
+      // store handle はハードコード (CLAUDE.md の本番ストア = production-mining-base)
+      const numericId = collection.id.replace('gid://shopify/Collection/', '');
+      const publishUrl = `https://admin.shopify.com/store/production-mining-base/collections/${numericId}`;
+
+      return {
+        id: collection.id,
+        handle: collection.handle,
+        publishedToCount,
+        publishUrl,
+        needsManualPublish: shouldPublish && publishFailed,
+      };
     } catch (err) {
       this.notifyError('createCollection', err);
       throw err;
