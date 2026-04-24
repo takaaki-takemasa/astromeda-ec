@@ -288,7 +288,7 @@ export default function AdminSiteMap() {
     <TabHeaderHint
       title="サイトマップ（お店の全体像）"
       description="お店の全ページ・全カテゴリ・全商品をツリーで一覧表示します。お店の構造を俯瞰したい時に使います。"
-      relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '商品をジャンルでまとめる', tab: 'collections'}]}
+      relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '商品をコレクションでまとめる', tab: 'collections'}]}
     />
       <div style={{marginBottom: 20}}>
         <h2 style={{fontSize: 20, fontWeight: 900, margin: 0, color: T.tx}}>🗺️ サイトマップ</h2>

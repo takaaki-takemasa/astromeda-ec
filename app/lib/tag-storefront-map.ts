@@ -185,7 +185,7 @@ export function getTagStorefrontPipeline(tag: string, category?: TagCategory): S
       // どちらでもない → 一般商品ジャンルとして上部タブ判定不能
       return [
         {
-          label: 'コレクション一覧のジャンル絞り込み',
+          label: 'コレクションページの絞り込み',
           icon: '📚',
           url: `/collections/${lowerTag.replace(/\s+/g, '-')}`,
           kind: 'collection-page',

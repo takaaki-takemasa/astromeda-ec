@@ -435,9 +435,13 @@ export default function AdminCollections() {
   return (
     <div style={{maxWidth: 1200, margin: '0 auto'}}>
     {/* patch 0119 (Apple CEO ライフサイクル監査): 高校生向け 1 行説明 */}
+    {/* patch 0151 (2026-04-24): ジャンル → コレクション に用語統一。
+        Shopify Collections と一致する概念は「コレクション」を canonical 用語とする。
+        商品ジャンル (productType: PC/ガジェット/グッズ/着せ替え/その他) や
+        製品ジャンル (コレクション内サブ分類) は別概念のため残置。 */}
     <TabHeaderHint
-      title="商品をジャンルでまとめる"
-      description="ジャンル = お客様がストアで商品を絞り込む単位です。下では「コラボPC / スタンダードPC / ガジェット / グッズ」の 4 大製品群に分けて表示し、コラボPCは更にIP別、ガジェット/グッズは製品種別に細分化されます。"
+      title="商品をコレクションでまとめる"
+      description="コレクション = お客様がストアで商品を絞り込む単位です。下では「コラボPC / スタンダードPC / ガジェット / グッズ」の 4 大製品群に分けて表示し、コラボPCは更にIP別、ガジェット/グッズは製品種別に細分化されます。"
       relatedTabs={[{label: '商品を作る・直す', tab: 'products'}, {label: '一括タグ', tab: 'bulkTags'}]}
     />
       <Toast />

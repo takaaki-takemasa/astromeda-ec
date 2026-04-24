@@ -1,9 +1,12 @@
 /**
- * Collection (ジャンル) Classifier — patch 0141 P0
+ * Collection Classifier — patch 0141 P0
+ * (旧称: Collection (ジャンル) Classifier — patch 0151 で「ジャンル」呼称を撤廃)
  *
  * CEO 指摘 (patch 0140 の修正):
  *   「ジャンル別なら IP別、製品群別 (コラボPC/スタンダードモデル/ガジェット/グッズ)、
  *    製品ジャンル (マウスパッド/キーボード等) で分ける必要がある」
+ *   ※ 上記引用文中の「ジャンル」は patch 0151 後 "コレクション" を意味する。
+ *     ただし「製品ジャンル」(マウスパッド/キーボード等の細分類) は別概念のため残置。
  *
  * 3 軸で分類:
  *   軸1: productGroup (大分類・4つ): collabPc / standardPc / gadget / goods

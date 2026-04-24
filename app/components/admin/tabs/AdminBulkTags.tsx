@@ -368,7 +368,7 @@ export default function AdminBulkTags() {
     <TabHeaderHint
       title="商品にラベルを一気に付ける"
       description="たくさんの商品に同じタグ（ラベル）を一気に付けたり外したりできます。コレクションの自動振り分け条件にも使われます。"
-      relatedTabs={[{label: '商品をジャンルでまとめる', tab: 'collections'}, {label: '商品を作る・直す', tab: 'products'}]}
+      relatedTabs={[{label: '商品をコレクションでまとめる', tab: 'collections'}, {label: '商品を作る・直す', tab: 'products'}]}
     />
     {/* patch 0142 P0: 「タグとは何か」を一目で示す定義カード */}
     <TagDefinitionCard />

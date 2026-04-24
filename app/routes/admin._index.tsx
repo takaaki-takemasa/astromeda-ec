@@ -289,7 +289,9 @@ type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 
 type CommerceGroup = 'catalog' | 'content' | 'navmarketing';
 
 // patch 0119 (Apple CEO ライフサイクル監査): 各グループ内のタブ順を業務フローに沿って並び替え
-//   catalog       — 商品 → プルダウン → ジャンル → 一括タグ → セール（商品準備の自然な順）
+//   catalog       — 商品 → プルダウン → コレクション → 一括タグ → セール（商品準備の自然な順）
+//   patch 0151 (2026-04-24): 「ジャンル」サブタブは中身が Shopify Collections なので
+//   「コレクション」に名称統一。商品ジャンル (productType の 5 分類) と区別するため。
 //   content       — 見た目編集 → 説明ページ → 基本情報 → 写真 → 旧 homepage（接客準備の自然な順）
 //   navmarketing  — マーケ → メニュー → URL転送 → 分析 → CMS定義（集客→分析→上級者の順）
 const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; default: SubTab}> = {
@@ -359,7 +361,7 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   summary: '📊 売上',
   content: '📄 記事・お知らせ',
   products: '📦 商品',
-  collections: '📚 ジャンル',
+  collections: '📚 コレクション',
   bulkTags: '🏷️ 一括タグ',
   redirects: '🔀 リダイレクト',
   files: '📁 写真・動画',

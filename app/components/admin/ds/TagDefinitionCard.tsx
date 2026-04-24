@@ -7,12 +7,15 @@
  * patch 0134-0140 でタグ機能を実装してきたが、「タグとは何か」を 1 行で
  * 定義する UI 要素が無かった (TabHeaderHint の description で間接的に書くのみ)。
  *
- * このプリミティブは「タグ」と「ジャンル (コレクション)」の関係を 1 つの
+ * このプリミティブは「タグ」と「コレクション」の関係を 1 つの
  * ピクトグラムで示す:
  *
  *   📌 タグ = 商品に貼る目印 (シール)
  *
- *   📦 商品 + 🏷️ タグ  →  📚 ジャンル に自動で振り分け
+ *   📦 商品 + 🏷️ タグ  →  📚 コレクション に自動で振り分け
+ *
+ * patch 0151 (2026-04-24): 「ジャンル」→「コレクション」用語統一。
+ * Shopify Collections と一致する概念は canonical 用語「コレクション」に。
  *
  * 全タグ操作画面 (AdminBulkTags / 商品編集 / プルダウン管理) の冒頭に置く。
  */
@@ -75,10 +78,10 @@ export function TagDefinitionCard() {
         <span style={{padding: '2px 8px', background: '#a78bfa20', borderRadius: 999, color: '#a78bfa'}}>🎬 IPバナー</span>
         <span style={{padding: '2px 8px', background: '#22d3ee20', borderRadius: 999, color: '#22d3ee'}}>💻 上部タブ</span>
         <span style={{padding: '2px 8px', background: '#34d39920', borderRadius: 999, color: '#34d399'}}>📁 中分類</span>
-        <span style={{padding: '2px 8px', background: '#fb923c20', borderRadius: 999, color: '#fb923c'}}>📚 ジャンル</span>
+        <span style={{padding: '2px 8px', background: '#fb923c20', borderRadius: 999, color: '#fb923c'}}>📚 コレクション</span>
       </div>
 
-      {/* ジャンル管理タブへのリンク */}
+      {/* コレクション管理タブへのリンク */}
       <Link
         to="/admin?tab=collections"
         style={{
@@ -95,7 +98,7 @@ export function TagDefinitionCard() {
           whiteSpace: 'nowrap',
         }}
       >
-        ジャンル管理 →
+        コレクション管理 →
       </Link>
     </section>
   );
