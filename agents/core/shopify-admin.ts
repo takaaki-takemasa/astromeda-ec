@@ -177,6 +177,10 @@ export interface CollectionListItem {
   imageUrl: string | null;
   ruleSet: {appliedDisjunctively: boolean; rules: Array<{column: string; relation: string; condition: string}>} | null;
   sortOrder: string;
+  // patch 0149: 公開状態 (Apple Just Works 視覚化)
+  // 0=非公開 / >=1=公開チャネル数
+  publishedCount: number;
+  totalChannels: number;
 }
 
 export interface CollectionDetail extends CollectionListItem {
@@ -910,6 +914,7 @@ export class ShopifyAdminClient {
     collections: CollectionListItem[];
     pageInfo: {hasNextPage: boolean; endCursor: string | null};
   }> {
+    // patch 0149: 公開状態を視覚化するため availablePublicationsCount + resourcePublications を取得
     const gql = `
       query CollectionsAdmin($first: Int!, $query: String, $after: String) {
         collections(first: $first, query: $query, after: $after, sortKey: UPDATED_AT, reverse: true) {
@@ -927,6 +932,8 @@ export class ShopifyAdminClient {
                 rules { column relation condition }
               }
               sortOrder
+              availablePublicationsCount { count }
+              resourcePublicationsCount { count }
             }
           }
           pageInfo { hasNextPage endCursor }
@@ -951,6 +958,8 @@ export class ShopifyAdminClient {
                 rules: Array<{column: string; relation: string; condition: string}>;
               } | null;
               sortOrder: string;
+              availablePublicationsCount: {count: number} | null;
+              resourcePublicationsCount: {count: number} | null;
             };
           }>;
           pageInfo: {hasNextPage: boolean; endCursor: string | null};
@@ -966,6 +975,8 @@ export class ShopifyAdminClient {
         imageUrl: node.image?.url ?? null,
         ruleSet: node.ruleSet,
         sortOrder: node.sortOrder,
+        publishedCount: node.resourcePublicationsCount?.count ?? 0,
+        totalChannels: node.availablePublicationsCount?.count ?? 0,
       }));
 
       return {collections, pageInfo: res.collections.pageInfo};

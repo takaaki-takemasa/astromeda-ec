@@ -42,6 +42,9 @@ interface CollectionListItem {
   imageUrl: string | null;
   ruleSet: RuleSetInput | null;
   sortOrder: string;
+  // patch 0149: 公開状態 (Apple Just Works 視覚化)
+  publishedCount?: number;
+  totalChannels?: number;
 }
 interface CollectionDetail extends CollectionListItem {
   descriptionHtml: string;
@@ -381,7 +384,24 @@ export default function AdminCollections() {
     const res = await apiAction(body);
     setSaving(false);
     if (res.success) {
-      showToast(editId === 'new' ? 'コレクションを作成しました' : 'コレクションを更新しました', 'ok');
+      // patch 0149: Apple/Stripe Graceful — 公開状態に応じて Toast 分岐
+      if (editId === 'new') {
+        const pc = (res as {publishedToCount?: number}).publishedToCount ?? 0;
+        const needsManual = (res as {needsManualPublish?: boolean}).needsManualPublish ?? false;
+        const publishUrl = (res as {publishUrl?: string}).publishUrl;
+        if (pc > 0) {
+          showToast(`🟢 お店に出しました (${pc} チャネル)`, 'ok');
+        } else if (needsManual && publishUrl) {
+          // 失敗時はリンク付き toast (1 クリックで Shopify 公開ページへ)
+          showToast(`🟡 作成完了 — 公開設定が必要です`, 'ok');
+          // 簡易: ブラウザで Shopify 公開ページを別タブで開く
+          window.open(publishUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          showToast('コレクションを作成しました', 'ok');
+        }
+      } else {
+        showToast('コレクションを更新しました', 'ok');
+      }
       closeModal();
       reload();
     } else {
@@ -488,6 +508,7 @@ export default function AdminCollections() {
                     <th style={{padding: '10px 12px'}}>タイトル</th>
                     <th style={{padding: '10px 12px'}}>handle</th>
                     <th style={{padding: '10px 12px', textAlign: 'right'}}>商品数</th>
+                    <th style={{padding: '10px 12px', textAlign: 'center', width: 80}}>公開</th>
                     <th style={{padding: '10px 12px'}}>種別</th>
                     <th style={{padding: '10px 12px'}}>更新日</th>
                     <th style={{padding: '10px 12px', width: 160}}>操作</th>
@@ -517,6 +538,27 @@ export default function AdminCollections() {
                   </td>
                   <td style={{padding: '10px 12px', textAlign: 'right', color: color.text}} onClick={() => openEdit(c.id)}>
                     {c.productsCount}
+                  </td>
+                  {/* patch 0149: 公開状態を視覚的に大型アイコンで表示 (文字を読まずに状態が分かる) */}
+                  <td style={{padding: '10px 12px', textAlign: 'center'}} onClick={() => openEdit(c.id)}
+                      title={
+                        c.publishedCount === undefined
+                          ? '公開状態を取得できませんでした'
+                          : c.publishedCount === 0
+                            ? `非公開 (お客様に見えていません)`
+                            : c.totalChannels && c.publishedCount < c.totalChannels
+                              ? `一部公開 (${c.publishedCount}/${c.totalChannels} チャネル)`
+                              : `公開中 (${c.publishedCount} チャネル全部)`
+                      }>
+                    {c.publishedCount === undefined ? (
+                      <span style={{fontSize: 22, opacity: 0.4}}>⚪</span>
+                    ) : c.publishedCount === 0 ? (
+                      <span style={{fontSize: 22}} aria-label="非公開">🔴</span>
+                    ) : c.totalChannels && c.publishedCount < c.totalChannels ? (
+                      <span style={{fontSize: 22}} aria-label={`一部公開 ${c.publishedCount}/${c.totalChannels}`}>🟡</span>
+                    ) : (
+                      <span style={{fontSize: 22}} aria-label="公開中">🟢</span>
+                    )}
                   </td>
                   <td style={{padding: '10px 12px'}} onClick={() => openEdit(c.id)}>
                     {c.ruleSet ? (
