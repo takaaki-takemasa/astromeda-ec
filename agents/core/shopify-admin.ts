@@ -663,9 +663,19 @@ export class ShopifyAdminClient {
 
   /**
    * 商品を作成（効果器: 新細胞の生成）
+   *
+   * patch 0150 P0: Shopify Admin API 2025-10 仕様変更対応
+   * 旧仕様 (~2025-04) では ProductCreateInput に variants を含められたが、
+   * 2025-10 で削除された。代わりに productCreate → productVariantsBulkCreate
+   * の 2 段階で作る必要がある。
+   *
+   * 本メソッドは呼び出し側から見て透過的に「商品+バリアント」を作成できるよう、
+   * 内部で 2 mutation を順次実行する。
    */
-  async createProduct(input: ProductCreateInput): Promise<{id: string; handle: string}> {
-    // 2025-10 API: productCreate は `product: ProductCreateInput!` を取る
+  async createProduct(input: ProductCreateInput): Promise<{id: string; handle: string; variantsCount?: number}> {
+    // patch 0150: variants は 2025-10 API では別 mutation で作成
+    const {variants, ...productOnly} = input;
+
     const gql = `
       mutation productCreate($input: ProductCreateInput!) {
         productCreate(product: $input) {
@@ -681,7 +691,7 @@ export class ShopifyAdminClient {
           product: {id: string; handle: string; title: string; status: string} | null;
           userErrors: Array<{field: string[]; message: string}>;
         };
-      }>(gql, {input});
+      }>(gql, {input: productOnly});
 
       const {product, userErrors} = res.productCreate;
       if (userErrors.length > 0) {
@@ -690,11 +700,63 @@ export class ShopifyAdminClient {
       if (!product) throw new Error('商品作成: レスポンスにproductが含まれません');
 
       log.info(`[createProduct] Created: ${product.handle} (${product.id})`);
-      return {id: product.id, handle: product.handle};
+
+      // patch 0150: variants が指定されていれば productVariantsBulkCreate で追加
+      let variantsCount: number | undefined;
+      if (variants && variants.length > 0) {
+        try {
+          variantsCount = await this.bulkCreateProductVariants(product.id, variants);
+          log.info(`[createProduct] Added ${variantsCount} variants to ${product.handle}`);
+        } catch (vErr) {
+          // variants 追加失敗しても商品自体は作成済 → warning で済ませる
+          log.warn(`[createProduct] Variants 追加失敗 (商品自体は作成済): ${vErr instanceof Error ? vErr.message : String(vErr)}`);
+        }
+      }
+
+      return {id: product.id, handle: product.handle, variantsCount};
     } catch (err) {
       this.notifyError('createProduct', err);
       throw err;
     }
+  }
+
+  /**
+   * 商品にバリアントを一括追加 (productVariantsBulkCreate)
+   * patch 0150: createProduct から呼ばれる helper
+   */
+  async bulkCreateProductVariants(productId: string, variants: VariantInput[]): Promise<number> {
+    const gql = `
+      mutation productVariantsBulkCreate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkCreate(productId: $productId, variants: $variants) {
+          productVariants { id title price }
+          userErrors { field message }
+        }
+      }
+    `;
+    // 2025-10 ProductVariantsBulkInput: price (Decimal), optionValues, inventoryItem.sku
+    const bulkInput = variants.map((v) => {
+      const obj: Record<string, unknown> = {price: v.price};
+      if (v.options && v.options.length > 0) {
+        obj.optionValues = v.options.map((name, i) => ({optionName: `Option ${i + 1}`, name}));
+      }
+      if (v.sku) {
+        obj.inventoryItem = {sku: v.sku};
+      }
+      return obj;
+    });
+
+    const res = await this.query<{
+      productVariantsBulkCreate: {
+        productVariants: Array<{id: string; title: string; price: string}> | null;
+        userErrors: Array<{field: string[]; message: string}>;
+      };
+    }>(gql, {productId, variants: bulkInput});
+
+    const {productVariants, userErrors} = res.productVariantsBulkCreate;
+    if (userErrors.length > 0) {
+      throw new Error(`バリアント追加失敗: ${translateUserErrors(userErrors)}`);
+    }
+    return productVariants?.length ?? 0;
   }
 
   /**
