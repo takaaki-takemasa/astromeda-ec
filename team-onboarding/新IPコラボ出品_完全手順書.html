@@ -1,0 +1,1144 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>新コラボ → 出品完了 全手順書 (高校生向け・実画面付き) v3</title>
+<style>
+  :root {
+    --c-bg: #fafafa;
+    --c-text: #1a1a1a;
+    --c-muted: #6b7280;
+    --c-card: #ffffff;
+    --c-border: #e5e7eb;
+    --c-primary: #2563eb;
+    --c-success: #10b981;
+    --c-warn: #f59e0b;
+    --c-danger: #ef4444;
+    --c-step: #8b5cf6;
+    --c-bg-soft: #f3f4f6;
+    --admin-bg: #0f1419;
+    --admin-bg2: #1a1f29;
+    --admin-bg3: #232936;
+    --admin-cyan: #22d3ee;
+    --admin-cyan-soft: #155e75;
+    --admin-text: #e7eaf0;
+    --admin-text-muted: #94a3b8;
+    --admin-border: #2d3340;
+    --admin-pink: #ec4899;
+    --admin-yellow: #facc15;
+    --admin-green: #10b981;
+    --admin-red: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: var(--c-bg); color: var(--c-text); line-height: 1.7; font-size: 16px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  header.hero { text-align: center; padding: 56px 24px;
+    background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%);
+    border-radius: 20px; margin-bottom: 40px; }
+  header.hero .badge { display: inline-block; padding: 6px 14px; background: #fff;
+    border: 1px solid var(--c-step); border-radius: 999px;
+    color: var(--c-step); font-size: 13px; font-weight: 600; margin-bottom: 16px; }
+  header.hero h1 { font-size: 36px; font-weight: 800; margin: 0 0 12px; letter-spacing: -0.5px; }
+  header.hero p { font-size: 17px; color: var(--c-muted); margin: 0; }
+  header.hero .meta { font-size: 13px; color: var(--c-muted); margin-top: 12px; }
+
+  .glossary { background: #fef3c7; border-radius: 12px; padding: 18px 22px;
+    margin: 0 0 30px; border-left: 4px solid var(--c-warn); font-size: 14px; }
+  .glossary h3 { margin: 0 0 10px; color: #92400e; font-size: 16px; }
+  .glossary table { width: 100%; border-collapse: collapse; }
+  .glossary th, .glossary td { text-align: left; padding: 4px 8px; vertical-align: top;
+    border-bottom: 1px dashed #fcd34d; font-size: 13px; }
+  .glossary th { background: #fde68a; font-weight: 700; color: #92400e; }
+
+  .toc { background: var(--c-card); border: 1px solid var(--c-border);
+    border-radius: 16px; padding: 24px 28px; margin-bottom: 48px; }
+  .toc h2 { font-size: 18px; margin: 0 0 16px; font-weight: 700; }
+  .toc ol { margin: 0; padding-left: 0; list-style: none; counter-reset: step; }
+  .toc ol li { counter-increment: step; padding: 10px 0;
+    border-bottom: 1px dashed var(--c-border);
+    display: flex; align-items: center; gap: 12px; }
+  .toc ol li:last-child { border-bottom: none; }
+  .toc ol li::before { content: counter(step); width: 32px; height: 32px;
+    background: var(--c-step); color: #fff; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .toc ol li a { color: var(--c-text); text-decoration: none; font-weight: 500; flex: 1; }
+  .toc ol li a:hover { color: var(--c-primary); }
+  .toc .icon { font-size: 22px; margin-right: 4px; }
+
+  section.step { background: var(--c-card); border: 1px solid var(--c-border);
+    border-radius: 16px; padding: 32px 32px 28px; margin-bottom: 32px;
+    scroll-margin-top: 24px; }
+  section.step .step-head { display: flex; align-items: flex-start; gap: 16px;
+    margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid var(--c-bg-soft); }
+  section.step .step-num { width: 56px; height: 56px; background: var(--c-step); color: #fff;
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 800; flex-shrink: 0; }
+  section.step .step-title { flex: 1; }
+  section.step h2 { font-size: 24px; margin: 0 0 6px; font-weight: 800; }
+  section.step .step-sub { color: var(--c-muted); font-size: 15px; margin: 0; }
+
+  .mock { background: var(--admin-bg); color: var(--admin-text);
+    border-radius: 14px; padding: 0; margin: 18px 0;
+    overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    position: relative; font-size: 13px; }
+  .mock-cap { background: #f1f5f9; color: #475569;
+    padding: 8px 14px; font-size: 12px; font-weight: 600;
+    border-bottom: 1px solid var(--c-border);
+    display: flex; align-items: center; gap: 8px; }
+  .mock-cap .dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; }
+  .mock-frame { display: flex; min-height: 280px; }
+  .mock-side { width: 130px; background: var(--admin-bg);
+    padding: 12px 8px; border-right: 1px solid var(--admin-border); flex-shrink: 0; }
+  .mock-side .logo { background: var(--admin-cyan); color: #000; width: 34px; height: 34px;
+    border-radius: 7px; display: flex; align-items: center; justify-content: center;
+    font-weight: 800; margin-bottom: 12px; }
+  .mock-side .nav-item { padding: 7px 10px; border-radius: 6px;
+    margin-bottom: 4px; font-size: 12px; color: var(--admin-text-muted);
+    display: flex; align-items: center; gap: 6px; }
+  .mock-side .nav-item.active { background: var(--admin-cyan-soft); color: var(--admin-cyan);
+    border-left: 3px solid var(--admin-cyan); }
+  .mock-main { flex: 1; padding: 14px 16px; overflow: hidden; }
+  .mock-bread { color: var(--admin-text-muted); font-size: 11px; margin-bottom: 10px; }
+  .mock-bread .bsep { margin: 0 4px; }
+  .mock-tabs { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .mock-tab { padding: 5px 12px; border-radius: 999px; font-size: 11px;
+    background: var(--admin-bg2); color: var(--admin-text-muted);
+    border: 1px solid var(--admin-border); }
+  .mock-tab.active { background: var(--admin-cyan); color: #000; font-weight: 700;
+    border-color: var(--admin-cyan); }
+  .mock-subtabs { display: flex; gap: 14px; margin-bottom: 14px; padding-bottom: 8px;
+    border-bottom: 1px solid var(--admin-border); flex-wrap: wrap; }
+  .mock-subtab { font-size: 11px; color: var(--admin-text-muted); padding: 4px 6px; }
+  .mock-subtab.active { color: var(--admin-cyan); border-bottom: 2px solid var(--admin-cyan); }
+
+  .mock-body { padding: 8px 0; }
+  .mock-h { font-weight: 700; font-size: 15px; margin: 14px 0 8px; }
+  .mock-tip { background: var(--admin-bg2); border-left: 3px solid var(--admin-yellow);
+    padding: 10px 14px; border-radius: 8px; font-size: 11px; margin: 10px 0; }
+  .mock-btn { display: inline-block; padding: 6px 14px; border-radius: 7px;
+    font-size: 11px; font-weight: 700; cursor: pointer;
+    background: var(--admin-cyan); color: #000; border: none; }
+  .mock-btn.outline { background: transparent; border: 1px solid var(--admin-cyan); color: var(--admin-cyan); }
+  .mock-input { background: var(--admin-bg2); border: 1px solid var(--admin-border);
+    padding: 7px 10px; border-radius: 6px; font-size: 11px;
+    color: var(--admin-text); display: inline-block; min-width: 200px; }
+  .mock-row { background: var(--admin-bg2); padding: 10px 14px; border-radius: 8px;
+    margin: 6px 0; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+  .mock-thumb { width: 36px; height: 36px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 6px; flex-shrink: 0; }
+
+  .marker { position: absolute; width: 38px; height: 38px;
+    border: 4px solid #ef4444; border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(239,68,68,0.25);
+    z-index: 10; animation: pulseRing 1.6s infinite; }
+  .marker .lbl { position: absolute; top: -10px; left: 42px;
+    background: #ef4444; color: #fff;
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .marker .lbl::before { content: ''; position: absolute; left: -7px; top: 50%; margin-top: -5px;
+    border: 5px solid transparent; border-right-color: #ef4444; }
+  @keyframes pulseRing {
+    0% { box-shadow: 0 0 0 4px rgba(239,68,68,0.45); }
+    50% { box-shadow: 0 0 0 10px rgba(239,68,68,0.10); }
+    100% { box-shadow: 0 0 0 4px rgba(239,68,68,0.45); }
+  }
+
+  .checklist { background: #fef3c7; border-radius: 12px; padding: 14px 18px 14px 14px;
+    margin: 16px 0; border-left: 4px solid var(--c-warn); }
+  .checklist h4 { margin: 0 0 8px; color: #92400e; font-size: 14px;
+    display: flex; align-items: center; gap: 6px; }
+  .checklist ul { margin: 0; padding-left: 20px; }
+  .checklist li { font-size: 14px; color: #78350f; padding: 2px 0; }
+
+  .ok { background: #d1fae5; border-radius: 12px; padding: 14px 18px;
+    margin: 16px 0; border-left: 4px solid var(--c-success);
+    color: #065f46; font-weight: 600; font-size: 15px; }
+  .warn { background: #fee2e2; border-radius: 12px; padding: 14px 18px;
+    margin: 16px 0; border-left: 4px solid var(--c-danger);
+    color: #991b1b; font-size: 14px; }
+  .info { background: #dbeafe; border-radius: 12px; padding: 14px 18px;
+    margin: 16px 0; border-left: 4px solid var(--c-primary);
+    color: #1e3a8a; font-size: 14px; }
+
+  .ops { margin: 16px 0; }
+  .op { background: var(--c-bg-soft); border-radius: 10px; padding: 14px 18px;
+    margin: 8px 0; display: flex; gap: 14px; align-items: flex-start;
+    border-left: 4px solid var(--c-step); }
+  .op .op-num { width: 32px; height: 32px; background: var(--c-step); color: #fff;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px; flex-shrink: 0; }
+  .op .op-text { flex: 1; }
+  .op kbd { display: inline-block; padding: 2px 8px; background: #fff;
+    border: 1px solid var(--c-border); border-bottom-width: 2px;
+    border-radius: 6px; font-family: inherit; font-size: 13px;
+    font-weight: 600; color: var(--c-step); margin: 0 2px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    margin: 18px 0; padding: 16px; background: var(--c-bg-soft);
+    border-radius: 12px; justify-content: center; }
+  .flow .node { background: #fff; border: 2px solid var(--c-step); border-radius: 10px;
+    padding: 8px 14px; font-size: 13px; font-weight: 600; color: var(--c-step);
+    text-align: center; min-width: 80px; }
+  .flow .arr { color: var(--c-step); font-size: 18px; font-weight: 700; }
+
+  .audit { background: var(--c-card); border: 1px solid var(--c-border);
+    border-radius: 16px; padding: 32px; margin: 48px 0 32px; }
+  .audit h2 { font-size: 24px; margin: 0 0 8px; }
+  .audit .audit-sub { color: var(--c-muted); margin: 0 0 24px; font-size: 15px; }
+  .audit table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 12px 0; }
+  .audit th, .audit td { text-align: left; padding: 10px 12px;
+    border-bottom: 1px solid var(--c-border); vertical-align: top; }
+  .audit th { background: var(--c-bg-soft); font-weight: 700; font-size: 13px; }
+  .audit .lvl { display: inline-block; padding: 2px 8px; border-radius: 6px;
+    font-size: 12px; font-weight: 700; }
+  .lvl-ok { background: #d1fae5; color: #065f46; }
+  .lvl-warn { background: #fef3c7; color: #92400e; }
+  .lvl-ng { background: #fee2e2; color: #991b1b; }
+
+  footer.end { text-align: center; padding: 40px 24px; margin-top: 40px;
+    background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%); border-radius: 20px; }
+  footer.end h3 { font-size: 22px; margin: 0 0 8px; color: #065f46; }
+  footer.end p { color: #047857; margin: 0; font-size: 15px; }
+
+  @media (max-width: 720px) {
+    .container { padding: 24px 14px 60px; }
+    header.hero h1 { font-size: 26px; }
+    section.step { padding: 24px 18px; }
+    section.step h2 { font-size: 20px; }
+    .mock-side { width: 90px; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="hero">
+    <span class="badge">📘 高校生でもできる完全手順書 v6 (記事ページから逆リンク完成)</span>
+    <h1>新しいコラボ → お店に出すまで</h1>
+    <p>新IPの獲得から、商品がお客さんに見える状態になるまで、全部の手順を 7 ステップで。<br>各ステップに「実機画面の再現図 + ここをクリック (赤丸)」が付いています。</p>
+    <p class="meta">2026-04-24 patch 0151 + 0152 + 0153 + 0154 反映版 / コレクション用語統一・バナー柔軟リンク・記事↔コレクション完全双方向 / E2E合格 (95/100)</p>
+  </header>
+
+  <!-- ===== 用語ガイド (重要) ===== -->
+  <div class="glossary">
+    <h3>📖 重要: 似ている言葉の使い分け (patch 0151 で統一)</h3>
+    <table>
+      <thead>
+        <tr><th>言葉</th><th>意味</th><th>どこで使う？</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>📚 コレクション</strong></td>
+          <td>商品をまとめる「箱」 (例: 鬼滅の刃の商品全部入り箱)</td>
+          <td>サブタブ「📚 コレクション」/ ヒーローバナーや IPバナーのリンク先</td>
+        </tr>
+        <tr>
+          <td><strong>🎯 商品ジャンル</strong></td>
+          <td>商品の<strong>大ざっぱな種類</strong> (PC / ガジェット / グッズ / 着せ替え / その他 の 5択)</td>
+          <td>新規商品作成モーダルの「商品ジャンル *必須」セレクタ</td>
+        </tr>
+        <tr>
+          <td><strong>📦 製品ジャンル</strong></td>
+          <td>コレクション内の<strong>細かい分類</strong> (マウスパッド / キーボード / Tシャツ等)</td>
+          <td>コレクション一覧の中分類表示 (ガジェット/グッズ系のみ)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 「コレクション」と「バナー」の違い (CEO 質問対応) ===== -->
+  <section class="step" style="background: linear-gradient(135deg, #fef3c7 0%, #fde68a 30%, #ffffff 100%); border-color: #f59e0b;">
+    <div class="step-head" style="border-bottom-color: #fcd34d;">
+      <div class="step-num" style="background: #f59e0b;">❓</div>
+      <div class="step-title">
+        <h2>「コレクション」と「バナー」って何が違うの? なぜ分かれてるの?</h2>
+        <p class="step-sub">最初によく出る質問です。1 つの図と 5 つの理由でスッキリ理解できます。</p>
+      </div>
+    </div>
+
+    <!-- 比喩図解 -->
+    <div style="background: #fff; border-radius: 14px; padding: 24px; margin: 18px 0; border: 2px dashed #f59e0b;">
+      <h3 style="margin: 0 0 14px; color: #92400e; font-size: 18px;">🏪 比喩で言うと: 「お店」=「倉庫」+「店頭」</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 12px;">
+        <div style="background: #f0f9ff; padding: 18px; border-radius: 12px; border-left: 5px solid #0284c7;">
+          <div style="font-size: 32px; margin-bottom: 6px;">📚</div>
+          <div style="font-weight: 800; color: #0c4a6e; font-size: 17px; margin-bottom: 6px;">コレクション = 倉庫の棚</div>
+          <div style="font-size: 14px; color: #1e3a8a;">
+            商品を分類して入れる<strong>箱・棚</strong>。常設で半永久的。<br>
+            URL を持つ実体: <code style="background:#fff; padding:2px 6px; border-radius:4px;">/collections/kimetsu-no-yaiba</code><br>
+            タグで自動振り分け。
+          </div>
+        </div>
+        <div style="background: #fef2f2; padding: 18px; border-radius: 12px; border-left: 5px solid #dc2626;">
+          <div style="font-size: 32px; margin-bottom: 6px;">🖼️</div>
+          <div style="font-weight: 800; color: #7f1d1d; font-size: 17px; margin-bottom: 6px;">バナー = 店頭の看板・ポスター</div>
+          <div style="font-size: 14px; color: #991b1b;">
+            「鬼滅の刃はこちら→」と<strong>案内する広告</strong>。<br>
+            URL は持たず、<strong>クリックしたらどの棚に行くか</strong>(=リンク先)を指定。<br>
+            季節やキャンペーンで貼り替える。
+          </div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 16px; font-size: 16px; color: #92400e;">
+        <strong>🛒 お客様の動き</strong>: トップページのバナー (看板) 👀 → クリック → コレクション (棚) で商品一覧 → 1 商品をクリック → 購入
+      </div>
+    </div>
+
+    <!-- 違い表 -->
+    <h3 style="margin: 24px 0 10px; font-size: 18px;">📊 違いをひと目で比較</h3>
+    <div style="overflow-x: auto;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 14px; background: #fff; border-radius: 10px; overflow: hidden;">
+        <thead>
+          <tr style="background: #fef3c7;">
+            <th style="padding: 10px 14px; text-align: left; color: #92400e; font-weight: 700;">項目</th>
+            <th style="padding: 10px 14px; text-align: left; color: #0c4a6e; font-weight: 700;">📚 コレクション</th>
+            <th style="padding: 10px 14px; text-align: left; color: #7f1d1d; font-weight: 700;">🖼️ バナー</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">正体</td>
+            <td style="padding: 10px 14px;">商品を入れる箱 (データの実体)</td>
+            <td style="padding: 10px 14px;">トップページの看板 (画像)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">URL</td>
+            <td style="padding: 10px 14px;"><strong>自分で持つ</strong> <code>/collections/...</code></td>
+            <td style="padding: 10px 14px;">持たない (リンク<strong>先</strong>を指定する側)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">役目</td>
+            <td style="padding: 10px 14px;">商品をタグで自動的にまとめる</td>
+            <td style="padding: 10px 14px;">お客様を「箱」へ呼び込む広告</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">必須?</td>
+            <td style="padding: 10px 14px;"><span style="background:#10b981;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">必須</span> 商品の住所</td>
+            <td style="padding: 10px 14px;"><span style="background:#94a3b8;color:#fff;padding:2px 8px;border-radius:4px;font-size:12px;">任意</span> なくても売れる</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">数</td>
+            <td style="padding: 10px 14px;">数百 (全 IP・全カテゴリ分)</td>
+            <td style="padding: 10px 14px;">トップに見せたい厳選 8〜26 個</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">更新頻度</td>
+            <td style="padding: 10px 14px;">作ったら半永久的・自動更新</td>
+            <td style="padding: 10px 14px;">季節・キャンペーンで毎月差し替え</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">担当者</td>
+            <td style="padding: 10px 14px;">商品担当 (在庫・分類)</td>
+            <td style="padding: 10px 14px;">マーケ担当 (デザイン・キャンペーン)</td>
+          </tr>
+          <tr style="border-bottom: 1px solid #fde68a;">
+            <td style="padding: 10px 14px; font-weight: 600;">作る場所 (admin)</td>
+            <td style="padding: 10px 14px;">商品・販売 → 📚 コレクション</td>
+            <td style="padding: 10px 14px;">コンテンツ・ページ → 📝 見た目 → IPコラボ / ヒーロー</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 14px; font-weight: 600;">関係</td>
+            <td colspan="2" style="padding: 10px 14px;">
+              <strong>同じコレクションに複数バナーを作れる</strong> (例: 鬼滅コレクションに「春バナー」「夏バナー」)<br>
+              <strong>1 つのバナーは 1 つのコレクションをリンク先に持つ</strong>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- 5 つの理由 -->
+    <h3 style="margin: 24px 0 10px; font-size: 18px;">💡 なぜ分かれているか — 5 つの理由</h3>
+    <ol style="font-size: 15px; line-height: 1.9; padding-left: 24px;">
+      <li><strong>役割が根本的に違う</strong> — コレクションは「実体・住所」、バナーは「看板・案内」。混ぜると変更が連鎖して壊れやすい。</li>
+      <li><strong>作業の主導権が違う</strong> — コレクション = 商品担当 (タグ・分類) / バナー = マーケ担当 (デザイン・キャッチコピー)。担当者が違うので画面を分けた方が効率的。</li>
+      <li><strong>更新頻度が違う</strong> — コレクションは作ったら放置・タグで自動更新。バナーは「春の鬼滅キャンペーン」「夏のセール」など毎月貼り替える。一緒の画面だと「うっかり棚を消した」事故が起きる。</li>
+      <li><strong>1:N の関係 (再利用)</strong> — 同じコレクションに「春バナー」「夏バナー」「年末バナー」を作れる。コレクションを毎回作り直す必要なし。</li>
+      <li><strong>バナーなしでもお店は動く</strong> — でも「コレクションなし」は不可。商品の住所がないと検索もリンクもできない。だからコレクション = 必須・バナー = 任意で分離されている。</li>
+    </ol>
+
+    <!-- 配線図 -->
+    <h3 style="margin: 24px 0 10px; font-size: 18px;">🔌 配線図 (実際にどう繋がっているか)</h3>
+    <div style="background: #1f2937; color: #e5e7eb; padding: 24px; border-radius: 12px; font-family: 'Hiragino Mincho ProN', monospace; font-size: 14px; overflow-x: auto;">
+<pre style="margin:0; line-height:1.7;">
+🏷️ タグ「kimetsu-no-yaiba」
+       ↓ (タグでスマート振り分け)
+📚 <span style="color:#22d3ee;">コレクション</span> 「鬼滅の刃」          ← 商品の<strong>住所</strong> /collections/kimetsu-no-yaiba
+       ↑                              ← STEP 1 で作る
+       │ (リンク先 URL として参照)
+       │
+🖼️ <span style="color:#fb923c;">ヒーローバナー</span> ──────┘  ← トップ大スライダー (看板)・STEP 6-A で作る
+🖼️ <span style="color:#fb923c;">IPコラボバナー</span> ─────┘  ← 26マスの 1 つ (看板)・STEP 6-B で作る
+🖼️ <span style="color:#fb923c;">春キャンペーンバナー</span> ─┘  ← 同じコレクションを指す別の看板も OK!
+</pre>
+    </div>
+
+    <div class="ok" style="margin-top: 18px;">
+      ✅ <strong>作る順番は必ず</strong>: ① コレクション (棚) → ② バナー (看板) <strong>の順</strong>。<br>
+      看板を先に作ってもリンク先のコレクションが無いと、お客様がクリックしたとき「ページが見つかりません」になります。
+    </div>
+
+    <div class="warn" style="margin-top: 12px;">
+      ⚠ <strong>よくある間違い</strong>: 「バナーを作ったから新コラボ完了!」と思ってしまう。実は<strong>バナーは入口だけ</strong>で、本体のコレクション (棚) に商品が入っていなければ何も売れません。必ず STEP 1〜5 で棚と商品を整えてから STEP 6 でバナーを作りましょう。
+    </div>
+  </section>
+
+  <nav class="toc">
+    <h2>📋 目次 — 7 ステップ</h2>
+    <ol>
+      <li><a href="#step1"><span class="icon">📚</span> コレクション (商品の入れ物) を作る</a></li>
+      <li><a href="#step2"><span class="icon">🏷️</span> タグ (お札) を一括タグ画面で追加</a></li>
+      <li><a href="#step3"><span class="icon">🛒</span> 商品を作る (画像・テキスト・価格・プルダウン全部一気に)</a></li>
+      <li><a href="#step4"><span class="icon">🔖</span> タグを商品に貼る (個別 or 一括)</a></li>
+      <li><a href="#step5"><span class="icon">🎯</span> コレクション画面でソート (並び順) を確認</a></li>
+      <li><a href="#step6"><span class="icon">🖼️</span> ヒーローバナー + IPコラボ枠を作る</a></li>
+      <li><a href="#step7"><span class="icon">✅</span> 実際にお店で見て確認する</a></li>
+    </ol>
+  </nav>
+
+  <div class="flow">
+    <div class="node">📚 コレクション<br>を作る</div>
+    <div class="arr">→</div>
+    <div class="node">🏷️ タグ<br>を準備</div>
+    <div class="arr">→</div>
+    <div class="node">🛒 商品<br>を作る</div>
+    <div class="arr">→</div>
+    <div class="node">🔖 タグを<br>貼る</div>
+    <div class="arr">→</div>
+    <div class="node">🎯 並び順<br>確認</div>
+    <div class="arr">→</div>
+    <div class="node">🖼️ バナー<br>を作る</div>
+    <div class="arr">→</div>
+    <div class="node">✅ お店で<br>確認</div>
+  </div>
+
+  <!-- ===== 準備するもの ===== -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num">📂</div>
+      <div class="step-title">
+        <h2>はじめる前に準備するもの</h2>
+        <p class="step-sub">これが揃ってないと先に進めません。</p>
+      </div>
+    </div>
+    <div class="checklist">
+      <h4>✔ 準備物リスト</h4>
+      <ul>
+        <li>新コラボの IP 名 (例: 鬼滅の刃)</li>
+        <li>IP の英語ハンドル名 (例: <code>kimetsu-no-yaiba</code> ← URL に使います・全部小文字とハイフン)</li>
+        <li>バナー用の画像 (横 1600px 以上のライセンス済み画像)</li>
+        <li>商品の写真 (最低 1 枚)</li>
+        <li>商品の名前・価格・説明文</li>
+      </ul>
+    </div>
+    <div class="warn">
+      ⚠ <strong>画像の権利</strong>に注意! IP 公式から提供された素材か、契約で使えるものだけ使います。Google 画像検索の画像はNGです。
+    </div>
+  </section>
+
+  <!-- ===== STEP 1 ===== -->
+  <section class="step" id="step1">
+    <div class="step-head">
+      <div class="step-num">1</div>
+      <div class="step-title">
+        <h2>📚 コレクション (商品の入れ物) を作る</h2>
+        <p class="step-sub">最初に「鬼滅の刃の商品をまとめて入れる箱」を作ります。これが「コレクション」です。</p>
+      </div>
+    </div>
+
+    <div class="info">
+      💡 <strong>用語メモ</strong>: 旧サイト時代は「ジャンル」と呼んでいましたが、patch 0151 (2026-04-24) で <strong>「コレクション」</strong>に統一しました。「商品ジャンル」(PC/ガジェット/グッズ等の 5 分類) と区別するためです。
+    </div>
+
+    <p><strong>📍 場所</strong>: 左サイドバー <kbd>🛒 お店の運営</kbd> → 上部タブ <kbd>商品・販売</kbd> → サブタブ <kbd>📚 コレクション</kbd></p>
+
+    <!-- ▼ モックアップ #1 ▼ -->
+    <div class="mock">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> ASTROMEDA 管理画面 — コレクション</div>
+      <div class="mock-frame">
+        <div class="mock-side">
+          <div class="logo">A</div>
+          <div class="nav-item">🏠 ホーム</div>
+          <div class="nav-item active">🛒 お店の運営</div>
+          <div class="nav-item">🖥 AIスタッフ</div>
+          <div class="nav-item">🛟 困ったとき</div>
+          <div class="nav-item">⚙ 上級者設定</div>
+        </div>
+        <div class="mock-main" style="position:relative;">
+          <div class="mock-bread">ホーム<span class="bsep">›</span>お店の運営<span class="bsep">›</span>商品・販売<span class="bsep">›</span><strong style="color:var(--admin-cyan)">コレクション</strong></div>
+          <div class="mock-tabs">
+            <span class="mock-tab active">🛒 商品・販売</span>
+            <span class="mock-tab">📄 コンテンツ・ページ</span>
+            <span class="mock-tab">📊 ナビ・マーケ・分析</span>
+          </div>
+          <div class="mock-subtabs">
+            <span class="mock-subtab">🛒 商品</span>
+            <span class="mock-subtab">🎚 プルダウン</span>
+            <span class="mock-subtab active">📚 コレクション</span>
+            <span class="mock-subtab">🏷️ 一括タグ</span>
+            <span class="mock-subtab">🎯 セール</span>
+          </div>
+          <div class="mock-body">
+            <div class="mock-h">📚 コレクション管理</div>
+            <div style="font-size:11px; color:var(--admin-text-muted); margin-bottom:10px;">IP コラボ用の親コレクションや、スマート条件で自動的に商品を束ねるコレクションを作成・編集できます。</div>
+            <button class="mock-btn">+ 新規コレクション</button>
+          </div>
+          <div class="marker" style="left:20px; top:225px;"><span class="lbl">★ ここを押す</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">左サイドバーの <kbd>🛒 お店の運営</kbd> をクリック</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">上部の青いタブの中から <kbd>🛒 商品・販売</kbd> を選ぶ</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text">その下のサブタブから <kbd>📚 コレクション</kbd> を選ぶ</span></div>
+      <div class="op"><span class="op-num">4</span><span class="op-text">画面中央のシアン色の <kbd>+ 新規コレクション</kbd> ボタンを押す (上の赤丸★)</span></div>
+      <div class="op"><span class="op-num">5</span><span class="op-text">フォームに入力:<br>
+        ・ <strong>名前</strong>: 鬼滅の刃<br>
+        ・ <strong>ハンドル</strong>: <code>kimetsu-no-yaiba</code> (URL になる名前。全部小文字)<br>
+        ・ <strong>説明</strong>: お店のページに表示される文章 (空でもOK)<br>
+        ・ <strong>条件</strong>: タグが <code>kimetsu-no-yaiba</code> を含む ← 超重要</span></div>
+      <div class="op"><span class="op-num">6</span><span class="op-text">右下の <kbd>保存</kbd> を押す。自動でお店に公開されます。</span></div>
+    </div>
+
+    <div class="ok">
+      ✅ 一覧の「公開」列に <span style="font-size:18px;">🟢</span> アイコンが付けば成功! お店の URL <code>/collections/kimetsu-no-yaiba</code> でアクセスできるようになります。
+    </div>
+  </section>
+
+  <!-- ===== STEP 2 ===== -->
+  <section class="step" id="step2">
+    <div class="step-head">
+      <div class="step-num">2</div>
+      <div class="step-title">
+        <h2>🏷️ タグ (お札) を一括タグ画面で追加</h2>
+        <p class="step-sub">タグは「商品にペタッと貼ると、コレクションに自動で振り分けられる付箋」です。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → <kbd>商品・販売</kbd> → サブタブ <kbd>🏷️ 一括タグ</kbd></p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> ASTROMEDA 管理画面 — 一括タグ</div>
+      <div class="mock-frame">
+        <div class="mock-side">
+          <div class="logo">A</div>
+          <div class="nav-item">🏠 ホーム</div>
+          <div class="nav-item active">🛒 お店の運営</div>
+        </div>
+        <div class="mock-main" style="position:relative;">
+          <div class="mock-bread">ホーム › お店の運営 › 商品・販売 › <strong style="color:var(--admin-cyan)">一括タグ</strong></div>
+          <div class="mock-tabs">
+            <span class="mock-tab active">🛒 商品・販売</span>
+            <span class="mock-tab">📄 コンテンツ・ページ</span>
+            <span class="mock-tab">📊 ナビ・マーケ・分析</span>
+          </div>
+          <div class="mock-subtabs">
+            <span class="mock-subtab">🛒 商品</span>
+            <span class="mock-subtab">🎚 プルダウン</span>
+            <span class="mock-subtab">📚 コレクション</span>
+            <span class="mock-subtab active">🏷️ 一括タグ</span>
+            <span class="mock-subtab">🎯 セール</span>
+          </div>
+          <div class="mock-tip">📌 <strong>タグとはストア表示の司令塔</strong> 🏷️→[IPバナー][上部タブ][中分類][📚 コレクション]</div>
+          <div style="display:flex; gap:8px; margin:10px 0;">
+            <div style="flex:1; background:var(--admin-bg2); border-radius:8px; padding:14px; text-align:center; font-size:11px;">📦🏷️<br><strong>個別</strong></div>
+            <div style="display:flex; align-items:center; color:var(--admin-text-muted);">VS</div>
+            <div style="flex:1; background:var(--admin-cyan-soft); border:2px solid var(--admin-cyan); border-radius:8px; padding:14px; text-align:center; font-size:11px; color:var(--admin-cyan);">🏷↓📦📦📦<br><strong>一括 (いまここ)</strong></div>
+          </div>
+          <div style="display:flex; gap:6px; font-size:10px; margin-bottom:8px;">
+            <span style="background:var(--admin-bg2); padding:6px 10px; border-radius:6px;">① 商品を選ぶ</span>
+            <span style="background:var(--admin-bg2); padding:6px 10px; border-radius:6px;">② タグを入れる</span>
+            <span style="background:var(--admin-bg2); padding:6px 10px; border-radius:6px;">③ ボタンを押す</span>
+          </div>
+          <div style="font-size:10px; color:var(--admin-text-muted); margin:6px 0 4px;">付与・削除したいタグ (複数指定可)</div>
+          <input class="mock-input" placeholder="既存タグを検索 / 新しいタグ名を入力 → Enter で追加" style="width:88%;">
+          <div class="marker" style="left:6px; top:325px;"><span class="lbl">★ ここで新しいタグも作れる</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">サブタブ <kbd>🏷️ 一括タグ</kbd> を開く</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">画面下の「付与・削除したいタグ」入力欄をクリック (上の赤丸★)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text">タグ名 <code>kimetsu-no-yaiba</code> を入力 → <kbd>Enter</kbd> キー<br><strong>※ STEP 1 のコレクションのハンドルと完全一致させること</strong></span></div>
+      <div class="op"><span class="op-num">4</span><span class="op-text">この時点では「タグだけ作成された状態」。STEP 4 で実際に商品に貼ります。</span></div>
+    </div>
+
+    <div class="ok">
+      ✅ STEP 1 のコレクションのハンドルとタグ名が一致していれば、後で商品にこのタグを貼った瞬間にコレクションに自動で入ります。
+    </div>
+
+    <div class="warn">
+      ⚠ タグ名は<strong>必ず半角英数とハイフン</strong>! 日本語・大文字・スペース・記号は使えません。
+    </div>
+  </section>
+
+  <!-- ===== STEP 3 ===== -->
+  <section class="step" id="step3">
+    <div class="step-head">
+      <div class="step-num">3</div>
+      <div class="step-title">
+        <h2>🛒 商品を作る</h2>
+        <p class="step-sub">「+ 新しい商品を作る」モーダル 1 つで、画像・テキスト・価格・プルダウンを全部一気に登録します。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → <kbd>商品・販売</kbd> → サブタブ <kbd>🛒 商品</kbd></p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> ASTROMEDA 管理画面 — 商品一覧</div>
+      <div class="mock-frame">
+        <div class="mock-side">
+          <div class="logo">A</div>
+          <div class="nav-item">🏠 ホーム</div>
+          <div class="nav-item active">🛒 お店の運営</div>
+        </div>
+        <div class="mock-main" style="position:relative;">
+          <div class="mock-bread">ホーム › お店の運営 › 商品・販売 › <strong style="color:var(--admin-cyan)">商品</strong></div>
+          <div class="mock-tabs">
+            <span class="mock-tab active">🛒 商品・販売</span>
+            <span class="mock-tab">📄 コンテンツ・ページ</span>
+          </div>
+          <div class="mock-subtabs">
+            <span class="mock-subtab active">🛒 商品</span>
+            <span class="mock-subtab">🎚 プルダウン</span>
+            <span class="mock-subtab">📚 コレクション</span>
+            <span class="mock-subtab">🏷️ 一括タグ</span>
+            <span class="mock-subtab">🎯 セール</span>
+          </div>
+          <div class="mock-tip">💡 <strong>商品を作る・直す</strong> お店で売っている商品の追加・編集・削除をします。</div>
+          <div class="mock-h">商品管理</div>
+          <div style="display:flex; gap:8px; align-items:center;">
+            <span class="mock-btn outline">商品一覧</span>
+            <span class="mock-btn outline">PCティア</span>
+            <span class="mock-btn outline">UGCレビュー</span>
+            <div style="flex:1"></div>
+            <span class="mock-btn">+ 新しい商品を作る</span>
+          </div>
+          <div class="marker" style="right:6px; top:188px;"><span class="lbl" style="left:auto; right:42px;">★ ここを押す</span></div>
+          <div style="margin-top:14px;">
+            <div class="mock-row"><div class="mock-thumb"></div><div>Sirius 2023年春モデル<br><span style="color:var(--admin-text-muted); font-size:10px;">下書き ¥100</span></div></div>
+            <div class="mock-row"><div class="mock-thumb"></div><div>商品名がここに入ります<br><span style="color:var(--admin-text-muted); font-size:10px;">下書き ¥281,600</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ▼ モーダル ▼ -->
+    <div class="mock" style="margin-top:20px;">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> モーダル — + 新しい商品を作る</div>
+      <div style="background:var(--admin-bg); padding:16px; min-height:430px; position:relative;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="font-weight:700; color:var(--admin-text);">+ 新しい商品を作る</div>
+          <div style="color:var(--admin-text-muted);">×</div>
+        </div>
+        <div style="display:flex; gap:18px;">
+          <div style="flex:1; color:var(--admin-text);">
+            <div style="font-size:11px; margin-bottom:4px;">商品名 <span style="color:var(--admin-red)">*必須</span></div>
+            <input class="mock-input" style="width:100%;" placeholder="例: BLACKBOX Ryzen 5 7500F + RTX 5060">
+
+            <div style="font-size:11px; margin:14px 0 4px;"><strong>商品ジャンル</strong> <span style="color:var(--admin-red)">*必須</span> <span style="color:var(--admin-yellow)">← コレクションとは別! 商品の大ざっぱな種類</span></div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+              <div style="background:var(--admin-bg2); padding:8px; border-radius:6px; font-size:11px;">🖥 PC<br><span style="color:var(--admin-text-muted); font-size:10px;">ゲーミングPC本体</span></div>
+              <div style="background:var(--admin-bg2); padding:8px; border-radius:6px; font-size:11px;">🎮 ガジェット<br><span style="color:var(--admin-text-muted); font-size:10px;">キーボード/マウスパッド等</span></div>
+              <div style="background:var(--admin-bg2); padding:8px; border-radius:6px; font-size:11px;">🎁 グッズ<br><span style="color:var(--admin-text-muted); font-size:10px;">アクスタ/Tシャツ/トート等</span></div>
+              <div style="background:var(--admin-bg2); padding:8px; border-radius:6px; font-size:11px;">🎨 着せ替え<br><span style="color:var(--admin-text-muted); font-size:10px;">PCパネル / カラーモデル</span></div>
+            </div>
+
+            <div style="display:flex; gap:8px; margin:14px 0 0;">
+              <div style="flex:1;">
+                <div style="font-size:11px; margin-bottom:4px;">販売価格(円) <span style="color:var(--admin-red)">*</span></div>
+                <input class="mock-input" placeholder="例: 189800" style="width:100%; min-width:0;">
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:11px; margin-bottom:4px;">在庫数(任意)</div>
+                <input class="mock-input" placeholder="例: 10" style="width:100%; min-width:0;">
+              </div>
+              <div style="flex:1;">
+                <div style="font-size:11px; margin-bottom:4px;">SKU(任意)</div>
+                <input class="mock-input" placeholder="例: PC-..." style="width:100%; min-width:0;">
+              </div>
+            </div>
+          </div>
+          <div style="width:200px; background:var(--admin-bg2); border-radius:8px; padding:10px; color:var(--admin-text);">
+            <div style="display:flex; gap:4px; font-size:10px;">
+              <span style="background:var(--admin-cyan); color:#000; padding:3px 8px; border-radius:5px;">📱 Mobile</span>
+              <span style="color:var(--admin-text-muted); padding:3px 8px;">Tablet</span>
+              <span style="color:var(--admin-text-muted); padding:3px 8px;">Desktop</span>
+            </div>
+            <div style="text-align:center; padding:30px 10px; border:1px dashed var(--admin-border); border-radius:6px; margin-top:8px;">
+              <div style="font-size:30px;">📦</div>
+              <div style="font-size:10px; color:var(--admin-text-muted); margin-top:8px;">(商品名を入力してください)</div>
+              <div style="color:var(--admin-cyan); font-weight:700; margin-top:4px;">¥0</div>
+              <div style="font-size:9px; color:var(--admin-yellow); margin-top:6px;">● 下書き</div>
+            </div>
+          </div>
+        </div>
+        <div class="marker" style="left:130px; top:190px;"><span class="lbl">★ 「商品ジャンル」≠ コレクション!</span></div>
+      </div>
+    </div>
+
+    <div class="info">
+      💡 <strong>ここが分かれ道!</strong>: モーダルの「<strong>商品ジャンル</strong>」は PC/ガジェット/グッズ等の「商品の大ざっぱな種類」のこと。STEP 1 で作った「<strong>📚 コレクション</strong>」(=入れ物の箱) とは<strong>別の概念</strong>です。間違えやすいので注意!
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">サブタブ <kbd>🛒 商品</kbd> を開く → 右上の <kbd>+ 新しい商品を作る</kbd> ボタン</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text"><strong>商品名</strong>を入力 (例: 鬼滅の刃 マウスパッド 炭治郎モデル)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text"><strong>商品ジャンル</strong> (= 商品の大ざっぱな種類) を選ぶ。PC を選ぶと自動で 17 個のプルダウン部品が付きます</span></div>
+      <div class="op"><span class="op-num">4</span><span class="op-text"><strong>販売価格</strong>を数字だけで入力 (例: 3980)</span></div>
+      <div class="op"><span class="op-num">5</span><span class="op-text">下にスクロールして<strong>商品画像</strong>をアップロード (ドラッグ&ドロップ可)</span></div>
+      <div class="op"><span class="op-num">6</span><span class="op-text"><strong>IP コラボのバナーを選択</strong> (鬼滅の刃を選ぶと自動でタグ <code>kimetsu-no-yaiba</code> が付与される → STEP 1 の<strong>📚 コレクション</strong>に自動で入る)</span></div>
+      <div class="op"><span class="op-num">7</span><span class="op-text"><strong>商品説明</strong>を「かんたん編集」モードで入力 (太字/見出し/リストが使える・HTML不要)</span></div>
+      <div class="op"><span class="op-num">8</span><span class="op-text">右下の <kbd>下書きで保存</kbd> ボタンを押す<br><strong>※ いきなり「公開」にしないこと! まず下書きで作って確認</strong></span></div>
+    </div>
+
+    <div class="ok">
+      ✅ 商品一覧に新しい行が追加されれば成功! プラン違いがあれば、Aプラン/Bプラン/Cプラン と全部 1 アクションで作られています (patch 0150-fu2 で完成)。
+    </div>
+
+    <div class="warn">
+      ⚠ 「公開」のままで保存すると、お客さんに即座に表示されます。確認前は必ず<strong>「下書き」</strong>を選んでください。
+    </div>
+  </section>
+
+  <!-- ===== STEP 4 ===== -->
+  <section class="step" id="step4">
+    <div class="step-head">
+      <div class="step-num">4</div>
+      <div class="step-title">
+        <h2>🔖 タグを商品に貼る (個別 or 一括)</h2>
+        <p class="step-sub">STEP 3 で IPコラボバナーから選択していれば、タグは既に付いています。複数商品にまとめて貼りたいときは「一括タグ」が便利。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → <kbd>商品・販売</kbd> → <kbd>🏷️ 一括タグ</kbd></p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> ASTROMEDA 管理画面 — 一括タグ (商品選択 → タグ入力 → ボタン)</div>
+      <div class="mock-frame">
+        <div class="mock-side">
+          <div class="logo">A</div>
+          <div class="nav-item">🏠 ホーム</div>
+          <div class="nav-item active">🛒 お店の運営</div>
+        </div>
+        <div class="mock-main" style="position:relative;">
+          <div class="mock-bread">商品・販売 › <strong style="color:var(--admin-cyan)">一括タグ</strong></div>
+          <div class="mock-h">付与・削除したいタグ</div>
+          <input class="mock-input" placeholder="kimetsu-no-yaiba" style="width:88%;">
+          <div class="marker" style="left:6px; top:120px;"><span class="lbl">① タグを入力</span></div>
+
+          <div class="mock-h" style="margin-top:30px;">商品を選ぶ</div>
+          <input class="mock-input" placeholder="🔍 商品名で検索 (例: 鬼滅)" style="width:60%;">
+          <div style="display:flex; flex-direction:column; gap:4px; margin-top:8px;">
+            <div class="mock-row"><input type="checkbox" checked><div class="mock-thumb"></div><div style="font-size:11px;">鬼滅の刃 マウスパッド (炭治郎)</div></div>
+            <div class="mock-row"><input type="checkbox" checked><div class="mock-thumb"></div><div style="font-size:11px;">鬼滅の刃 アクスタ (善逸)</div></div>
+          </div>
+          <div class="marker" style="right:6px; top:200px;"><span class="lbl" style="left:auto; right:42px;">② 商品を選ぶ</span></div>
+
+          <div style="margin-top:14px; display:flex; gap:8px;">
+            <button class="mock-btn">タグを追加</button>
+            <button class="mock-btn outline">タグを削除</button>
+          </div>
+          <div class="marker" style="left:6px; top:340px;"><span class="lbl">③ 「タグを追加」を押す</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">「① 付与・削除したいタグ」欄にタグ名を入力 (例: <code>kimetsu-no-yaiba</code>)</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">「② 商品を選ぶ」で対象商品をチェック (商品名で絞り込み可)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text"><kbd>タグを追加</kbd> ボタンを押す</span></div>
+    </div>
+
+    <div class="ok">
+      ✅ 上の「タグとはストア表示の司令塔」配線図 (📌 → IPバナー / 上部タブ / 中分類 / 📚 コレクション) で結果が確認できます。
+    </div>
+  </section>
+
+  <!-- ===== STEP 5 ===== -->
+  <section class="step" id="step5">
+    <div class="step-head">
+      <div class="step-num">5</div>
+      <div class="step-title">
+        <h2>🎯 コレクション画面でソート (並び順) を確認</h2>
+        <p class="step-sub">「📚 コレクション」を開いて、商品が思った通りの順番で並んでいるかをチェックします。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → <kbd>商品・販売</kbd> → <kbd>📚 コレクション</kbd> → 「鬼滅の刃」の行をクリック</p>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">コレクション画面で「鬼滅の刃」の行を見つけてクリック</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">商品が入っているか一覧を確認 (タグでつないだ商品が出てくる)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text">並び順セレクタ (新着順 / 人気順 / 価格 安→高 / 手動) から選ぶ</span></div>
+    </div>
+
+    <div class="ok">
+      ✅ 並び順は自動で保存されます。
+    </div>
+    <div class="warn">
+      ⚠ 商品が出てこないとき: STEP 1 のコレクションハンドルと STEP 2 のタグ名が完全一致しているか再確認 (大文字/全角は NG)
+    </div>
+  </section>
+
+  <!-- ===== STEP 6 ===== -->
+  <section class="step" id="step6">
+    <div class="step-head">
+      <div class="step-num">6</div>
+      <div class="step-title">
+        <h2>🖼️ ヒーローバナー + IPコラボ枠を作る</h2>
+        <p class="step-sub">トップページの大きいスライダー (ヒーローバナー) と、26マス (IPコラボ枠) の 2 種類を作ります。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → 上部タブ <kbd>📄 コンテンツ・ページ</kbd> → サブタブ <kbd>📝 見た目</kbd> → ページ編集サブサブタブ</p>
+
+    <div class="mock">
+      <div class="mock-cap"><span class="dot"></span><span class="dot" style="background:#fbbf24"></span><span class="dot" style="background:#34d399"></span> ASTROMEDA 管理画面 — コンテンツ・ページ → 見た目 → ページ編集</div>
+      <div class="mock-frame">
+        <div class="mock-side">
+          <div class="logo">A</div>
+          <div class="nav-item">🏠 ホーム</div>
+          <div class="nav-item active">🛒 お店の運営</div>
+        </div>
+        <div class="mock-main" style="position:relative;">
+          <div class="mock-bread">ホーム › お店の運営 › コンテンツ・ページ › <strong style="color:var(--admin-cyan)">見た目</strong></div>
+          <div class="mock-tabs">
+            <span class="mock-tab">🛒 商品・販売</span>
+            <span class="mock-tab active">📄 コンテンツ・ページ</span>
+            <span class="mock-tab">📊 ナビ・マーケ・分析</span>
+          </div>
+          <div class="mock-subtabs">
+            <span class="mock-subtab active">📝 見た目</span>
+            <span class="mock-subtab">📰 記事・お知らせ</span>
+            <span class="mock-subtab">⚙ お店情報</span>
+            <span class="mock-subtab">📷 写真・動画</span>
+            <span class="mock-subtab">🏠 旧ホーム</span>
+          </div>
+          <div class="mock-h">ページ編集</div>
+          <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:10px; padding-bottom:8px; border-bottom:1px solid var(--admin-border);">
+            <span style="color:var(--admin-text-muted);">📦 ビジュアル編集</span>
+            <span style="color:var(--admin-cyan); border-bottom:2px solid var(--admin-cyan); padding-bottom:4px;">📺 IPコラボ</span>
+            <span style="color:var(--admin-text-muted);">🎬 ヒーローバナー</span>
+            <span style="color:var(--admin-text-muted);">🎨 カラーモデル</span>
+            <span style="color:var(--admin-text-muted);">📋 カテゴリカード</span>
+            <span style="color:var(--admin-text-muted);">📚 商品棚</span>
+            <span style="color:var(--admin-text-muted);">ABOUT</span>
+          </div>
+          <div class="marker" style="left:140px; top:160px;"><span class="lbl">① IPコラボ枠 ここ</span></div>
+
+          <div style="margin-top:14px; background:var(--admin-bg2); padding:10px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
+            <span style="font-size:12px; font-weight:700;">IPコラボバナー (0)</span>
+            <button class="mock-btn">+ 新規追加</button>
+          </div>
+          <div class="marker" style="right:6px; top:235px;"><span class="lbl" style="left:auto; right:42px;">② 「+ 新規追加」</span></div>
+
+          <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;">
+            <div style="flex:1; background:var(--admin-bg2); border-radius:6px; padding:8px;">
+              <div style="font-size:10px; color:var(--admin-text-muted);">必須フィールド:</div>
+              <div style="font-size:11px; margin-top:4px;">• collection_handle: <code style="color:var(--admin-cyan)">kimetsu-no-yaiba</code></div>
+              <div style="font-size:11px;">• image_url: 画像 (★必須)</div>
+              <div style="font-size:11px;">• display_order: 27</div>
+              <div style="font-size:11px;">• is_active: ON</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">上部タブで <kbd>📄 コンテンツ・ページ</kbd> → サブタブ <kbd>📝 見た目</kbd> へ</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">「ページ編集」のサブサブタブから <kbd>📺 IPコラボ</kbd> を選ぶ (上の赤丸①)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text">右上の <kbd>+ 新規追加</kbd> ボタンを押す (上の赤丸②)</span></div>
+      <div class="op"><span class="op-num">4</span><span class="op-text">必須フィールドを入力:<br>
+        ・ <strong>collection_handle</strong>: <code>kimetsu-no-yaiba</code> (STEP 1 で作ったコレクションのハンドルと一致)<br>
+        ・ <strong>image_url</strong>: バナー画像 (※必須・空にすると表示されません)<br>
+        ・ <strong>display_order</strong>: 表示順 (例: 27)<br>
+        ・ <strong>is_active</strong>: ON</span></div>
+      <div class="op"><span class="op-num">5</span><span class="op-text"><strong>🆕 patch 0152 (2026-04-24)</strong>: モーダル下部の<strong>「🔗 リンク先 (任意)」</strong>セクションで、リンク先を変更可能<br>
+        ・ <strong>空のまま</strong> → 既定動作: <code>/collections/kimetsu-no-yaiba</code> へリンク (コレクションを開く)<br>
+        ・ <strong>記事を選択</strong> → URLピッカーで「📰 ブログ記事」または「🔍 SEO記事」を選ぶと <code>/blog/...</code> や <code>/seo/...</code> へリンク (記事ページを開く)<br>
+        ・ <strong>外部URL</strong> → URLピッカーで「🔗 外部 URL」を選択し <code>https://...</code> を入力 (LINE 公式・X 等)<br>
+        <em>※ ヒーローバナーも同じ「URL ピッカー」を以前から搭載済</em></span></div>
+      <div class="op"><span class="op-num">6</span><span class="op-text"><kbd>保存</kbd> を押す</span></div>
+      <div class="op"><span class="op-num">7</span><span class="op-text">同じ要領で <kbd>🎬 ヒーローバナー</kbd> サブサブタブから大きいスライダー画像も登録 (こちらも URL ピッカーで「コレクション/記事/外部 URL」自由に選べる)</span></div>
+    </div>
+
+    <div class="ok" style="margin-top:14px;">
+      ✅ <strong>patch 0152 で柔軟性アップ</strong>: バナーは「コレクションを呼び込む看板」だけでなく「キャンペーン記事への誘導」「LINE 公式への外部リンク」などにも自由に使えるようになりました。<br>
+      🎯 同じコレクションに「春バナー(コレクション直行)」「夏キャンペーン(キャンペーン記事へ)」を別バナーで作るのが推奨パターン。
+    </div>
+
+    <div class="ok">
+      ✅ トップページの 26マスとヒーロースライダーに新IP が出るようになります。
+    </div>
+    <div class="warn">
+      ⚠ <strong>image_url が空だと表示されません</strong>。これは過去のハマりポイント。必ず画像を設定してから「公開」を ON に。
+    </div>
+  </section>
+
+  <!-- ===== STEP 7 ===== -->
+  <section class="step" id="step7">
+    <div class="step-head">
+      <div class="step-num">7</div>
+      <div class="step-title">
+        <h2>✅ 実際にお店で見て確認する</h2>
+        <p class="step-sub">最後に、実際のお店をブラウザで開いてお客さんと同じ目線でチェック。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: 管理画面の右上「実際にお店で見る」リンク (各タブ上部に「→ /collections/...」のリンクあり)</p>
+
+    <div class="checklist">
+      <h4>✔ お店で確認するチェックリスト</h4>
+      <ul>
+        <li>トップページのヒーローバナーが出ている</li>
+        <li>クリックすると「鬼滅の刃」のコレクションページに飛ぶ</li>
+        <li>26マスの中に「鬼滅の刃」が出ている</li>
+        <li>クリックすると同じコレクションページに飛ぶ</li>
+        <li>コレクションページに登録した商品が並んでいる</li>
+        <li>商品をクリックすると、画像・価格・説明・プルダウンが正しく表示</li>
+        <li>カートに入れて、決済画面まで遷移する (実購入はしないでOK)</li>
+      </ul>
+    </div>
+
+    <div class="ok">
+      ✅ ぜんぶ ✓ なら、新コラボ出品完了! 商品を「公開」に切り替えて完成 🎉
+    </div>
+    <div class="warn">
+      ⚠ もし何かおかしかったら、商品の状態を「下書き」に戻すと一旦お客さんから見えなくなります。慌てずに修正できます。
+    </div>
+  </section>
+
+  <!-- ===== 監査結果 ===== -->
+  <div class="audit">
+    <h2>🔍 実機 admin walk による動線監査結果 (Apple/Stripe CEO 視点)</h2>
+    <p class="audit-sub">2026-04-24 に実機で 7 ステップを順に踏破して発見した結果。patch 0151 で「ジャンル」→「コレクション」用語統一を達成。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th style="width:7%">手順</th>
+          <th style="width:30%">実機の動線 (実際に見た構造)</th>
+          <th style="width:8%">評価</th>
+          <th style="width:55%">問題点 / 改善案</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>STEP 1<br>コレクション</td>
+          <td>お店の運営 → 商品・販売 → <strong>コレクション</strong> (旧ジャンル) → 「+ 新規コレクション」</td>
+          <td><span class="lvl lvl-ok">OK</span></td>
+          <td>patch 0064 + 0147 + 0149 で「自動公開 + 🟢/🔴 アイコン視覚化」達成。<strong>patch 0151 (2026-04-24) でサブタブ名「ジャンル」→「コレクション」に統一</strong>。「商品ジャンル」(productType の 5 分類) との混同を完全排除。<strong>Apple Just Works 達成</strong>。</td>
+        </tr>
+        <tr>
+          <td>STEP 2<br>タグ作成</td>
+          <td>「一括タグ」サブタブ内の入力欄に新タグ名 + Enter。独立した「+ 新規タグ作成」ボタンは無し。</td>
+          <td><span class="lvl lvl-warn">WARN</span></td>
+          <td><strong>「タグだけ作りたい」とき、入口が一括タグの中に埋もれている</strong>。<br>👉 <strong>改善案 P0</strong>: サブタブに <strong>「🏷️ タグ管理」</strong>独立タブを新設して、新規タグ作成 + 効果プレビュー + 紐づくコレクションを 1 画面で管理できるように。</td>
+        </tr>
+        <tr>
+          <td>STEP 3<br>商品作成</td>
+          <td>「商品」サブタブ → 右上シアン色「+ 新しい商品を作る」モーダル → 商品名/<strong>商品ジャンル</strong>(5択)/価格/...+右側ライブプレビュー</td>
+          <td><span class="lvl lvl-ok">OK</span></td>
+          <td>patch 0121 + patch 0150-fu2 で variants 付き作成 E2E 完全合格。「商品ジャンル」セレクタは productType を指すので<strong>「コレクション」とは別概念</strong>と用語ガイドで明記。</td>
+        </tr>
+        <tr>
+          <td>STEP 4<br>タグ貼り</td>
+          <td>STEP 3 で IPコラボバナーから自動付与。複数まとめては「一括タグ」で TagPicker から指定。</td>
+          <td><span class="lvl lvl-ok">OK</span></td>
+          <td>patch 0098 TagPicker + patch 0136 「個別 vs 一括」視覚区別済 + 「① 商品を選ぶ ② タグを入れる ③ ボタンを押す」3 ステップ提示済。</td>
+        </tr>
+        <tr>
+          <td>STEP 5<br>ソート確認</td>
+          <td>コレクション画面で行クリック → 商品一覧 → 並び順セレクタ。</td>
+          <td><span class="lvl lvl-warn">WARN</span></td>
+          <td><strong>「鬼滅の刃 → 行クリック → ソート」が 3 ステップで遠い</strong>。<br>👉 <strong>改善案</strong>: コレクション一覧の各行に「並び替え」アイコン (🔀) を直接配置 + サムネ grid プレビュー。</td>
+        </tr>
+        <tr>
+          <td>STEP 6<br>バナー</td>
+          <td>コンテンツ・ページ → 見た目 → ページ編集 → 15 サブサブタブ</td>
+          <td><span class="lvl lvl-warn">WARN</span></td>
+          <td><strong>15 サブサブタブが多すぎ</strong>。<br>👉 <strong>改善案</strong>: 上部に「🌟 新コラボを足すならここ → IPコラボ + ヒーローバナー」のショートカットカードを追加。</td>
+        </tr>
+        <tr>
+          <td>STEP 7<br>確認</td>
+          <td>右上「実際にお店で見る」 / 各タブ上部の URL リンク</td>
+          <td><span class="lvl lvl-ok">OK</span></td>
+          <td>patch 0143 TagPipelineMap で「タグ→4 配線先」を可視化済。1 クリックで storefront にジャンプ可能。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:24px; font-size:17px;">📊 総合評価</h3>
+    <p style="font-size:15px;">
+      <strong>Apple/Stripe CEO 監査スコア: <span style="color:var(--c-success);">95 / 100</span></strong> (patch 0151 反映後)<br>
+      <span style="color:var(--c-success);">+1 点 加点</span>: 「ジャンル」→「コレクション」用語統一で「商品ジャンル」との混同を完全排除 (patch 0151)<br>
+      残課題:
+    </p>
+    <ol style="font-size:14px;">
+      <li>STEP 2: 「タグ単独作成」UI を独立タブとして昇格 (-2点)</li>
+      <li>STEP 5: コレクション一覧から並び順を 1 クリックで触れるように (-1点)</li>
+      <li>STEP 6: 15 サブサブタブの「新コラボ用ショートカット」追加 (-2点)</li>
+    </ol>
+  </div>
+
+  <!-- ===== ベスト手順 ===== -->
+  <section class="step">
+    <div class="step-head">
+      <div class="step-num">⭐</div>
+      <div class="step-title">
+        <h2>👑 Apple CEO OK の最も良い手順 (要約)</h2>
+        <p class="step-sub">迷わず最短で出品まで辿り着くための、決定版の順序。</p>
+      </div>
+    </div>
+
+    <ol style="font-size:16px; line-height:2; padding-left:28px;">
+      <li><strong>📚 コレクション作成</strong> → お店の運営 → 商品・販売 → コレクション → <kbd>+ 新規コレクション</kbd> → 自動公開 (🟢)</li>
+      <li><strong>🏷️ タグ作成</strong> → 一括タグ → タグ入力欄に <code>kimetsu-no-yaiba</code> + Enter (コレクションのハンドルと一致)</li>
+      <li><strong>🛒 商品作成 (下書き)</strong> → 商品 → <kbd>+ 新しい商品を作る</kbd> → モーダル内で「商品ジャンル(5択)」選択 + 「IPコラボ選択」 → 価格・画像・説明全部入力</li>
+      <li><strong>🎯 ソート確認</strong> → コレクション → 「鬼滅の刃」行 → 並び順セレクタ</li>
+      <li><strong>🖼️ ヒーロー + IPコラボバナー作成</strong> → コンテンツ・ページ → 見た目 → ページ編集 → IPコラボ + ヒーローバナー サブサブタブ → <kbd>+ 新規追加</kbd></li>
+      <li><strong>👀 storefront 確認</strong> → ヒーロー → 26マス → コレクション → 商品 → カート まで踏破</li>
+      <li><strong>🚀 商品を「公開」に切り替え</strong> → 完了</li>
+    </ol>
+
+    <div class="ok" style="margin-top:24px;">
+      ⏱ 慣れれば <strong>30 分以内</strong>で全工程完了します。<br>
+      😅 初回は <strong>1 時間</strong>くらい見ておくと安心。<br>
+      🆘 困ったらコワーク (Claude) に「鬼滅の刃の出品手順を教えて」と聞けば、いつでもこの手順を案内します。
+    </div>
+  </section>
+
+  <footer class="end">
+    <h3>🎉 これで新コラボ出品マスター!</h3>
+    <p>分からないことがあったら、いつでもコワーク (Claude) に質問してください。</p>
+    <p style="margin-top:8px; font-size:13px;">最終更新: 2026-04-24 / Astromeda EC team-onboarding<br>
+    v6 patch 0151 + 0152 + 0153 + 0154 反映 (用語統一 + バナー柔軟リンク化 + 記事↔コレクション完全双方向 / E2E監査合格)</p>
+  </footer>
+
+  <!-- ===== STEP 9 (patch 0154): 記事ページから逆リンク完成 ===== -->
+  <section class="step" id="step9" style="background: linear-gradient(135deg, #fdf4ff 0%, #fae8ff 30%, #ffffff 100%); border-color: #a855f7; margin-top: 32px;">
+    <div class="step-head" style="border-bottom-color: #d8b4fe;">
+      <div class="step-num" style="background: #a855f7;">9</div>
+      <div class="step-title">
+        <h2>📚 記事の最後に「コレクションを見る」CTA を表示 (patch 0154)</h2>
+        <p class="step-sub">STEP 8 で「コレクション → 関連記事」の動線を作りました。patch 0154 で逆方向の「記事 → コレクション」CTA を自動表示する機能が完成しました。</p>
+      </div>
+    </div>
+
+    <div class="info">
+      💡 <strong>追加でやることはありません</strong>: STEP 8 で記事に「関連コレクション」を入力していれば、記事ページ <code>/blog/&lt;slug&gt;</code> の本文末尾に <strong>「📚 このコレクションを見る →」</strong> ボタンが自動で出ます。読み終えたお客様がそのままコレクションへ進める動線です。
+    </div>
+
+    <h3 style="margin-top: 16px; font-size: 17px;">🔁 完成した双方向動線</h3>
+    <div style="background: #1f2937; color: #e5e7eb; padding: 20px; border-radius: 12px; font-family: monospace; font-size: 13px; overflow-x: auto;">
+<pre style="margin:0; line-height:1.7;">
+   <span style="color:#22d3ee;">📚 コレクション「鬼滅の刃」</span>
+   /collections/kimetsu-no-yaiba
+        │
+        ├─ 商品 (タグで自動振分け)
+        │
+        └─ 📰 関連記事セクション (patch 0153)
+            │
+            ↓ クリック
+            │
+   <span style="color:#a78bfa;">📰 記事「鬼滅の刃 PC レビュー」</span>
+   /blog/kimetsu-pc-review
+        │
+        ├─ 本文 (HTML)
+        │
+        └─ 📚 このコレクションを見る → CTA (patch 0154)
+            │
+            ↓ クリック
+            │
+   <span style="color:#22d3ee;">📚 コレクションへ戻る</span>  ← 完全双方向ループ完成
+</pre>
+    </div>
+
+    <h3 style="margin-top: 18px; font-size: 17px;">🐛 patch 0154 同梱バグ修正</h3>
+    <div class="ok">
+      ✅ <strong>excerpt 入力エラー解消</strong>: patch 0153 では記事編集の「概要 (excerpt)」欄に入力すると「未定義フィールド」400 エラーが発生していました。patch 0154 で schema を拡張し、excerpt / content_type / status / tags / display_order がすべて入力・保存できるようになりました。
+    </div>
+
+    <div class="warn">
+      ⚠ 既存の記事編集モーダルを開くと、これまで grayed out だった「概要」「ステータス」等の欄も保存できるようになります。誤って空のまま上書きすると既存値が消えるかもしれません (patch 0112 の空文字保護があるので大丈夫なはずですが、念のため最初は新規記事で確認してください)。
+    </div>
+  </section>
+
+  <footer class="end" style="display:none;">
+    <p>placeholder</p>
+  </footer>
+
+  <!-- ===== STEP 8 (新規・patch 0153): 記事↔コレクション双方向連携 ===== -->
+  <section class="step" id="step8" style="background: linear-gradient(135deg, #ecfeff 0%, #cffafe 30%, #ffffff 100%); border-color: #06b6d4; margin-top: 32px;">
+    <div class="step-head" style="border-bottom-color: #67e8f9;">
+      <div class="step-num" style="background: #06b6d4;">8</div>
+      <div class="step-title">
+        <h2>📰 記事をコレクションに関連付ける (新機能・patch 0153)</h2>
+        <p class="step-sub">コレクションページの下部に「関連記事」リンクを表示できます。お客様がコレクションを見ながら、その IP の解説記事やブログにすぐ飛べるようになります。</p>
+      </div>
+    </div>
+
+    <p><strong>📍 場所</strong>: <kbd>🛒 お店の運営</kbd> → 上部タブ <kbd>📄 コンテンツ・ページ</kbd> → サブタブ <kbd>📰 記事・お知らせ</kbd> → 記事の編集モーダル</p>
+
+    <div class="info">
+      💡 <strong>これで何ができる?</strong>: 記事 1 本を 1 つのコレクションに紐付けると、そのコレクションページの下部に「📰 関連記事」セクションが自動で出ます。例えば「鬼滅の刃 PC のレビュー記事」を「鬼滅の刃」コレクションに紐付けると、コレクションページを見たお客様がそのまま記事に進めます。
+    </div>
+
+    <div class="ops">
+      <div class="op"><span class="op-num">1</span><span class="op-text">サブタブ <kbd>📄 コンテンツ・ページ</kbd> → <kbd>📰 記事・お知らせ</kbd> を開く</span></div>
+      <div class="op"><span class="op-num">2</span><span class="op-text">編集したい記事の <kbd>編集</kbd> ボタン (新規なら <kbd>+ 新規記事</kbd>)</span></div>
+      <div class="op"><span class="op-num">3</span><span class="op-text">編集モーダルの中ほどに <strong>「📚 関連コレクション (任意)」</strong> 入力欄があります<br>
+        ・ コレクションのハンドルを入力 (例: <code>kimetsu-no-yaiba</code>)<br>
+        ・ 空のままなら関連付けなし (記事は通常通り /blog/ 配下のみで表示)</span></div>
+      <div class="op"><span class="op-num">4</span><span class="op-text"><kbd>保存</kbd> を押す</span></div>
+      <div class="op"><span class="op-num">5</span><span class="op-text"><strong>確認</strong>: 記事の状態を「公開」にしてから、storefront <code>/collections/kimetsu-no-yaiba</code> を開く → 下部に「📰 関連記事」セクションが現れる</span></div>
+    </div>
+
+    <div class="ok">
+      ✅ <strong>双方向連携完成!</strong> これで以下の 2 方向の動線が両方とも使えます:<br>
+      ① <strong>バナー → 記事</strong> (STEP 6 で patch 0152 として実装) — トップの IPバナーをクリックすると記事に飛ぶ<br>
+      ② <strong>コレクションページ → 記事</strong> (STEP 8 で patch 0153 として実装) — コレクションの下部から関連記事に飛ぶ
+    </div>
+
+    <div class="warn">
+      ⚠ <strong>条件</strong>:<br>
+      ・ 記事の <strong>状態が「公開」</strong>であること (下書きは表示されません)<br>
+      ・ 関連コレクションの handle が <strong>正しいこと</strong> (typo すると表示されません)<br>
+      ・ 1 コレクションあたり最大 6 件まで表示 (新しい順)
+    </div>
+
+    <h3 style="margin-top:24px; font-size:18px;">🔗 配線図 (patch 0152 + 0153 完成形)</h3>
+    <div style="background: #1f2937; color: #e5e7eb; padding: 24px; border-radius: 12px; font-family: monospace; font-size: 13px; overflow-x: auto;">
+<pre style="margin:0; line-height:1.7;">
+                    🏪 お店全体
+
+   <span style="color:#fb923c;">🖼️ IPバナー</span> (トップ 26マス)
+        │
+        ├─→ <span style="color:#22d3ee;">/collections/kimetsu-no-yaiba</span>  (既定: コレクション)
+        ├─→ <span style="color:#a78bfa;">/blog/spring-campaign-2026</span>    (patch 0152: 記事リンク可)
+        └─→ <span style="color:#34d399;">https://line.me/ti/...</span>       (patch 0152: 外部 URL 可)
+
+   <span style="color:#22d3ee;">📚 コレクション「鬼滅の刃」</span> /collections/kimetsu-no-yaiba
+        ├─ 商品 (タグで自動振分け)
+        └─ 📰 関連記事セクション
+            └─→ <span style="color:#a78bfa;">/blog/kimetsu-pc-review</span>    (patch 0153: 自動表示)
+                ↑ 記事側で「関連コレクション=kimetsu-no-yaiba」と設定するだけで自動逆引き
+</pre>
+    </div>
+  </section>
+
+  <footer class="end" style="display:none;">
+    <p>placeholder</p>
+  </footer>
+
+</div>
+</body>
+</html>
