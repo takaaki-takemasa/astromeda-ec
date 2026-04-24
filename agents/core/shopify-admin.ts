@@ -674,7 +674,37 @@ export class ShopifyAdminClient {
    */
   async createProduct(input: ProductCreateInput): Promise<{id: string; handle: string; variantsCount?: number}> {
     // patch 0150: variants は 2025-10 API では別 mutation で作成
-    const {variants, ...productOnly} = input;
+    const {variants, ...rest} = input;
+
+    // patch 0150-fu: variants に options が含まれる場合、productOptions を派生して productCreate に渡す。
+    // これがないと bulkCreateProductVariants が「Option 1 が定義されてない」で reject される。
+    // 各 option position について unique な値集合を抽出して productOptions[i].values に詰める。
+    let productOptions: Array<{name: string; values: Array<{name: string}>}> | undefined;
+    if (variants && variants.length > 0) {
+      const optionCount = Math.max(0, ...variants.map((v) => v.options?.length ?? 0));
+      if (optionCount > 0) {
+        productOptions = [];
+        for (let i = 0; i < optionCount; i++) {
+          const valuesSet = new Set<string>();
+          for (const v of variants) {
+            const val = v.options?.[i];
+            if (val) valuesSet.add(val);
+          }
+          if (valuesSet.size > 0) {
+            productOptions.push({
+              name: `Option ${i + 1}`,
+              values: Array.from(valuesSet).map((name) => ({name})),
+            });
+          }
+        }
+      }
+    }
+
+    // productOptions があれば付与、なければ Shopify 側で default Title option が自動設定される
+    const productOnly: Record<string, unknown> = {...rest};
+    if (productOptions && productOptions.length > 0) {
+      productOnly.productOptions = productOptions;
+    }
 
     const gql = `
       mutation productCreate($input: ProductCreateInput!) {
