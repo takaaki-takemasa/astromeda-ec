@@ -121,58 +121,53 @@ async function getAdminClient(contextEnv: Env) {
   return getClient();
 }
 
-async function ensureAdminUserDefinition(client: {
+interface AdminClientQuery {
   getMetaobjectDefinition: (
     type: string,
   ) => Promise<{id: string; fieldDefinitions: Array<{key: string; name: string}>} | null>;
-  createMetaobjectDefinition: (def: unknown) => Promise<{id: string}>;
-}): Promise<{created: boolean; id: string}> {
+  query: <T>(gql: string, variables?: Record<string, unknown>) => Promise<T>;
+}
+
+async function ensureAdminUserDefinition(client: AdminClientQuery): Promise<{created: boolean; id: string}> {
   const existing = await client.getMetaobjectDefinition(ADMIN_USER_METAOBJECT_TYPE);
   if (existing) return {created: false, id: existing.id};
 
-  const created = await client.createMetaobjectDefinition({
-    name: '管理画面ユーザー',
-    type: ADMIN_USER_METAOBJECT_TYPE,
-    access: {storefront: 'NONE'},
-    fieldDefinitions: [
-      {
-        key: 'username',
-        name: 'ユーザー名',
-        type: 'single_line_text_field',
-        required: true,
-      },
-      {
-        key: 'display_name',
-        name: '表示名',
-        type: 'single_line_text_field',
-        required: true,
-      },
-      {
-        key: 'password_hash',
-        name: 'パスワードハッシュ',
-        type: 'single_line_text_field',
-        required: true,
-      },
-      {
-        key: 'role',
-        name: '役割',
-        type: 'single_line_text_field',
-        required: true,
-      },
-      {
-        key: 'active',
-        name: '有効',
-        type: 'boolean',
-        required: true,
-      },
-      {
-        key: 'last_login_at',
-        name: '最終ログイン',
-        type: 'date_time',
-      },
-    ],
+  // セキュリティ: password_hash を保持するので storefront には絶対に露出させない (access.storefront=NONE)
+  const gql = `
+    mutation adminUserDefCreate($definition: MetaobjectDefinitionCreateInput!) {
+      metaobjectDefinitionCreate(definition: $definition) {
+        metaobjectDefinition { id type }
+        userErrors { field message }
+      }
+    }
+  `;
+  const res = await client.query<{
+    metaobjectDefinitionCreate: {
+      metaobjectDefinition: {id: string; type: string} | null;
+      userErrors: Array<{field: string[]; message: string}>;
+    };
+  }>(gql, {
+    definition: {
+      type: ADMIN_USER_METAOBJECT_TYPE,
+      name: '管理画面ユーザー',
+      access: {storefront: 'NONE'},
+      fieldDefinitions: [
+        {key: 'username', name: 'ユーザー名', type: 'single_line_text_field'},
+        {key: 'display_name', name: '表示名', type: 'single_line_text_field'},
+        {key: 'password_hash', name: 'パスワードハッシュ', type: 'single_line_text_field'},
+        {key: 'role', name: '役割', type: 'single_line_text_field'},
+        {key: 'active', name: '有効', type: 'boolean'},
+        {key: 'last_login_at', name: '最終ログイン', type: 'date_time'},
+      ],
+    },
   });
-  return {created: true, id: created.id};
+
+  const {metaobjectDefinition, userErrors} = res.metaobjectDefinitionCreate;
+  if (userErrors && userErrors.length > 0) {
+    throw new Error(`admin_user 定義作成失敗: ${userErrors.map((e) => e.message).join('; ')}`);
+  }
+  if (!metaobjectDefinition) throw new Error('admin_user 定義: レスポンスが空');
+  return {created: true, id: metaobjectDefinition.id};
 }
 
 // ── GET: list / bootstrap 状態 ──
