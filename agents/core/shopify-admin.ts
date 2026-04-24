@@ -731,15 +731,48 @@ export class ShopifyAdminClient {
 
       log.info(`[createProduct] Created: ${product.handle} (${product.id})`);
 
-      // patch 0150: variants が指定されていれば productVariantsBulkCreate で追加
+      // patch 0150-fu2: productCreate に productOptions を渡すと Shopify が
+      // 自動的に「最初の option value だけ」で 1 default variant を作る。
+      // bulkCreate で同じ optionValues を送ると duplicate で reject されるため、
+      // 既存の auto variant は bulkUpdate で価格/SKU を上書き、不在の variant は bulkCreate で追加する。
       let variantsCount: number | undefined;
       if (variants && variants.length > 0) {
         try {
-          variantsCount = await this.bulkCreateProductVariants(product.id, variants);
-          log.info(`[createProduct] Added ${variantsCount} variants to ${product.handle}`);
+          // 自動作成された variant の selectedOptions を取得
+          const detail = await this.getProductDetail(product.id);
+          const existingMap = new Map<string, string>();
+          if (detail) {
+            for (const v of detail.variants) {
+              const key = v.selectedOptions.map((so) => so.value).join('||');
+              existingMap.set(key, v.id);
+            }
+          }
+
+          const toUpdate: Array<{id: string; price: string; sku?: string}> = [];
+          const toCreate: VariantInput[] = [];
+          for (const v of variants) {
+            const key = (v.options ?? []).join('||');
+            const existingId = existingMap.get(key);
+            if (existingId) {
+              toUpdate.push({id: existingId, price: v.price, sku: v.sku});
+            } else {
+              toCreate.push(v);
+            }
+          }
+
+          let updateCount = 0;
+          let createCount = 0;
+          if (toUpdate.length > 0) {
+            updateCount = await this.bulkUpdateExistingProductVariants(product.id, toUpdate);
+          }
+          if (toCreate.length > 0) {
+            createCount = await this.bulkCreateProductVariants(product.id, toCreate);
+          }
+          variantsCount = updateCount + createCount;
+          log.info(`[createProduct] Variants for ${product.handle}: updated=${updateCount}, created=${createCount}`);
         } catch (vErr) {
-          // variants 追加失敗しても商品自体は作成済 → warning で済ませる
-          log.warn(`[createProduct] Variants 追加失敗 (商品自体は作成済): ${vErr instanceof Error ? vErr.message : String(vErr)}`);
+          // variants 操作失敗しても商品自体は作成済 → warning で済ませる
+          log.warn(`[createProduct] Variants 設定失敗 (商品自体は作成済): ${vErr instanceof Error ? vErr.message : String(vErr)}`);
         }
       }
 
@@ -785,6 +818,41 @@ export class ShopifyAdminClient {
     const {productVariants, userErrors} = res.productVariantsBulkCreate;
     if (userErrors.length > 0) {
       throw new Error(`バリアント追加失敗: ${translateUserErrors(userErrors)}`);
+    }
+    return productVariants?.length ?? 0;
+  }
+
+  /**
+   * 既存バリアントを一括で価格/SKU 上書き（productCreate 直後に Shopify が
+   * 自動生成した default variant を、ユーザーが指定した値で正規化するための helper）
+   * patch 0150-fu2
+   */
+  async bulkUpdateExistingProductVariants(
+    productId: string,
+    updates: Array<{id: string; price: string; sku?: string}>,
+  ): Promise<number> {
+    const gql = `
+      mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
+        productVariantsBulkUpdate(productId: $productId, variants: $variants) {
+          productVariants { id price }
+          userErrors { field message }
+        }
+      }
+    `;
+    const bulkInput = updates.map((u) => {
+      const obj: Record<string, unknown> = {id: u.id, price: u.price};
+      if (u.sku) obj.inventoryItem = {sku: u.sku};
+      return obj;
+    });
+    const res = await this.query<{
+      productVariantsBulkUpdate: {
+        productVariants: Array<{id: string; price: string}> | null;
+        userErrors: Array<{field: string[]; message: string}>;
+      };
+    }>(gql, {productId, variants: bulkInput});
+    const {productVariants, userErrors} = res.productVariantsBulkUpdate;
+    if (userErrors.length > 0) {
+      throw new Error(`バリアント上書き失敗: ${translateUserErrors(userErrors)}`);
     }
     return productVariants?.length ?? 0;
   }
