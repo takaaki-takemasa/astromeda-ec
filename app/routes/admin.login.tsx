@@ -17,6 +17,15 @@ import { AppSession } from '~/lib/session';
 import { AppError } from '~/lib/app-error';
 import { generateCsrfToken, verifyCsrfToken } from '~/lib/admin-auth';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '~/lib/rate-limiter';
+// patch 0156: multi-user 認証の追加
+import {
+  findAdminUserByUsername,
+  countAdminUsers,
+  recordAdminUserLogin,
+  ADMIN_USER_METAOBJECT_TYPE,
+} from '~/lib/admin-users';
+import { verifyPassword } from '~/lib/admin-password';
+import { auditLog } from '~/lib/audit-log';
 
 // ── テーマ定数（admin._index.tsxと統一） ──
 const D = {
@@ -33,6 +42,7 @@ const D = {
 
 /**
  * Loader: 既にログイン済みなら /admin にリダイレクト
+ * patch 0156: bootstrap モード判定を追加 (admin_user 0 件 = username 欄を隠す)
  */
 export async function loader({ request, context }: { request: Request; context: { env: Env } }) {
   const env = context.env;
@@ -53,12 +63,30 @@ export async function loader({ request, context }: { request: Request; context: 
   const csrfToken = generateCsrfToken();
   session.set('csrfToken', csrfToken);
 
+  // patch 0156: bootstrap モード判定 (admin_user が 0 件なら username 欄不要)
+  // Shopify Admin API 呼び出しが失敗しても login は可能にする (bootstrap フォールバック)
+  let bootstrapMode = true;
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    const client = getAdminClient();
+    // 定義自体が無い場合は 0 件扱い
+    const definition = await client.getMetaobjectDefinition(ADMIN_USER_METAOBJECT_TYPE).catch(() => null);
+    if (definition) {
+      const count = await countAdminUsers(client);
+      bootstrapMode = count === 0;
+    }
+  } catch {
+    // Shopify API 呼び出し失敗時は bootstrap モード (既存 ADMIN_PASSWORD ログイン可能)
+    bootstrapMode = true;
+  }
+
   // sharedSession を使った場合は server.ts の wrapper が自動 commit する
   if (sharedSession) {
-    return data({csrfToken});
+    return data({csrfToken, bootstrapMode});
   }
   return data(
-    { csrfToken },
+    { csrfToken, bootstrapMode },
     { headers: { 'Set-Cookie': await session.commit() } },
   );
 }
@@ -83,6 +111,7 @@ export async function action({ request, context }: { request: Request; context: 
 
   const formData = await request.formData();
   const password = String(formData.get('password') || '');
+  const usernameInput = String(formData.get('username') || '').trim();
 
   // CSRF検証（免疫系: 抗原マーカーの照合）
   // 共有セッション優先: hydrogenContext.session を再利用、無ければフォールバック
@@ -90,7 +119,7 @@ export async function action({ request, context }: { request: Request; context: 
   const session = sharedSession ?? await AppSession.init(request, [env.SESSION_SECRET]);
 
   // ADMIN_CSRF_BYPASS=true の場合、CSRF検証をスキップ（Oxygen deploy 直後のセッション不整合回避）
-  const csrfBypass = String((env as Record<string, string | undefined>).ADMIN_CSRF_BYPASS || '') === 'true';
+  const csrfBypass = String((env as unknown as Record<string, string | undefined>).ADMIN_CSRF_BYPASS || '') === 'true';
   if (!csrfBypass) {
     const sessionCsrf = session.get('csrfToken') as string | undefined;
     const formCsrf = String(formData.get('_csrf') || '');
@@ -99,6 +128,89 @@ export async function action({ request, context }: { request: Request; context: 
     }
   }
 
+  // patch 0156: admin_user があるかを確認して multi-user モードと bootstrap モードを分岐
+  let bootstrapMode = true;
+  let adminClient: Awaited<ReturnType<typeof import('../../agents/core/shopify-admin.js').getAdminClient>> | null = null;
+  try {
+    const {setAdminEnv, getAdminClient} = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env as unknown as Record<string, string | undefined>);
+    adminClient = getAdminClient();
+    const definition = await adminClient.getMetaobjectDefinition(ADMIN_USER_METAOBJECT_TYPE).catch(() => null);
+    if (definition) {
+      const count = await countAdminUsers(adminClient);
+      bootstrapMode = count === 0;
+    }
+  } catch {
+    bootstrapMode = true;
+  }
+
+  if (!bootstrapMode && adminClient) {
+    // ── Multi-user モード: admin_user に対して認証 ──
+    if (!usernameInput) {
+      return data({ error: 'ユーザー名を入力してください' }, { status: 400 });
+    }
+    const user = await findAdminUserByUsername(adminClient, usernameInput);
+    if (!user) {
+      // ユーザー不在 — 存在しないことを悟られないように同じメッセージ
+      auditLog({
+        action: 'login_failed',
+        role: null,
+        resource: 'admin.login',
+        detail: `unknown username: ${usernameInput}`,
+        success: false,
+      });
+      return data({ error: 'ユーザー名またはパスワードが正しくありません' }, { status: 401 });
+    }
+    if (!user.active) {
+      auditLog({
+        action: 'login_failed',
+        role: null,
+        actorId: user.id,
+        actorUsername: user.username,
+        resource: 'admin.login',
+        detail: 'user is deactivated',
+        success: false,
+      });
+      return data({ error: 'このユーザーは無効化されています。管理者に問い合わせてください。' }, { status: 401 });
+    }
+    const ok = await verifyPassword(password, user.passwordHash);
+    if (!ok) {
+      auditLog({
+        action: 'login_failed',
+        role: null,
+        actorId: user.id,
+        actorUsername: user.username,
+        resource: 'admin.login',
+        detail: 'password mismatch',
+        success: false,
+      });
+      return data({ error: 'ユーザー名またはパスワードが正しくありません' }, { status: 401 });
+    }
+
+    // 認証成功
+    session.set('isAdmin', true);
+    session.set('loginAt', Date.now());
+    session.set('userId', user.id);
+    session.set('username', user.username);
+    session.set('role', user.role);
+
+    // 最終ログイン時刻更新 (best-effort)
+    void recordAdminUserLogin(adminClient, user.id);
+
+    auditLog({
+      action: 'login',
+      role: user.role,
+      actorId: user.id,
+      actorUsername: user.username,
+      resource: 'admin.login',
+      success: true,
+    });
+
+    if (sharedSession) return redirect('/admin');
+    return redirect('/admin', {headers: {'Set-Cookie': await session.commit()}});
+  }
+
+  // ── Bootstrap モード: ADMIN_PASSWORD 環境変数で owner ログイン ──
   // タイミング安全比較（Oxygen/Workers環境対応）
   const encoder = new TextEncoder();
   const inputBytes = encoder.encode(password);
@@ -110,13 +222,32 @@ export async function action({ request, context }: { request: Request; context: 
   }
 
   if (diff !== 0) {
+    auditLog({
+      action: 'login_failed',
+      role: null,
+      resource: 'admin.login',
+      detail: 'bootstrap password mismatch',
+      success: false,
+    });
     return data({ error: 'パスワードが正しくありません' }, { status: 401 });
   }
 
-  // セッション発行（免疫記憶T細胞の生成）
-  // session は CSRF検証で既にinitされているので再利用
+  // セッション発行 (bootstrap: owner 扱い)
   session.set('isAdmin', true);
   session.set('loginAt', Date.now());
+  session.set('userId', 'bootstrap');
+  session.set('username', 'bootstrap-owner');
+  session.set('role', 'owner');
+
+  auditLog({
+    action: 'login',
+    role: 'owner',
+    actorId: 'bootstrap',
+    actorUsername: 'bootstrap-owner',
+    resource: 'admin.login',
+    detail: 'bootstrap mode (ADMIN_PASSWORD)',
+    success: true,
+  });
 
   // sharedSession を使った場合は server.ts の wrapper が自動 commit する
   if (sharedSession) {
@@ -135,11 +266,12 @@ export const meta = () => [
 ];
 
 export default function AdminLogin() {
-  const loaderData = useLoaderData<{ csrfToken: string }>();
+  const loaderData = useLoaderData<{ csrfToken: string; bootstrapMode?: boolean }>();
   const actionData = useActionData<{ error?: string }>();
   const navigation = useNavigation();
   const isSubmitting = navigation.state === 'submitting';
   const [showPassword, setShowPassword] = useState(false);
+  const isBootstrap = loaderData?.bootstrapMode !== false; // 既定は bootstrap (安全側)
 
   return (
     <div style={{
@@ -203,6 +335,64 @@ export default function AdminLogin() {
           <Form method="post">
             {/* CSRF トークン（免疫系: 抗原マーカー） */}
             <input type="hidden" name="_csrf" value={loaderData?.csrfToken || ''} />
+
+            {/* patch 0156: bootstrap モードでない時のみユーザー名欄を表示 */}
+            {!isBootstrap && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: 10,
+                  fontWeight: 700,
+                  color: D.textDim,
+                  letterSpacing: 2,
+                  marginBottom: 8,
+                }}>
+                  USERNAME
+                </label>
+                <input
+                  type="text"
+                  name="username"
+                  required
+                  autoFocus
+                  autoComplete="username"
+                  placeholder="ユーザー名"
+                  style={{
+                    width: '100%',
+                    padding: '14px 16px',
+                    fontSize: 15,
+                    fontWeight: 600,
+                    color: D.text,
+                    background: D.bg,
+                    border: `1px solid ${actionData?.error ? D.red : D.border}`,
+                    borderRadius: 12,
+                    outline: 'none',
+                    transition: 'border-color .2s',
+                    boxSizing: 'border-box',
+                    fontFamily: 'inherit',
+                  }}
+                />
+              </div>
+            )}
+
+            {/* 初期セットアップ表示 */}
+            {isBootstrap && (
+              <div style={{
+                fontSize: 11,
+                color: D.cyan,
+                marginBottom: 16,
+                padding: '10px 14px',
+                borderRadius: 8,
+                background: `${D.cyan}10`,
+                border: `1px solid ${D.cyan}30`,
+                lineHeight: 1.5,
+              }}>
+                🔧 初期セットアップモード<br />
+                <span style={{color: D.textMuted, fontSize: 10}}>
+                  初回ログイン後、メンバー管理タブで個別ユーザーを作成してください
+                </span>
+              </div>
+            )}
+
             {/* パスワード入力 */}
             <div style={{ marginBottom: 20 }}>
               <label style={{
@@ -220,7 +410,7 @@ export default function AdminLogin() {
                   type={showPassword ? 'text' : 'password'}
                   name="password"
                   required
-                  autoFocus
+                  autoFocus={isBootstrap}
                   autoComplete="current-password"
                   placeholder="••••••••"
                   style={{

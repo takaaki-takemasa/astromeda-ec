@@ -215,7 +215,7 @@ export class AppSession implements HydrogenSession {
     const data: Record<string, unknown> = {};
     // react-router SessionではSession.dataにアクセスできないため、
     // 既知のキーを列挙して退避する
-    const knownKeys = ['customerAccessToken', 'customerEmail', '__lastAccess', '__createdAt', '__fingerprint', 'isAdmin', 'loginAt'];
+    const knownKeys = ['customerAccessToken', 'customerEmail', '__lastAccess', '__createdAt', '__fingerprint', 'isAdmin', 'loginAt', 'userId', 'username', 'role', 'csrfToken'];
     for (const key of knownKeys) {
       if (this.#session.has(key)) {
         data[key] = this.#session.get(key);

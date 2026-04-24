@@ -61,6 +61,16 @@ export interface AuditEntry {
   action: AuditAction;
   /** 操作者のロール（未認証の場合 null） */
   role: Role | null;
+  /**
+   * patch 0156: 操作者の個人識別子 (admin_user Metaobject GID)
+   * bootstrap モードでは 'bootstrap' が入る。未認証は undefined。
+   */
+  actorId?: string;
+  /**
+   * patch 0156: 操作者のユーザー名（表示用）
+   * bootstrap モードでは 'bootstrap-owner'。未認証は undefined。
+   */
+  actorUsername?: string;
   /** 操作対象のリソース */
   resource: string;
   /** 操作の詳細（任意） */
@@ -126,9 +136,28 @@ export function auditLog(entry: Omit<AuditEntry, 'timestamp'>): void {
     entry.changedFields && entry.changedFields.length > 0
       ? ` | changed=[${entry.changedFields.join(',')}]`
       : '';
+  // patch 0156: actor がいれば表示
+  const actorSuffix = entry.actorUsername ? ` | actor=${entry.actorUsername}` : '';
   console[level](
-    `[AUDIT] ${prefix} ${entry.action} | role=${entry.role ?? 'anonymous'} | resource=${entry.resource}${entry.detail ? ` | ${entry.detail}` : ''}${changedSuffix}`,
+    `[AUDIT] ${prefix} ${entry.action} | role=${entry.role ?? 'anonymous'}${actorSuffix} | resource=${entry.resource}${entry.detail ? ` | ${entry.detail}` : ''}${changedSuffix}`,
   );
+}
+
+/**
+ * patch 0156: session から actor 情報を取得するヘルパー
+ * auditLog 呼び出し側で session を渡すだけで actor が埋まる。
+ * session.get('userId') / session.get('username') は login 時に set される。
+ */
+export function actorFromSession(
+  session: {get: (k: string) => unknown} | undefined | null,
+): {actorId?: string; actorUsername?: string} {
+  if (!session) return {};
+  const id = session.get('userId');
+  const username = session.get('username');
+  return {
+    actorId: typeof id === 'string' ? id : undefined,
+    actorUsername: typeof username === 'string' ? username : undefined,
+  };
 }
 
 /**

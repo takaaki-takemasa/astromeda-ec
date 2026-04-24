@@ -51,6 +51,8 @@ const AdminMetaobjectDefinitions = lazy(() => import('~/components/admin/tabs/Ad
 const AdminDiscounts = lazy(() => import('~/components/admin/tabs/AdminDiscounts'));
 // patch 0070: 管理画面完結化 P6 — ナビゲーションメニュー CRUD (最終章)
 const AdminMenus = lazy(() => import('~/components/admin/tabs/AdminMenus'));
+// patch 0156: メンバー管理（multi-user 認証）
+const AdminMembers = lazy(() => import('~/components/admin/tabs/AdminMembers'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -282,7 +284,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -343,7 +345,8 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
-  settings: { tabs: ['update'], default: 'update' },
+  // patch 0156: 上級者設定に 👥 メンバー管理タブを追加
+  settings: { tabs: ['members', 'update'], default: 'members' },
 };
 
 // patch 0071 R0-3: 絵文字ルール統一（Apple HIG: 揃えるか揃えないかの二択 → 全タブ揃える）
@@ -384,6 +387,8 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   pipelines: '⚡ 自動化',
   control: '🚨 緊急停止',
   update: '🔧 更新',
+  // patch 0156: 個別ユーザー認証
+  members: '👥 メンバー',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
@@ -900,6 +905,12 @@ export default function AdminDashboard() {
           {subTab === 'update' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSettings />
+            </Suspense>
+          )}
+          {/* patch 0156: 👥 メンバー管理タブ */}
+          {subTab === 'members' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminMembers />
             </Suspense>
           )}
         </main>
