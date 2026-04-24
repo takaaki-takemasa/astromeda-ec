@@ -42,6 +42,14 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     published_at: { type: 'date_time' },
     featured_image: { type: 'file_reference' },
     is_published: { type: 'boolean' },
+    // patch 0154 (2026-04-24): excerpt フィールドを schema に追加 (patch 0153 既知バグ修正)。
+    // AdminContent の form は以前から excerpt を送っていたが schema 未定義で「未定義フィールド」エラーだった。
+    excerpt: { type: 'multi_line_text_field', maxLength: 500 },
+    // patch 0154: AdminContent form が送る他フィールドも schema 化 (バリデーション通過のため)。
+    content_type: { type: 'single_line_text_field', maxLength: 50 },
+    status: { type: 'single_line_text_field', maxLength: 50 },
+    tags: { type: 'single_line_text_field', maxLength: 500 },
+    display_order: { type: 'number_integer' },
     // patch 0153 (2026-04-24): 記事を 1 つのコレクションに関連付ける。
     // storefront のコレクションページに「関連記事」リンクとして表示される。
     related_collection_handle: { type: 'single_line_text_field', maxLength: 200 },

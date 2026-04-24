@@ -19,6 +19,9 @@ interface BlogArticle {
   author: string;
   publishedAt: string;
   bodyHtml: string;
+  // patch 0154 (2026-04-24): 記事 → コレクション逆リンク。
+  // 値ありなら記事ページに「📚 このコレクションを見る」CTA を表示する。
+  relatedCollectionHandle: string;
 }
 
 export async function loader(args: Route.LoaderArgs) {
@@ -43,6 +46,8 @@ export async function loader(args: Route.LoaderArgs) {
         author: m['author'] || '',
         publishedAt: m['published_at'] || '',
         bodyHtml: sanitizeHtml(m['body_html'] || ''),
+        // patch 0154: 記事 → コレクション逆リンク
+        relatedCollectionHandle: m['related_collection_handle'] || '',
       };
       break;
     }
@@ -101,6 +106,41 @@ export default function BlogDetail() {
             style={{lineHeight: 1.85, fontSize: 'clamp(15px, 1.8vw, 17px)', color: 'rgba(255,255,255,0.9)'}}
             dangerouslySetInnerHTML={{__html: article.bodyHtml}}
           />
+
+          {/* patch 0154 (2026-04-24): 記事 → コレクション逆リンク
+              記事側で「関連コレクション」が設定されていれば、記事末尾に CTA を表示。
+              読み終えたお客様がそのままコレクションページへ進める。 */}
+          {article.relatedCollectionHandle && (
+            <aside
+              data-related-collection={article.relatedCollectionHandle}
+              style={{
+                marginTop: 48,
+                padding: 'clamp(20px, 3vw, 32px)',
+                background: `linear-gradient(135deg, ${T.c}15, ${T.c}05)`,
+                border: `1px solid ${T.c}40`,
+                borderRadius: 12,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{fontSize: 14, opacity: 0.75, marginBottom: 8}}>📚 この記事に関連するコレクション</div>
+              <Link
+                to={`/collections/${article.relatedCollectionHandle}`}
+                style={{
+                  display: 'inline-block',
+                  padding: '12px 28px',
+                  marginTop: 8,
+                  background: T.c,
+                  color: '#000',
+                  fontWeight: 700,
+                  textDecoration: 'none',
+                  borderRadius: 8,
+                  fontSize: 15,
+                }}
+              >
+                このコレクションを見る →
+              </Link>
+            </aside>
+          )}
         </article>
       </div>
     </div>
