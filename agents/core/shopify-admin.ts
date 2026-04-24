@@ -1046,8 +1046,19 @@ export class ShopifyAdminClient {
 
   /**
    * コレクションを作成（効果器: 新組織の形成）
+   *
+   * patch 0147 P0:
+   * options.publish が true (default) の場合、作成直後に
+   * 全 publishable channels (Online Store / Hydrogen 等) に自動 publish。
+   * これがないと storefront /collections/handle が 404 になる構造的バグを解消。
+   *
+   * options.publish=false なら明示的に「下書き」として残す。
    */
-  async createCollection(input: CollectionCreateInput): Promise<{id: string; handle: string}> {
+  async createCollection(
+    input: CollectionCreateInput,
+    options: {publish?: boolean} = {},
+  ): Promise<{id: string; handle: string; publishedToCount?: number}> {
+    const shouldPublish = options.publish !== false; // default true
     const gql = `
       mutation collectionCreate($input: CollectionInput!) {
         collectionCreate(input: $input) {
@@ -1072,9 +1083,60 @@ export class ShopifyAdminClient {
       if (!collection) throw new Error('コレクション作成: レスポンスにcollectionが含まれません');
 
       log.info(`[createCollection] Created: ${collection.handle} (${collection.id})`);
-      return {id: collection.id, handle: collection.handle};
+
+      // patch 0147: 自動 publish (Online Store / Hydrogen 等の全 publishable channels へ)
+      let publishedToCount: number | undefined;
+      if (shouldPublish) {
+        try {
+          const pubs = await this.getPublications(20);
+          const targetIds = pubs.map((p) => p.id);
+          if (targetIds.length > 0) {
+            await this.publishablePublish(collection.id, targetIds);
+            publishedToCount = targetIds.length;
+            log.info(`[createCollection] Auto-published to ${targetIds.length} channels`);
+          }
+        } catch (pubErr) {
+          // publish に失敗しても collection 自体は作成済みなので、warning で済ませる
+          log.warn(`[createCollection] Auto-publish failed (collection 自体は作成済み): ${pubErr instanceof Error ? pubErr.message : String(pubErr)}`);
+        }
+      }
+
+      return {id: collection.id, handle: collection.handle, publishedToCount};
     } catch (err) {
       this.notifyError('createCollection', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 任意のリソース (Product / Collection / etc.) を publishable channels に公開
+   * patch 0147: createCollection 経由 + 直接呼び出し両用
+   */
+  async publishablePublish(resourceId: string, publicationIds: string[]): Promise<boolean> {
+    const gql = `
+      mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+        publishablePublish(id: $id, input: $input) {
+          publishable { availablePublicationsCount { count } }
+          userErrors { field message }
+        }
+      }
+    `;
+    try {
+      const input = publicationIds.map((publicationId) => ({publicationId}));
+      const res = await this.query<{
+        publishablePublish: {
+          publishable: {availablePublicationsCount: {count: number}} | null;
+          userErrors: Array<{field: string[]; message: string}>;
+        };
+      }>(gql, {id: resourceId, input});
+      const {userErrors} = res.publishablePublish;
+      if (userErrors.length > 0) {
+        throw new Error(`公開失敗: ${translateUserErrors(userErrors)}`);
+      }
+      log.info(`[publishablePublish] Published ${resourceId} to ${publicationIds.length} channels`);
+      return true;
+    } catch (err) {
+      this.notifyError('publishablePublish', err);
       throw err;
     }
   }

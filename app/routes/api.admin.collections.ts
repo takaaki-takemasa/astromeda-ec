@@ -111,6 +111,8 @@ const CollectionInputShape = {
 const CreateSchema = z
   .object({
     action: z.literal('create'),
+    // patch 0147: 自動 publish スイッチ (default true = 作成と同時に Online Store に公開)
+    publish: z.boolean().optional(),
     ...CollectionInputShape,
   })
   .strict();
@@ -293,9 +295,10 @@ export async function action({request, context}: Route.ActionArgs) {
 
     switch (body.action) {
       case 'create': {
-        const {action: _ignored, ...input} = body;
+        // patch 0147: publish フラグを取り出して createCollection の options へ
+        const {action: _ignored, publish, ...input} = body;
         // image.id が MediaImage GID 以外の場合は src のみ送る（Shopify 側仕様に合わせる）
-        const result = await client.createCollection(input);
+        const result = await client.createCollection(input, {publish: publish !== false});
         // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
         const diff = computeFieldDiff(null, input as unknown as Record<string, unknown>);
         auditLog({
@@ -303,10 +306,15 @@ export async function action({request, context}: Route.ActionArgs) {
           role,
           resource: `api/admin/collections [${result.handle}]`,
           success: true,
-          detail: `id=${result.id} title=${body.title}`,
+          detail: `id=${result.id} title=${body.title} publishedTo=${result.publishedToCount ?? 0}`,
           ...diff,
         });
-        return data({success: true, id: result.id, handle: result.handle});
+        return data({
+          success: true,
+          id: result.id,
+          handle: result.handle,
+          publishedToCount: result.publishedToCount ?? 0,
+        });
       }
       case 'update': {
         const {action: _ignored, id, expectedUpdatedAt, ...fields} = body;
