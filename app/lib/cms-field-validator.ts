@@ -42,6 +42,9 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     published_at: { type: 'date_time' },
     featured_image: { type: 'file_reference' },
     is_published: { type: 'boolean' },
+    // patch 0153 (2026-04-24): 記事を 1 つのコレクションに関連付ける。
+    // storefront のコレクションページに「関連記事」リンクとして表示される。
+    related_collection_handle: { type: 'single_line_text_field', maxLength: 200 },
   },
   astromeda_ip_banner: {
     name: { type: 'single_line_text_field', maxLength: 200, required: true },

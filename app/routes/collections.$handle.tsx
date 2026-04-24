@@ -60,7 +60,8 @@ export async function loader(args: Route.LoaderArgs) {
 type AnnotatedProduct = CollectionProduct & {_ip: string | null; _type: string | null; _material: string | null; _cpu: string | null; _gpu: string | null};
 
 export default function Collection() {
-  const {collection, sortParam, recommendedCollections, isGamingLanding, gamingLandingData} = useLoaderData<typeof loader>();
+  // patch 0153 (2026-04-24): relatedArticles を loader から受け取る (記事 → コレクション関連付け)
+  const {collection, sortParam, recommendedCollections, isGamingLanding, gamingLandingData, relatedArticles} = useLoaderData<typeof loader>();
   const [searchParams] = useSearchParams();
   const collabData = COLLABS.find((c) => c.shop === collection.handle);
   const accent = collabData?.accent ?? T.c;
@@ -896,6 +897,60 @@ export default function Collection() {
           </div>
         );
       })()}
+
+      {/* patch 0153 (2026-04-24): 関連記事セクション
+          astromeda_article_content の related_collection_handle === collection.handle な記事を表示。
+          記事側で「関連コレクション」を設定すると、こちらに自動で逆引きリンクが現れる。 */}
+      {Array.isArray(relatedArticles) && relatedArticles.length > 0 && (
+        <div
+          style={{
+            padding: 'clamp(24px, 3vw, 48px) clamp(16px, 4vw, 48px)',
+            borderTop: `1px solid ${al(accent, 0.12)}`,
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 'clamp(16px, 2vw, 24px)',
+              fontWeight: 700,
+              color: T.tx,
+              marginBottom: 16,
+            }}
+            data-related-articles
+          >
+            📰 関連記事
+          </h2>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 'clamp(12px, 2vw, 16px)',
+            }}
+          >
+            {relatedArticles.map((a: {slug: string; title: string; excerpt: string}) => (
+              <Link
+                key={a.slug}
+                to={`/blog/${a.slug}`}
+                style={{
+                  textDecoration: 'none',
+                  borderRadius: 8,
+                  padding: 16,
+                  background: al(accent, 0.06),
+                  border: `1px solid ${al(accent, 0.18)}`,
+                  display: 'block',
+                  color: T.tx,
+                }}
+              >
+                <div style={{fontSize: 14, fontWeight: 700, marginBottom: 6}}>{a.title}</div>
+                {a.excerpt && (
+                  <div style={{fontSize: 12, opacity: 0.8, lineHeight: 1.5}}>
+                    {a.excerpt.length > 80 ? `${a.excerpt.slice(0, 80)}…` : a.excerpt}
+                  </div>
+                )}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Recommended Collections — Deferred loaded */}
       {recommendedCollections && (

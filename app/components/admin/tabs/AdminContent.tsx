@@ -221,6 +221,8 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       author: item.author || '',
       tags: item.tags || '',
       display_order: item.display_order || '0',
+      // patch 0153 (2026-04-24): 記事 → コレクション関連付け
+      related_collection_handle: (item as Record<string, unknown>).related_collection_handle as string || '',
     });
   };
 
@@ -236,6 +238,8 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       author: '',
       tags: '',
       display_order: '0',
+      // patch 0153 (2026-04-24): 記事 → コレクション関連付け
+      related_collection_handle: '',
     });
   };
 
@@ -338,6 +342,20 @@ function ArticleList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
         <div>
           <label style={labelStyle}>表示順</label>
           <input style={inputStyle} type="number" value={form.display_order || '0'} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+        </div>
+        {/* patch 0153 (2026-04-24): 記事 → コレクション関連付け。
+            空のときは関連なし。値ありのときは storefront コレクションページに「関連記事」リンクが出る。 */}
+        <div>
+          <label style={labelStyle}>📚 関連コレクション (任意)</label>
+          <input
+            style={inputStyle}
+            value={form.related_collection_handle || ''}
+            onChange={(e) => setForm({ ...form, related_collection_handle: e.target.value })}
+            placeholder="例: kimetsu-no-yaiba"
+          />
+          <div style={{ fontSize: 11, color: color.textMuted, marginTop: 4 }}>
+            この記事を 1 つのコレクションに関連付けると、コレクションページに「関連記事」として記事リンクが自動表示されます (空なら関連付けなし)。
+          </div>
         </div>
       </div>
       <div style={{ marginTop: 12 }}>

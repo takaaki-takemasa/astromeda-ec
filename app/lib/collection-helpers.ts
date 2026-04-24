@@ -502,7 +502,53 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     }
   }
 
-  return {collection, sortParam, isGamingLanding, gamingLandingData};
+  // patch 0153 (2026-04-24): 記事 → コレクション関連付け。
+  // astromeda_article_content の related_collection_handle === handle な記事を取得し
+  // storefront のコレクションページに「関連記事」セクションとして表示する。
+  let relatedArticles: Array<{slug: string; title: string; excerpt: string}> = [];
+  try {
+    const {storefront: sf} = context;
+    const articlesRes = await sf.query<{
+      metaobjects: {
+        nodes: Array<{
+          handle: string;
+          fields: Array<{key: string; value: string}>;
+        }>;
+      };
+    }>(
+      `#graphql
+        query RelatedArticles {
+          metaobjects(type: "astromeda_article_content", first: 50) {
+            nodes {
+              handle
+              fields { key value }
+            }
+          }
+        }
+      `,
+    );
+    const nodes = articlesRes?.metaobjects?.nodes ?? [];
+    relatedArticles = nodes
+      .map((n) => {
+        const f: Record<string, string> = {};
+        for (const fld of n.fields) f[fld.key] = fld.value;
+        return {
+          slug: f.slug || n.handle,
+          title: f.title || '',
+          excerpt: f.excerpt || '',
+          related: f.related_collection_handle || '',
+          isPublished: f.is_published === 'true' || f.status === 'published',
+        };
+      })
+      .filter((a) => a.related === handle && a.title && a.isPublished)
+      .slice(0, 6)
+      .map((a) => ({slug: a.slug, title: a.title, excerpt: a.excerpt}));
+  } catch (e) {
+    // 関連記事取得失敗してもコレクションページ自体は表示する (graceful)
+    process.env.NODE_ENV === 'development' && console.warn('[patch 0153] relatedArticles fetch failed', e);
+  }
+
+  return {collection, sortParam, isGamingLanding, gamingLandingData, relatedArticles};
 }
 
 export function loadDeferredData({context, params}: Route.LoaderArgs) {
