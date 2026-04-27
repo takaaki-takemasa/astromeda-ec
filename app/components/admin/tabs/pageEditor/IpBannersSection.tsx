@@ -138,6 +138,22 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
   // 行をドラッグ→新しい位置にドロップ → 即座にローカル並び替え + 全エントリの sortOrder を再計算 → 並列で API 更新
   const sortedItems = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
 
+  // patch 0163: ライブプレビュー用の MetaCollab[] (現在の items 順序を反映)
+  // Shopify コレクション画像のフォールバックも適用済み
+  const previewMeta = useMemo(() => sortedItems
+    .filter((c) => c.featured) // フロント表示と同じ条件: featured のみ
+    .map((c) => ({
+      id: c.id,
+      handle: c.handle || c.shopHandle,
+      name: c.name,
+      shopHandle: c.shopHandle,
+      image: c.image || (c.shopHandle ? collabImages[c.shopHandle] || null : null),
+      tagline: c.tagline || null,
+      label: c.label || null,
+      sortOrder: c.sortOrder,
+      featured: c.featured,
+    })), [sortedItems, collabImages]);
+
   const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
     if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= sortedItems.length || toIdx >= sortedItems.length) return;
 
@@ -330,6 +346,9 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
               {reordering && <span style={{marginLeft: 8, color: '#FF9500'}}>● 保存中...</span>}
             </span>
           </div>
+          {/* patch 0163: 2カラム — 左=表/右=ライブプレビュー */}
+          <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 16}}>
+          <div style={{minWidth: 0, overflowX: 'auto'}}>
           <table style={{width: '100%', borderCollapse: 'collapse'}}>
             <thead>
               <tr>
@@ -432,6 +451,39 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
               })}
             </tbody>
           </table>
+          </div>
+          {/* patch 0163: ライブプレビュー (右ペイン) — 並び替えが即座に反映される */}
+          <div style={{
+            border: `1px solid ${al(T.tx, 0.1)}`,
+            borderRadius: 8,
+            padding: 12,
+            background: al(T.tx, 0.02),
+            position: 'sticky',
+            top: 16,
+            alignSelf: 'flex-start',
+          }}>
+            <div style={{fontSize: 11, fontWeight: 700, color: T.t4, marginBottom: 8, letterSpacing: 1}}>
+              🔍 トップページのプレビュー (この順序で表示されます)
+            </div>
+            <div style={{
+              transform: 'scale(0.4)',
+              transformOrigin: 'top left',
+              width: '250%',
+              height: 360,
+              overflow: 'hidden',
+              borderRadius: 6,
+              border: `1px solid ${al(T.tx, 0.08)}`,
+              background: T.bg,
+            }}>
+              <CollabGrid collections={synthCols} metaCollabs={previewMeta} />
+            </div>
+            {previewMeta.length === 0 && (
+              <div style={{fontSize: 10, color: T.t5, marginTop: 6, lineHeight: 1.5}}>
+                ※「フロントに表示」がオンのバナーが 1 件もないためプレビュー画像はありません。
+              </div>
+            )}
+          </div>
+          </div>
         </>
       )}
 

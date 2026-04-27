@@ -48,6 +48,10 @@ export function HeroBannersSection({pushToast, confirm}: SectionProps) {
   const [heroImages, setHeroImages] = useState<Record<string, string>>({});
   // patch 0027: FEATURED 自動投入ボタンの処理中フラグ
   const [seeding, setSeeding] = useState(false);
+  // patch 0163: drag&drop 並び替え用 state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -151,6 +155,74 @@ export function HeroBannersSection({pushToast, confirm}: SectionProps) {
     }
   };
 
+  // patch 0163: drag&drop 並び替え (IpBannersSection と同じ実装)
+  const sortedItems = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
+
+  const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= sortedItems.length || toIdx >= sortedItems.length) return;
+    const newList = [...sortedItems];
+    const [moved] = newList.splice(fromIdx, 1);
+    newList.splice(toIdx, 0, moved);
+
+    const updates: Array<{id: string; newSort: number}> = [];
+    newList.forEach((item, idx) => {
+      const newSort = idx + 1;
+      if (item.sortOrder !== newSort) updates.push({id: item.id, newSort});
+    });
+    if (updates.length === 0) return;
+
+    setItems((prev) => {
+      const map = new Map(prev.map((p) => [p.id, p]));
+      updates.forEach((u) => {
+        const cur = map.get(u.id);
+        if (cur) map.set(u.id, {...cur, sortOrder: u.newSort});
+      });
+      return Array.from(map.values());
+    });
+
+    setReordering(true);
+    try {
+      const results = await Promise.all(
+        updates.map((u) =>
+          apiPost('/api/admin/homepage', {
+            action: 'update_banner',
+            metaobjectId: u.id,
+            sortOrder: u.newSort,
+          }).catch((e) => ({success: false, error: String(e)})),
+        ),
+      );
+      const failed = results.filter((r) => !r.success);
+      if (failed.length > 0) {
+        pushToast(`並び替え部分失敗: ${failed.length}/${updates.length} 件`, 'error');
+        await load();
+      } else {
+        pushToast(`並び順を保存しました (${updates.length} 件更新)`, 'success');
+      }
+    } catch (e) {
+      pushToast(`並び替え失敗: ${(e as Error).message}`, 'error');
+      await load();
+    } finally {
+      setReordering(false);
+    }
+  }, [sortedItems, pushToast, load]);
+
+  // patch 0163: ライブプレビュー用の MetaBanner[] (現在の items 順序を反映)
+  const previewMeta = useMemo(() => sortedItems
+    .filter((c) => c.active) // フロント表示と同じ条件: active のみ
+    .map((c) => ({
+      id: c.id,
+      handle: c.handle,
+      title: c.title,
+      subtitle: c.subtitle || null,
+      image: c.image || null,
+      linkUrl: c.linkUrl || null,
+      ctaLabel: c.ctaLabel || null,
+      sortOrder: c.sortOrder,
+      isActive: c.active, // MetaBanner uses isActive (not active)
+      startAt: c.startAt || null,
+      endAt: c.endAt || null,
+    })), [sortedItems]);
+
   const modalOpen = creating || editing !== null;
   const initial: Partial<HeroBanner> = creating ? {sortOrder: 0, active: true} : editing || {};
 
@@ -189,64 +261,129 @@ export function HeroBannersSection({pushToast, confirm}: SectionProps) {
           </span>
         </div>
       ) : (
-        <table style={{width: '100%', borderCollapse: 'collapse'}}>
-          <thead>
-            <tr>
-              {/* patch 0026: CEO 要望「現在の画像を入れてください」— ヒーロー配信先のコレクション画像を先頭列に。*/}
-              <th style={thStyle}>現在の画像</th>
-              <th style={thStyle}>タイトル</th>
-              <th style={thStyle}>CTA</th>
-              <th style={thStyle}>期間</th>
-              <th style={thStyle}>順</th>
-              <th style={thStyle}>状態</th>
-              <th style={thStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((c) => {
-              const storedImg = (c.image || '').trim();
-              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
-              const fallbackImg = c.handle ? heroImages[c.handle] : null;
-              const thumb = usableStored || fallbackImg || null;
-              return (
-                <tr key={c.id}>
-                  <td style={{...tdStyle, width: 84}}>
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={c.title || c.handle || 'preview'}
-                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 72, height: 48, borderRadius: 4,
-                          background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
-                          color: T.bg, fontSize: 9, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center',
-                          textAlign: 'center', lineHeight: 1.1, padding: 4,
+        <>
+          {/* patch 0163: ドラッグ操作のヒント */}
+          <div style={{
+            background: al(T.c, 0.06),
+            border: `1px dashed ${al(T.c, 0.3)}`,
+            borderRadius: 6,
+            padding: '8px 12px',
+            marginBottom: 10,
+            fontSize: 11,
+            color: T.t4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{fontSize: 14}}>⇅</span>
+            <span>並び順を変えたい時は、左端の <span style={{color: T.c, fontWeight: 700}}>≡</span> アイコンを掴んで上下にドラッグしてください
+              {reordering && <span style={{marginLeft: 8, color: '#FF9500'}}>● 保存中...</span>}
+            </span>
+          </div>
+          {/* patch 0163: 2カラム — 左=表/右=ライブプレビュー */}
+          <div style={{display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 16}}>
+            <div style={{minWidth: 0, overflowX: 'auto'}}>
+              <table style={{width: '100%', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr>
+                    <th style={{...thStyle, width: 32}}></th>
+                    <th style={thStyle}>現在の画像</th>
+                    <th style={thStyle}>タイトル</th>
+                    <th style={thStyle}>順</th>
+                    <th style={thStyle}>状態</th>
+                    <th style={thStyle}></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedItems.map((c, idx) => {
+                    const storedImg = (c.image || '').trim();
+                    const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+                    const fallbackImg = c.handle ? heroImages[c.handle] : null;
+                    const thumb = usableStored || fallbackImg || null;
+                    const isDragging = dragIndex === idx;
+                    const isDropTarget = dropIndex === idx && dragIndex !== null && dragIndex !== idx;
+                    return (
+                      <tr key={c.id}
+                        draggable
+                        onDragStart={(e) => {
+                          setDragIndex(idx);
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.dataTransfer.setData('text/plain', String(idx));
                         }}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.dataTransfer.dropEffect = 'move';
+                          if (dropIndex !== idx) setDropIndex(idx);
+                        }}
+                        onDragEnd={() => { setDragIndex(null); setDropIndex(null); }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          if (dragIndex !== null && dragIndex !== idx) void handleReorder(dragIndex, idx);
+                          setDragIndex(null); setDropIndex(null);
+                        }}
+                        style={{
+                          cursor: reordering ? 'wait' : 'grab',
+                          opacity: isDragging ? 0.4 : 1,
+                          borderTop: isDropTarget && (dragIndex ?? 0) > idx ? `2px solid ${T.c}` : undefined,
+                          borderBottom: isDropTarget && (dragIndex ?? 0) < idx ? `2px solid ${T.c}` : undefined,
+                          background: isDragging ? al(T.c, 0.05) : undefined,
+                          transition: 'background 0.15s, opacity 0.15s',
+                        }}
+                        aria-label={`${c.title} の行 (上下にドラッグして順位変更可)`}
                       >
-                        画像{'\n'}未設定
-                      </div>
-                    )}
-                  </td>
-                  <td style={tdStyle}>{c.title}</td>
-                  <td style={{...tdStyle, color: T.t5}}>{c.ctaLabel || '—'}</td>
-                  <td style={{...tdStyle, color: T.t5, fontSize: 10, fontFamily: 'monospace'}}>
-                    {c.startAt || '∞'} 〜 {c.endAt || '∞'}
-                  </td>
-                  <td style={tdStyle}>{c.sortOrder}</td>
-                  <td style={tdStyle}>{c.active ? '✓' : '—'}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>
-                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                        <td style={{...tdStyle, textAlign: 'center', color: al(T.tx, 0.4), fontSize: 18, userSelect: 'none', width: 32}}>≡</td>
+                        <td style={{...tdStyle, width: 84}}>
+                          {thumb ? (
+                            <img src={thumb} alt={c.title || c.handle || 'preview'}
+                              style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`, pointerEvents: 'none'}} />
+                          ) : (
+                            <div style={{
+                              width: 72, height: 48, borderRadius: 4,
+                              background: `linear-gradient(135deg, ${T.c}, ${T.g})`,
+                              color: T.bg, fontSize: 9, display: 'flex',
+                              alignItems: 'center', justifyContent: 'center',
+                              textAlign: 'center', lineHeight: 1.1, padding: 4,
+                              pointerEvents: 'none',
+                            }}>画像{'\n'}未設定</div>
+                          )}
+                        </td>
+                        <td style={tdStyle}>{c.title}</td>
+                        <td style={tdStyle}>{c.sortOrder}</td>
+                        <td style={tdStyle}>{c.active ? '✓' : '—'}</td>
+                        <td style={{...tdStyle, textAlign: 'right'}}>
+                          <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                          <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {/* ライブプレビュー (右ペイン) */}
+            <div style={{
+              border: `1px solid ${al(T.tx, 0.1)}`,
+              borderRadius: 8,
+              padding: 12,
+              background: al(T.tx, 0.02),
+              position: 'sticky',
+              top: 16,
+              alignSelf: 'flex-start',
+            }}>
+              <div style={{fontSize: 11, fontWeight: 700, color: T.t4, marginBottom: 8, letterSpacing: 1}}>
+                🔍 トップページのプレビュー (この順序で表示されます)
+              </div>
+              <div style={{transform: 'scale(0.55)', transformOrigin: 'top left', width: '180%', height: 220, overflow: 'hidden', borderRadius: 6, border: `1px solid ${al(T.tx, 0.08)}`}}>
+                <HeroSlider collections={synthCols} metaBanners={previewMeta} />
+              </div>
+              {previewMeta.length === 0 && (
+                <div style={{fontSize: 10, color: T.t5, marginTop: 6, lineHeight: 1.5}}>
+                  ※「すぐ公開」がオンのバナーが 1 件もないためプレビュー画像はありません。
+                </div>
+              )}
+            </div>
+          </div>
+        </>
       )}
 
       {modalOpen && (

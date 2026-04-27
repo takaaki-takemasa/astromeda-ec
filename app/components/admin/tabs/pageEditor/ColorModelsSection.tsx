@@ -14,6 +14,8 @@ import {T, al} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {PCShowcase} from '~/components/astro/PCShowcase';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
+// patch 0163: PC 利用イメージ画像を upload/library/URL から選べるように
+import {ImagePicker} from '~/components/admin/ds/ImagePicker';
 import {
   type ColorModel,
   type SectionProps,
@@ -347,11 +349,15 @@ function ColorModelForm({
           </div>
         </div>
         <div>
-          <label style={labelStyle}>画像（任意）</label>
-          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} placeholder="画像ファイル参照（空欄で既定画像を使用）" />
-          <div style={{fontSize: 11, color: T.t4, marginTop: 4}}>
-            空欄のままで OK。Shopify ファイル管理から選んだ画像をここに貼ると上書きできます。
-          </div>
+          {/* patch 0163: PC利用イメージ画像を直接アップロードできるように ImagePicker (upload/library/URL) 統合 */}
+          <ImagePicker
+            value={image}
+            onChange={setImage}
+            label="PC 利用イメージ画像"
+            optional
+            hint="このカラーで実際にPCを使っているシーンの写真を表示します。アップロード/Shopifyライブラリ/外部URL から選べます。空欄なら既定画像（/images/pc-setup/{識別子}.jpg）を使用。"
+            initialMode="upload"
+          />
         </div>
         <div>
           <label style={labelStyle}>カラーコード (#RRGGBB)</label>
