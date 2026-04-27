@@ -1,18 +1,16 @@
 name: Sync Setup Images (manifest → git binaries)
 
-# patch 0180 (2026-04-27): CEO 指示「Shopify から随時取得をやめる、ファイル保存
-# されたデータベースから繋ぎ込む」への構造的バックアップ。
-# manifest.json (URL 一覧) を読んで、shop.mining-base.co.jp CDN から各画像を
-# curl で git ローカル assets/setup/{color}/*.jpg に download し commit&push。
-# これで Shopify Files / 旧サイトが消えても git に画像 binary が残る。
+# patch 0181 (2026-04-27): self-discovering version. workflow が
+# /collections/{handle}/products.json を fetch して URL を発見 + download まで一気通貫。
+# manifest は handle と lifestyle path のみ管理。URL の更新を都度コミットする必要がない。
 #
 # 手動 trigger: gh workflow run sync-setup-images.yml
-# 自動 trigger: 毎週月曜 03:00 UTC (差分 download — 既存ファイルは skip)
+# 自動 trigger: 毎週月曜 03:00 UTC
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 3 * * 1'  # 毎週月曜 03:00 UTC
+    - cron: '0 3 * * 1'
 
 permissions:
   contents: write
@@ -26,36 +24,69 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read manifest + download missing images
+      - name: Discover + download per-color product images
         run: |
           set -e
-          MANIFEST="app/lib/setup-manifest.json"
-          if [ ! -f "$MANIFEST" ]; then
-            echo "manifest not found: $MANIFEST"
-            exit 1
-          fi
-
-          # node script to read manifest and curl each missing image
           cat > /tmp/sync.mjs <<'EOF'
           import {readFileSync, existsSync, mkdirSync, writeFileSync} from 'node:fs';
           import {execSync} from 'node:child_process';
           import {dirname} from 'node:path';
 
-          const m = JSON.parse(readFileSync('app/lib/setup-manifest.json', 'utf8'));
-          let downloaded = 0, skipped = 0, failed = 0;
-          for (const [slug, entry] of Object.entries(m.colors)) {
-            for (const [idx, url] of (entry.products || []).entries()) {
-              const filename = url.split('/').pop().split('?')[0];
-              const localPath = `assets/setup/${slug}/${filename}`;
-              if (existsSync(localPath)) {
-                skipped++;
+          // 旧サイト Shopify Storefront — public collection products.json (no auth)
+          const SHOP = 'https://shop.mining-base.co.jp';
+
+          // slug → /collections/{handle} mapping
+          const COLORS = [
+            {slug: 'white',     handle: 'white'},
+            {slug: 'black',     handle: 'black'},
+            {slug: 'pink',      handle: 'pink'},
+            {slug: 'purple',    handle: 'purple'},
+            {slug: 'lightblue', handle: 'light-blue'},
+            {slug: 'red',       handle: 'red'},
+            {slug: 'green',     handle: 'green'},
+            {slug: 'orange',    handle: 'orange'},
+          ];
+
+          // Discovery
+          const manifest = {};
+          for (const c of COLORS) {
+            const url = `${SHOP}/collections/${c.handle}/products.json?limit=50`;
+            try {
+              const res = await fetch(url);
+              if (!res.ok) {
+                console.error(`✗ ${c.slug}: HTTP ${res.status}`);
+                manifest[c.slug] = [];
                 continue;
               }
+              const d = await res.json();
+              const products = d.products || [];
+              const seen = new Set();
+              const urls = [];
+              for (const p of products) {
+                for (const img of (p.images || [])) {
+                  const base = (img.src || '').split('?')[0];
+                  if (base && !seen.has(base)) { seen.add(base); urls.push(base); }
+                }
+              }
+              manifest[c.slug] = urls;
+              console.log(`Discovered ${c.slug}: ${urls.length} unique URLs from ${products.length} products`);
+            } catch (e) {
+              console.error(`✗ ${c.slug} discovery failed: ${e.message}`);
+              manifest[c.slug] = [];
+            }
+          }
+
+          // Download
+          let downloaded = 0, skipped = 0, failed = 0;
+          for (const [slug, urls] of Object.entries(manifest)) {
+            for (const u of urls) {
+              const filename = u.split('/').pop().split('?')[0];
+              const localPath = `assets/setup/${slug}/${filename}`;
+              if (existsSync(localPath)) { skipped++; continue; }
               mkdirSync(dirname(localPath), {recursive: true});
               try {
-                execSync(`curl -sSf -L --max-time 60 -o "${localPath}" "${url}"`, {stdio: 'inherit'});
+                execSync(`curl -sSf -L --max-time 60 -o "${localPath}" "${u}"`, {stdio: ['ignore','ignore','inherit']});
                 downloaded++;
-                console.log(`✓ ${slug}/${filename}`);
               } catch (e) {
                 failed++;
                 console.error(`✗ ${slug}/${filename}: ${e.message}`);
@@ -63,26 +94,37 @@ jobs:
             }
           }
           console.log(`\nSummary: downloaded=${downloaded} skipped=${skipped} failed=${failed}`);
+
+          // Update app/lib/setup-manifest.json with discovered URLs (so storefront uses them
+          // even before binaries are committed — also serves as audit trail)
+          const m = JSON.parse(readFileSync('app/lib/setup-manifest.json', 'utf8'));
+          for (const [slug, urls] of Object.entries(manifest)) {
+            if (!m.colors[slug]) continue;
+            // Merge discovered URLs into existing products array (dedup by URL).
+            const existing = new Set(m.colors[slug].products || []);
+            const merged = [...m.colors[slug].products || []];
+            for (const u of urls) if (!existing.has(u)) { merged.push(u); existing.add(u); }
+            m.colors[slug].products = merged;
+            // Add local fallback path for files we just downloaded
+            m.colors[slug].localProducts = urls
+              .map(u => `/assets/setup/${slug}/${u.split('/').pop().split('?')[0]}`);
+          }
+          m._lastSyncAt = new Date().toISOString();
+          writeFileSync('app/lib/setup-manifest.json', JSON.stringify(m, null, 2));
+
           writeFileSync('/tmp/sync-summary.txt',
-            `downloaded=${downloaded}\nskipped=${skipped}\nfailed=${failed}\n`);
+            `downloaded=${downloaded}\nskipped=${skipped}\nfailed=${failed}\ntotalUrls=${Object.values(manifest).reduce((s,v)=>s+v.length,0)}\n`);
           EOF
           node /tmp/sync.mjs
 
-      - name: Commit & push if new images
+      - name: Commit & push if changed
         run: |
-          if [ -n "$(git status --porcelain assets/setup/)" ]; then
+          if [ -n "$(git status --porcelain assets/setup/ app/lib/setup-manifest.json)" ]; then
             git config user.email "actions@github.com"
             git config user.name "GitHub Actions"
-            git add assets/setup/
-            git commit -m "$(cat <<'MSG'
-          chore(assets): sync setup images from manifest (sync-setup-images.yml)
-
-          Auto-download from shop.mining-base.co.jp CDN per app/lib/setup-manifest.json.
-          Ensures git holds binary copies independent of Shopify Files lifecycle.
-
-          $(cat /tmp/sync-summary.txt)
-          MSG
-          )"
+            git add assets/setup/ app/lib/setup-manifest.json
+            SUMMARY=$(cat /tmp/sync-summary.txt | tr '\n' ' ')
+            git commit -m "chore(assets): sync setup images — $SUMMARY"
             git push
           else
             echo "No changes — all images already in git"
