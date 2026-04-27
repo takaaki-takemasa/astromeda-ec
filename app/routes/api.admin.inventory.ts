@@ -106,9 +106,11 @@ export async function loader({request, context}: LoaderFunctionArgs) {
 
     // variant list with inventory levels per location
     // location.name は read_locations scope が必要なため id だけ取得
+    // sortKey: ProductVariantSortKeys = ID/INVENTORY_LEVELS_AVAILABLE/NAME/SKU/TITLE/RELEVANCE のみ
+    // (UPDATED_AT は無効なため指定なし → API デフォルト順)
     const gql = `
       query Inventory($first: Int!, $after: String, $query: String) {
-        productVariants(first: $first, after: $after, query: $query, sortKey: UPDATED_AT, reverse: true) {
+        productVariants(first: $first, after: $after, query: $query) {
           pageInfo { hasNextPage endCursor }
           nodes {
             id
