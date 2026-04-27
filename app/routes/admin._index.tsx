@@ -636,7 +636,10 @@ export default function AdminDashboard() {
         onMobileClose={() => setMobileMenuOpen(false)}
       />
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'hidden' }}>
+      {/* patch 0164-fu2: overflow:hidden を visible に — overflow:hidden もまた sticky の containing block を作るため、
+          子孫 sticky 要素は window スクロールに追従できなくなる。視覚的に切れる必要が無いので visible に統一して
+          sticky を window scroll に昇格させる。flex/min-width 制約は維持。 */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, overflow: 'visible' }}>
         <GlobalBar
           andonStatus={metrics.andonStatus}
           pendingApprovals={pendingApprovals}
