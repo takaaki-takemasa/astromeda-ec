@@ -220,8 +220,10 @@ export async function action({ request, context }: { request: Request; context: 
       success: true,
     });
 
-    if (sharedSession) return redirect('/admin');
-    return redirect('/admin', {headers: {'Set-Cookie': await session.commit()}});
+    // patch 0184 (2026-04-27): vendor は /vendor 専用ページへ。それ以外は /admin。
+    const postLoginPath = user.role === 'vendor' ? '/vendor' : '/admin';
+    if (sharedSession) return redirect(postLoginPath);
+    return redirect(postLoginPath, {headers: {'Set-Cookie': await session.commit()}});
   }
 
   // ── Bootstrap モード: ADMIN_PASSWORD 環境変数で owner ログイン ──

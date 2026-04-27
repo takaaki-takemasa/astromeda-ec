@@ -136,6 +136,25 @@ interface LoaderData {
 export async function loader({ context, request }: Route.LoaderArgs) {
   setBridgeEnv(context.env as unknown as Record<string, string | undefined>);
 
+  // patch 0184 P0 (2026-04-27): vendor は /admin に一切アクセスさせない (構造的 isolation)。
+  // CEO 指示「ベンダー専用ページを作成、その中にはベンダーしか触れないところのみを表示する」
+  // への対応。Sidebar の hide パッチワークではなく loader レベルで完全分離。
+  // これだけで URL 直叩き (`/admin?tab=members` 等 30 タブ) の全漏洩を即座に塞ぐ。
+  try {
+    const env = context.env as Env;
+    if (env.SESSION_SECRET) {
+      const sharedSession = (context as unknown as {session?: import('~/lib/session').AppSession}).session;
+      const session = sharedSession ?? await (await import('~/lib/session')).AppSession.init(request, [env.SESSION_SECRET]);
+      const role = session.get('role') as string | undefined;
+      if (role === 'vendor') {
+        const { redirect } = await import('react-router');
+        return redirect('/vendor');
+      }
+    }
+  } catch {
+    /* role 抽出失敗時は通常 loader 継続 (admin login flow に渡す) */
+  }
+
   const emptyRevenue: RevenueData = {
     totalRevenue: 0,
     orderCount: 0,
