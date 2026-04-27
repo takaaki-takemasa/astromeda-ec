@@ -165,6 +165,49 @@ export function Sidebar({
         })}
       </div>
 
+      {/* patch 0173 (P0): ログアウトボタン (CEO 指摘「ログアウト UI が無い」根本修正)
+          サーバの POST /api/admin/logout を form 経由で叩き、ブラウザに Set-Cookie を
+          確実に適用させてからログイン画面へリダイレクト。fetch では cookie 適用が
+          不安定だったため form submit を採用。 */}
+      <form
+        method="POST"
+        action="/api/admin/logout"
+        style={{margin: '8px', borderTop: `1px solid ${color.border}`, paddingTop: 8}}
+      >
+        <button
+          type="submit"
+          aria-label="ログアウト"
+          style={{
+            width: '100%',
+            padding: collapsed ? '10px 0' : '10px 12px',
+            borderRadius: radius.md,
+            border: `1px solid ${color.border}`,
+            background: 'transparent',
+            color: color.textMuted,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: collapsed ? 'center' : 'flex-start',
+            gap: 8,
+            fontSize: 13,
+            fontFamily: 'inherit',
+            transition: `all ${transition.fast}`,
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.color = '#FF2D55';
+            e.currentTarget.style.borderColor = '#FF2D5566';
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.color = color.textMuted;
+            e.currentTarget.style.borderColor = color.border;
+          }}
+          title="ログアウト"
+        >
+          <span aria-hidden="true">🚪</span>
+          {!collapsed && <span>ログアウト</span>}
+        </button>
+      </form>
+
       {/* 折りたたみトグル（デスクトップのみ） */}
       {!isMobile && onToggleCollapse && (
         <button
