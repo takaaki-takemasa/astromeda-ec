@@ -279,13 +279,15 @@ export async function loader({context}: Route.LoaderArgs) {
 
   // patch 0174 (P0): hero_banner image=null の時、linkUrl から抽出したコレクション handle を
   // Storefront API で取得して image URL を埋める。
-  // 既存実装は IP_HANDLES に含まれるコレクションのみ imageMap で解決していたため、
-  // /collections/new-arrivals 等のシード handle が解決できず <img> がガードで完全に消えていた。
-  // 対象 handle: linkUrl='/collections/{handle}' の {handle} (IP_HANDLES に未含のみ)
-  // 取得失敗時は image:null のまま → HeroSlider のグラデーション placeholder にフォールバック
+  // patch 0176 (P0): image が GID 形式 ('gid://shopify/MediaImage/...') の時も、Storefront
+  // 側では URL に解決できないため fallback を発動。これで file_reference の MediaImage GID が
+  // 残っていても storefront で画像が表示される。
+  // image が http(s):// で始まる URL なら そのまま使う。それ以外 (空 or GID) は fallback 対象。
+  const isResolvableUrl = (img: string | null | undefined): boolean =>
+    !!img && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('//'));
   const heroFallbackHandles = Array.from(new Set(
     metaBannersRaw
-      .filter((b) => !b.image && b.linkUrl)
+      .filter((b) => !isResolvableUrl(b.image) && b.linkUrl)
       .map((b) => b.linkUrl!.match(/\/collections\/([^/?#]+)/)?.[1])
       .filter((h): h is string => !!h && !IP_HANDLES.includes(h)),
   ));
@@ -306,7 +308,8 @@ export async function loader({context}: Route.LoaderArgs) {
         }
       }
       metaBannersRaw.forEach((b) => {
-        if (b.image || !b.linkUrl) return;
+        // patch 0176: image が URL でない (空 or GID) なら fallback URL で上書き
+        if (isResolvableUrl(b.image) || !b.linkUrl) return;
         const h = b.linkUrl.match(/\/collections\/([^/?#]+)/)?.[1];
         if (h && handleToUrl.has(h)) b.image = handleToUrl.get(h)!;
       });
