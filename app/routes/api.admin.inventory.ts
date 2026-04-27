@@ -90,13 +90,22 @@ export async function loader({request, context}: LoaderFunctionArgs) {
 
     const client = await getAdminClient(contextEnv);
 
-    // location list (in case shop has multiple locations)
-    const locResp = await client.query<{
-      locations: {nodes: Array<{id: string; name: string; isActive: boolean}>};
-    }>(`{ locations(first: 20) { nodes { id name isActive } } }`);
-    const locations = (locResp.locations?.nodes || []).filter((l) => l.isActive);
+    // location list は read_locations scope が必要なため、無い環境ではスキップ
+    // 代わりに variant から取れる location.id を集約して location 名は admin UI 側で
+    // location id の最後の数字を 表示する (拠点が複数あれば後で scope 追加で対応)
+    let locations: Array<{id: string; name: string; isActive: boolean}> = [];
+    try {
+      const locResp = await client.query<{
+        locations: {nodes: Array<{id: string; name: string; isActive: boolean}>};
+      }>(`{ locations(first: 20) { nodes { id name isActive } } }`);
+      locations = (locResp.locations?.nodes || []).filter((l) => l.isActive);
+    } catch {
+      // read_locations scope がない場合は空のままにする (UI が代わりに id を表示)
+      locations = [];
+    }
 
     // variant list with inventory levels per location
+    // location.name は read_locations scope が必要なため id だけ取得
     const gql = `
       query Inventory($first: Int!, $after: String, $query: String) {
         productVariants(first: $first, after: $after, query: $query, sortKey: UPDATED_AT, reverse: true) {
@@ -120,7 +129,7 @@ export async function loader({request, context}: LoaderFunctionArgs) {
               inventoryLevels(first: 10) {
                 nodes {
                   id
-                  location { id name }
+                  location { id }
                   quantities(names: ["available", "incoming", "committed", "on_hand"]) {
                     name
                     quantity
@@ -149,7 +158,7 @@ export async function loader({request, context}: LoaderFunctionArgs) {
             inventoryLevels: {
               nodes: Array<{
                 id: string;
-                location: {id: string; name: string};
+                location: {id: string};
                 quantities: Array<{name: string; quantity: number}>;
               }>;
             };
@@ -158,14 +167,20 @@ export async function loader({request, context}: LoaderFunctionArgs) {
       };
     }>(gql, {first: limit, after: cursor, query: queryStr});
 
+    // location id → name のマップ (read_locations 取れた場合)
+    const locNameMap = new Map(locations.map((l) => [l.id, l.name]));
+
     const items = res.productVariants.nodes.map((v) => {
       const levels = v.inventoryItem?.inventoryLevels?.nodes || [];
       const flatLevels = levels.map((lvl) => {
         const q = (name: string) => lvl.quantities.find((x) => x.name === name)?.quantity ?? 0;
+        const locId = lvl.location.id;
+        // location 名: API から取得 → fallback に gid の末尾数字で「拠点 #ID」表示
+        const locName = locNameMap.get(locId) || `拠点 #${(locId.split('/').pop() || '?')}`;
         return {
           inventoryLevelId: lvl.id,
-          locationId: lvl.location.id,
-          locationName: lvl.location.name,
+          locationId: locId,
+          locationName: locName,
           available: q('available'),
           incoming: q('incoming'),
           committed: q('committed'),
