@@ -238,6 +238,18 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     line_hours: { type: 'single_line_text_field', maxLength: 100 },
     is_active: { type: 'boolean' },
   },
+  // patch 0166 (2026-04-27): セクション単位 HTML/CSS 上書き
+  // 他社デザイン会社が管理画面から HTML/CSS を上書きしてセクション単位でデザインを変える基盤。
+  // mode: 'default' = 元のデザイン / 'custom_html' = HTML 完全上書き / 'custom_css' = CSS だけ上書き
+  // custom_html / custom_css は sanitizeHtml で script/iframe/onclick/javascript: 除去 (multi_line_text_field 共通処理)
+  astromeda_section_override: {
+    section_key: { type: 'single_line_text_field', maxLength: 100, required: true },
+    mode: { type: 'single_line_text_field', maxLength: 20 }, // 'default' | 'custom_html' | 'custom_css'
+    custom_html: { type: 'multi_line_text_field', maxLength: 100000 },
+    custom_css: { type: 'multi_line_text_field', maxLength: 100000 },
+    is_active: { type: 'boolean' },
+    notes: { type: 'multi_line_text_field', maxLength: 1000 },
+  },
 };
 
 // ── バリデーションエラー ──

@@ -47,6 +47,8 @@ const ALLOWED_TYPES = [
   'astromeda_gaming_price_range',
   'astromeda_gaming_hero_slide',
   'astromeda_gaming_contact',
+  // patch 0166 (2026-04-27): セクション単位 HTML/CSS 上書き (他社デザイン会社向け一括変更基盤)
+  'astromeda_section_override',
 ] as const;
 
 type AllowedType = (typeof ALLOWED_TYPES)[number];

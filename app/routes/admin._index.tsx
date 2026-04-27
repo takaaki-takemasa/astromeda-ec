@@ -57,6 +57,8 @@ const AdminMembers = lazy(() => import('~/components/admin/tabs/AdminMembers'));
 const AdminInventory = lazy(() => import('~/components/admin/tabs/AdminInventory'));
 // patch 0161: マーケ分析 (流入経路・CVR・クリック・商品ランキング)
 const AdminMarketingStats = lazy(() => import('~/components/admin/tabs/AdminMarketingStats'));
+// patch 0166: セクション単位 HTML/CSS 上書き (他社デザイン会社向け一括変更基盤)
+const AdminSectionOverride = lazy(() => import('~/components/admin/tabs/AdminSectionOverride'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -123,8 +125,9 @@ interface LoaderData {
   revenue30d: RevenueData;
   revenue365d: RevenueData;
   pendingApprovals: number;
-  /** patch 0049: 現在ログインしているロール (Phase E: RBAC 可視化) */
-  currentRole: 'owner' | 'admin' | 'editor' | 'viewer';
+  /** patch 0049: 現在ログインしているロール (Phase E: RBAC 可視化)
+   *  patch 0165: vendor 追加 */
+  currentRole: 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer';
   /** patch 0049: ログインユーザーの email（未保存なら undefined） */
   currentEmail?: string;
 }
@@ -215,7 +218,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     }
 
     // patch 0049: セッションから role / email を抽出して Phase E RoleBadge に供給
-    let currentRole: 'owner' | 'admin' | 'editor' | 'viewer' = 'owner';
+    // patch 0165: vendor 追加
+    let currentRole: 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer' = 'owner';
     let currentEmail: string | undefined;
     try {
       const env = context.env as Env;
@@ -288,7 +292,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members' | 'inventory' | 'marketingStats';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members' | 'inventory' | 'marketingStats' | 'sectionOverride';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -346,7 +350,7 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0123 Phase A: uxr (お客様の動きを見る) を analytics の隣に追加
   // patch 0124 Phase B: sessions (お客様セッション再生) を uxr の隣に追加
   // patch 0125 Phase C: funnel (来訪→商品→カート→購入手続きの離脱率) を sessions の隣に追加
-  commerce: { tabs: ['products', 'inventory', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'marketingStats', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
+  commerce: { tabs: ['products', 'inventory', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'sectionOverride', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'marketingStats', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   // patch 0156: 上級者設定に 👥 メンバー管理タブを追加
@@ -397,6 +401,8 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   inventory: '📦 在庫',
   // patch 0161: マーケ分析 (流入経路・CVR・クリック・売れた商品)
   marketingStats: '📈 マーケ分析',
+  // patch 0166: セクション単位 HTML/CSS 上書き (他社デザイン会社向け一括変更基盤)
+  sectionOverride: '🎨 デザイン上書き',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
@@ -938,6 +944,12 @@ export default function AdminDashboard() {
           {subTab === 'marketingStats' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminMarketingStats />
+            </Suspense>
+          )}
+          {/* patch 0166: 🎨 セクション単位 HTML/CSS 上書きタブ (他社デザイン会社向け基盤) */}
+          {subTab === 'sectionOverride' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminSectionOverride />
             </Suspense>
           )}
         </main>

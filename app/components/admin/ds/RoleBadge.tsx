@@ -18,7 +18,8 @@
 import type {CSSProperties} from 'react';
 import {color, font, radius, space} from '~/lib/design-tokens';
 
-export type RoleBadgeRole = 'owner' | 'admin' | 'editor' | 'viewer';
+// patch 0165: vendor (他社デザイン会社等の限定ロール) を追加
+export type RoleBadgeRole = 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer';
 
 interface RoleBadgeProps {
   role: RoleBadgeRole;
@@ -29,6 +30,7 @@ const ROLE_LABELS: Record<RoleBadgeRole, string> = {
   owner: 'OWNER',
   admin: 'ADMIN',
   editor: 'EDITOR',
+  vendor: '外注先',
   viewer: 'VIEWER',
 };
 
@@ -36,6 +38,7 @@ const ROLE_COLOR: Record<RoleBadgeRole, {bg: string; fg: string}> = {
   owner: {bg: 'rgba(255,179,0,0.15)', fg: color.yellow},
   admin: {bg: 'rgba(0,240,255,0.12)', fg: color.cyan},
   editor: {bg: 'rgba(0,230,118,0.12)', fg: color.green},
+  vendor: {bg: 'rgba(168,85,247,0.15)', fg: '#A855F7'},
   viewer: {bg: 'rgba(255,255,255,0.08)', fg: color.textMuted},
 };
 
@@ -43,6 +46,8 @@ const ROLE_DESC: Record<RoleBadgeRole, string> = {
   owner: '全権限。RBAC で制限なし',
   admin: '商品/注文/コンテンツの編集まで可能',
   editor: 'コンテンツのみ編集可能',
+  // patch 0165: vendor (他社デザイン会社等の限定ロール)
+  vendor: 'ゲーミングPCタブ + コラボ以外の商品/コレクションのみ編集可能',
   viewer: '閲覧のみ',
 };
 
