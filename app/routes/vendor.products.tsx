@@ -62,6 +62,7 @@ export default function VendorProducts() {
   const [newTagInput, setNewTagInput] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   const [saving, setSaving] = useState(false);
+  const [imageUploading, setImageUploading] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const fetchProducts = useCallback(async () => {
@@ -242,15 +243,56 @@ export default function VendorProducts() {
                 <div style={{fontSize: 12, color: C.muted, marginBottom: 4}}>商品名 (編集不可)</div>
                 <div style={{padding: 10, background: C.panel, border: `1px solid ${C.border}`, borderRadius: 6, fontSize: 14}}>{editing.title}</div>
               </div>
-              {imageUrl && (
-                <div style={{marginBottom: 16}}>
-                  <div style={{fontSize: 12, color: C.muted, marginBottom: 4}}>現在の画像</div>
-                  <img src={imageUrl} alt="" style={{maxWidth: '100%', maxHeight: 200, background: C.panel, borderRadius: 6}} />
-                  <div style={{fontSize: 11, color: C.muted, marginTop: 8}}>
-                    💡 画像差し替えは Phase 2.2 で実装予定。今は現在の画像を確認のみできます。
-                  </div>
-                </div>
-              )}
+              <div style={{marginBottom: 16}}>
+                <div style={{fontSize: 12, color: C.muted, marginBottom: 4}}>現在の画像 (差し替え可)</div>
+                {imageUrl && (
+                  <img src={imageUrl} alt="" style={{maxWidth: '100%', maxHeight: 200, background: C.panel, borderRadius: 6, display: 'block', marginBottom: 8}} />
+                )}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  disabled={imageUploading}
+                  onChange={async (e) => {
+                    const file = e.currentTarget.files?.[0];
+                    if (!file || !editing) return;
+                    setImageUploading(true);
+                    try {
+                      // Step 1: get staged upload target
+                      const stagedRes = await fetch('/api/admin/images', {
+                        method: 'POST', credentials: 'include',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({action: 'staged_upload', filename: file.name, mimeType: file.type, fileSize: file.size}),
+                      });
+                      const stagedJson = await stagedRes.json();
+                      if (!stagedJson.success) throw new Error('staged_upload: ' + (stagedJson.error || 'failed'));
+                      const target = stagedJson.stagedTarget;
+                      // Step 2: POST binary to staged target (GCS)
+                      const fd = new FormData();
+                      for (const p of target.parameters) fd.append(p.name, p.value);
+                      fd.append('file', file, file.name);
+                      const up = await fetch(target.url, {method: 'POST', body: fd, mode: 'cors'});
+                      if (!up.ok) throw new Error('staged-target POST failed: ' + up.status);
+                      // Step 3: attach to product
+                      const attachRes = await fetch('/api/admin/images', {
+                        method: 'POST', credentials: 'include',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({action: 'attach_product', productId: editing.id, resourceUrl: target.resourceUrl, alt: editing.title}),
+                      });
+                      const attachJson = await attachRes.json();
+                      if (!attachJson.success) throw new Error('attach_product: ' + (attachJson.error || 'failed'));
+                      setImageUrl(attachJson.media?.image?.url || imageUrl);
+                      setToast('画像を差し替えました');
+                      await fetchProducts();
+                    } catch (err) {
+                      setToast(`エラー: ${(err as Error).message}`);
+                    }
+                    setImageUploading(false);
+                    setTimeout(() => setToast(null), 4000);
+                  }}
+                  style={{fontSize: 13, color: C.text}}
+                />
+                {imageUploading && <div style={{fontSize: 12, color: C.accent, marginTop: 6}}>📤 アップロード中…</div>}
+              </div>
               <div style={{marginBottom: 16}}>
                 <div style={{fontSize: 12, color: C.muted, marginBottom: 4}}>タグ</div>
                 <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>

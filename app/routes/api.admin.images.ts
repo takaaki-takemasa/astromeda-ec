@@ -91,6 +91,27 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'attach_product': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0184 Phase 2.2 (2026-04-27): vendor 深層防御 — vendor は
+        // vendor:{username} tag が付いた商品にしか画像を attach できない。
+        // CEO 指示「ベンダーが触れるところのみ表示」への server side 強制。
+        if (role === 'vendor') {
+          const username = (session.get('username') as string | undefined) ?? '';
+          if (!username) {
+            return data({ success: false, error: 'username 未設定のため vendor として商品を編集できません' }, { status: 403 });
+          }
+          const vendorTag = `vendor:${username}`;
+          // 商品の tags を取得して確認 (vendor 担当判定)
+          try {
+            const productInfo = await client.getProductDetail(v.productId);
+            const productTags = productInfo?.tags || [];
+            if (!productTags.includes(vendorTag)) {
+              auditLog({ action: 'product_update', role, resource: `product/${v.productId}/media`, detail: `vendor blocked: missing ${vendorTag}`, success: false });
+              return data({ success: false, error: `この商品はあなたの担当ではありません (${vendorTag} タグが付いていません)` }, { status: 403 });
+            }
+          } catch {
+            return data({ success: false, error: '商品情報の取得に失敗しました' }, { status: 500 });
+          }
+        }
         const result = await client.productImageCreate(v.productId, v.resourceUrl, v.alt);
         auditLog({ action: 'product_update', role, resource: `product/${v.productId}/media`, detail: 'image_attach', success: true });
         return data({ success: true, media: result });
