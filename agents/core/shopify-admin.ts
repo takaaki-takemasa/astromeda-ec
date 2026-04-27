@@ -47,6 +47,12 @@ export interface VariantInput {
 export interface MetaobjectField {
   key: string;
   value: string;
+  /**
+   * patch 0177: file_reference 型フィールドの解決済 URL。
+   * 値が gid://shopify/MediaImage/... のとき、実際の CDN URL を埋める。
+   * Storefront 側で file_reference の GID を直接 <img src> に出すと natural=0 になる事故を防ぐ。
+   */
+  resolvedUrl?: string | null;
 }
 
 /** メタオブジェクト定義のフィールド */
@@ -2300,6 +2306,10 @@ export class ShopifyAdminClient {
    * GET /api/admin/* がレスポンスに updatedAt を含められるようにするため。
    */
   async getMetaobjects(type: string, first = 50): Promise<Array<{id: string; handle: string; updatedAt: string; fields: MetaobjectField[]}>> {
+    // patch 0177: fields に reference 解決を追加。
+    // file_reference 型フィールド（image など）の値は gid://shopify/MediaImage/... 形式の生 GID で、
+    // Storefront / <img> 側でそのままでは表示できない。reference サブセレクションで MediaImage の
+    // 実 CDN URL（image.url）を取り、後続コードが resolvedUrl 優先で読めるようにする。
     const gql = `
       query getMetaobjects($type: String!, $first: Int!) {
         metaobjects(type: $type, first: $first) {
@@ -2307,7 +2317,16 @@ export class ShopifyAdminClient {
             id
             handle
             updatedAt
-            fields { key value }
+            fields {
+              key
+              value
+              reference {
+                __typename
+                ... on MediaImage {
+                  image { url }
+                }
+              }
+            }
           }
         }
       }
@@ -2316,11 +2335,29 @@ export class ShopifyAdminClient {
     try {
       const res = await this.query<{
         metaobjects: {
-          nodes: Array<{id: string; handle: string; updatedAt: string; fields: Array<{key: string; value: string}>}>;
+          nodes: Array<{
+            id: string;
+            handle: string;
+            updatedAt: string;
+            fields: Array<{
+              key: string;
+              value: string;
+              reference?: {__typename?: string; image?: {url?: string} | null} | null;
+            }>;
+          }>;
         };
       }>(gql, {type, first});
 
-      return res.metaobjects?.nodes || [];
+      const nodes = res.metaobjects?.nodes || [];
+      // reference.image.url を resolvedUrl に正規化（呼び出し側の分岐を不要にする）
+      return nodes.map((n) => ({
+        ...n,
+        fields: n.fields.map((f) => ({
+          key: f.key,
+          value: f.value,
+          resolvedUrl: f.reference?.image?.url ?? null,
+        })),
+      }));
     } catch (err) {
       this.notifyError('getMetaobjects', err);
       return [];

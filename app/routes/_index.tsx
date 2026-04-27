@@ -214,6 +214,22 @@ export async function loader({context}: Route.LoaderArgs) {
     return m;
   };
 
+  // patch 0177: file_reference 型フィールド (image など) を resolvedUrl 優先で取得。
+  // value が gid://... の生 GID でも、shopify-admin.ts が reference.image.url を resolvedUrl に
+  // 詰めてくれるので、storefront 側はその CDN URL を即使える。
+  // resolvedUrl が無く value が http(s):// なら value をそのまま、それ以外は null。
+  const resolveImageField = (
+    fields: Array<{key: string; value: string; resolvedUrl?: string | null}>,
+    key: string,
+  ): string | null => {
+    const f = fields.find((x) => x.key === key);
+    if (!f) return null;
+    if (f.resolvedUrl) return f.resolvedUrl;
+    const v = f.value || '';
+    if (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('//')) return v;
+    return null;
+  };
+
   // patch 0011: cms-seed が複数回走った痕跡で pc_color 16件 (8×2) / ip_banner 46件 (23×2)
   // のような重複が Metaobject 側に残り、storefront に直接流れて二重表示を起こすため、
   // ユーザ視点の一意キー (slug / shopHandle / title+linkUrl) で畳み込む。
@@ -250,7 +266,8 @@ export async function loader({context}: Route.LoaderArgs) {
       handle: mo.handle,
       name: f['name'] || '',
       shopHandle: f['collection_handle'] || '',
-      image: f['image'] || null,
+      // patch 0177: file_reference (image) を resolvedUrl 優先で URL 化。生 GID は除外。
+      image: resolveImageField(mo.fields, 'image'),
       tagline: f['tagline'] || null,
       label: f['label'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
@@ -267,7 +284,8 @@ export async function loader({context}: Route.LoaderArgs) {
       handle: mo.handle,
       title: f['title'] || '',
       subtitle: f['subtitle'] || null,
-      image: f['image'] || null,
+      // patch 0177: file_reference (image) を resolvedUrl 優先で URL 化。生 GID は除外。
+      image: resolveImageField(mo.fields, 'image'),
       linkUrl: f['link_url'] || null,
       ctaLabel: f['cta_label'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
