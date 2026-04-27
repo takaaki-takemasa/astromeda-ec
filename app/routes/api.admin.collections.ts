@@ -293,10 +293,32 @@ export async function action({request, context}: Route.ActionArgs) {
     setAdminEnv(contextEnv);
     const client = getAdminClient();
 
+    // patch 0171 (P0): vendor は IP コラボのコレクション (HANDLE_TO_IP に登録済) を編集不可
+    const {assertVendorCanEditCollection} = await import('~/lib/vendor-scope');
+    const vendorScopeClient = {
+      getCollection: async (id: string) => {
+        const c = await client.getCollectionDetail(id).catch(() => null);
+        if (!c) return null;
+        const cc = c as {id: string; title?: string; handle?: string};
+        return {id: cc.id, title: cc.title || '', handle: cc.handle || ''};
+      },
+    };
+
     switch (body.action) {
       case 'create': {
         // patch 0147: publish フラグを取り出して createCollection の options へ
         const {action: _ignored, publish, ...input} = body;
+        // patch 0171 (P0): vendor は handle / title が IP コラボ系なら作成不可
+        if (role === 'vendor') {
+          const {detectIP, HANDLE_TO_IP} = await import('~/lib/collection-helpers');
+          const ip = detectIP(body.title || '', []);
+          if (ip || (body.handle && HANDLE_TO_IP[body.handle])) {
+            const {AppError} = await import('~/lib/app-error');
+            throw AppError.forbidden(
+              `このコレクション (${body.title || body.handle}) は IP コラボと判定されました。外注先ロールでは作成できません。`,
+            );
+          }
+        }
         // image.id が MediaImage GID 以外の場合は src のみ送る（Shopify 側仕様に合わせる）
         const result = await client.createCollection(input, {publish: publish !== false});
         // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
@@ -321,6 +343,8 @@ export async function action({request, context}: Route.ActionArgs) {
       }
       case 'update': {
         const {action: _ignored, id, expectedUpdatedAt, ...fields} = body;
+        // patch 0171 (P0): vendor は IP コラボ コレクションを編集不可
+        await assertVendorCanEditCollection(role, id, vendorScopeClient);
 
         // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
         // 両方で current を共有 (Shopify API call を1回に集約)
@@ -370,6 +394,8 @@ export async function action({request, context}: Route.ActionArgs) {
       }
       case 'delete': {
         const {id} = body;
+        // patch 0171 (P0): vendor は IP コラボ コレクションを削除不可
+        await assertVendorCanEditCollection(role, id, vendorScopeClient);
         // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
         const current = await client.getCollectionDetail(id).catch(() => null);
         await client.deleteCollection(id);

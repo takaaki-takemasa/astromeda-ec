@@ -16,6 +16,9 @@ import {T, al, COLLABS} from '~/lib/astromeda-data';
 import PreviewFrame, {type PreviewDevice} from '~/components/admin/preview/PreviewFrame';
 import {HeroSlider} from '~/components/astro/HeroSlider';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
+// patch 0171 (P0): 画像入力を <input type="text"> から ImagePicker に置換
+// (CDN URL 直貼り → file_reference 変換失敗 → silent drop 経路を排除)
+import {ImagePicker} from '~/components/admin/ds/ImagePicker';
 import {
   type HeroBanner,
   type SectionProps,
@@ -135,9 +138,19 @@ export function HeroBannersSection({pushToast, confirm}: SectionProps) {
     const res = await apiPost('/api/admin/homepage', body);
     setSaving(false);
     if (res.success) {
-      pushToast('保存しました', 'success');
-      setEditing(null);
-      setCreating(false);
+      // patch 0171 (P0): image silent drop の検知 — image-resolver が GID 解決失敗時に
+      // image フィールドを silent splice する事故を、imageNotes として可視化。
+      const notes = (res as {imageNotes?: string[]}).imageNotes;
+      const dropped = Array.isArray(notes)
+        ? notes.find((n) => /dropped|fileCreate-failed|unresolvable/i.test(n))
+        : undefined;
+      if (dropped) {
+        pushToast(`⚠️ 画像保存に失敗しました: ${dropped}\nもう一度ファイルを選び直してください。`, 'error');
+      } else {
+        pushToast('保存しました', 'success');
+        setEditing(null);
+        setCreating(false);
+      }
       await load();
     } else {
       pushToast(`失敗: ${res.error || 'unknown'}`, 'error');
@@ -480,8 +493,20 @@ function HeroBannerForm({
           <input type="text" value={subtitle} onChange={(e) => setSubtitle(e.target.value)} style={inputStyle} />
         </div>
         <div>
-          <label style={labelStyle}>画像（画像URL または Shopify 画像ID）</label>
-          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
+          {/* patch 0171 (P0): 画像入力を ImagePicker に統一。
+              旧 <input type="text"> 経路は CDN URL → fileCreate 失敗時に
+              image-resolver が silent に splice する事故 (本番ヒーローバナー
+              全件 image=null 化) の根本原因。upload/library/URL の 3 経路は
+              ImagePicker 内で staged upload → resourceUrl → fileGid に
+              一本化されているため安全。 */}
+          <ImagePicker
+            value={image}
+            onChange={setImage}
+            label="画像 (アップロード/Shopifyライブラリ/URL から選べます)"
+            optional
+            hint="トップページのヒーローに表示する画像。空欄ならコレクション画像のフォールバックを使用します。"
+            initialMode="upload"
+          />
         </div>
         <div>
           <label style={labelStyle}>リンク URL</label>

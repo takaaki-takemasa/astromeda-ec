@@ -450,6 +450,12 @@ export async function action({ request, context }: Route.ActionArgs) {
     switch (validated.action) {
       case 'create': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0171 (P0): vendor は IP コラボ商品 (NARUTO/呪術廻戦/ホロライブ等) を作成不可
+        const {assertVendorCanCreateProduct} = await import('~/lib/vendor-scope');
+        assertVendorCanCreateProduct(role, {
+          title: (validated.product as {title?: string}).title,
+          tags: (validated.product as {tags?: string[]}).tags,
+        });
         const result = await client.createProduct(validated.product);
         // patch 0116: P2-6 — before/after snapshot (新規作成: before=null)
         const diff = computeFieldDiff(null, validated.product as unknown as Record<string, unknown>);
@@ -465,6 +471,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'update': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0171 (P0): vendor は IP コラボ商品の編集不可
+        const {assertVendorCanEditProduct} = await import('~/lib/vendor-scope');
+        await assertVendorCanEditProduct(role, validated.productId, {
+          getProduct: async (id: string) => {
+            const p = await client.getProductDetail(id).catch(() => null);
+            if (!p) return null;
+            const pp = p as {id: string; title?: string; tags?: string[]; productType?: string};
+            return {id: pp.id, title: pp.title || '', tags: pp.tags || [], productType: pp.productType};
+          },
+        });
 
         // patch 0115: P2-5 楽観的ロック CAS + patch 0116: P2-6 before/after snapshot
         // 両方で current を共有 (Shopify API call を1回に集約)
@@ -564,6 +580,16 @@ export async function action({ request, context }: Route.ActionArgs) {
 
       case 'delete': {
         const role = requirePermission(session, 'products.edit');
+        // patch 0171 (P0): vendor は IP コラボ商品を削除不可
+        const {assertVendorCanEditProduct} = await import('~/lib/vendor-scope');
+        await assertVendorCanEditProduct(role, validated.productId, {
+          getProduct: async (id: string) => {
+            const p = await client.getProductDetail(id).catch(() => null);
+            if (!p) return null;
+            const pp = p as {id: string; title?: string; tags?: string[]; productType?: string};
+            return {id: pp.id, title: pp.title || '', tags: pp.tags || [], productType: pp.productType};
+          },
+        });
         // patch 0116: P2-6 — 削除前にスナップショットを取得 (before=現在値, after=null)
         const current = await client.getProductDetail(validated.productId).catch(() => null);
         const result = await client.deleteProduct(validated.productId);
