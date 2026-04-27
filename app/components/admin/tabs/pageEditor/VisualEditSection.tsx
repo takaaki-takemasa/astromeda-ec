@@ -455,6 +455,82 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
         })}
       </div>
 
+      {/* patch 0163: 「新しいセクションを追加する方法がない」CEO 指摘への対処 —
+          現在ページの全セクション (= サブタブ) を 1 か所に並べ、各セクションに
+          「＋ 新しいバナー / カード を追加」CTA を置く。これで「セクション = サブタブ」
+          というメンタルモデルを可視化する。新セクション枠そのものの追加は構造変更なので
+          下部の info card で「開発チームへ依頼」と素直に説明する。 */}
+      <div style={{
+        marginBottom: 14,
+        padding: 12,
+        background: al(T.c, 0.05),
+        border: `1px solid ${al(T.c, 0.25)}`,
+        borderRadius: 8,
+      }}>
+        <div style={{fontSize: 12, fontWeight: 800, color: T.tx, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 6}}>
+          <span style={{fontSize: 14}}>＋</span>
+          このページに新しいセクション項目を追加する ({sections.filter((s) => s.navTab).length} 種類)
+        </div>
+        <div style={{fontSize: 11, color: T.t4, marginBottom: 10, lineHeight: 1.5}}>
+          下のボタンから、追加したいセクションの編集画面に移動できます。各画面で「＋ 新規追加」を押して項目を増やしてください。
+        </div>
+        <div style={{display: 'flex', flexWrap: 'wrap', gap: 6}}>
+          {sections.filter((s) => s.navTab).map((sec) => (
+            <button
+              key={sec.key}
+              type="button"
+              onClick={() => onNavigate(sec.navTab as SubTab)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '8px 12px',
+                background: T.bg,
+                color: T.tx,
+                border: `1.5px solid ${sec.color}`,
+                borderRadius: 6,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = sec.color + '22'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = T.bg; }}
+              title={`${sec.label} の編集画面へ移動`}
+              aria-label={`${sec.label} に新しい項目を追加`}
+            >
+              <span style={{
+                display: 'inline-block',
+                width: 18,
+                height: 18,
+                borderRadius: '50%',
+                background: sec.color,
+                color: '#0a0a0a',
+                fontSize: 10,
+                fontWeight: 900,
+                lineHeight: '18px',
+                textAlign: 'center',
+              }}>{sec.num}</span>
+              <span style={{fontSize: 14}}>{sec.icon}</span>
+              <span>{sec.label}</span>
+              <span style={{color: T.c, fontWeight: 800, marginLeft: 2}}>＋</span>
+            </button>
+          ))}
+        </div>
+        <div style={{
+          marginTop: 10,
+          padding: '8px 10px',
+          background: al(T.tx, 0.04),
+          borderRadius: 6,
+          fontSize: 11,
+          color: T.t5,
+          lineHeight: 1.5,
+        }}>
+          <b style={{color: T.t4}}>※</b> 全く新しい種類のセクション枠 (例: イベントカウントダウン、新着情報バー) を追加したい場合は、現在の機能では対応できません。開発チームへ依頼してください。
+        </div>
+      </div>
+
       <div style={{display: 'flex', gap: 16, flexWrap: 'wrap'}}>
         {/* LEFT: live storefront iframe */}
         <div style={{flex: '1 1 640px', minWidth: 320}}>

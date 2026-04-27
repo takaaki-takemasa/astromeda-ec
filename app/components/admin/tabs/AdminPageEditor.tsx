@@ -118,12 +118,55 @@ export default function AdminPageEditor() {
         </div>
       </div>
 
-      <div style={{display: 'flex', gap: 4, marginBottom: 16, borderBottom: `1px solid ${al(T.tx, 0.1)}`, flexWrap: 'wrap'}}>
+      {/* patch 0163: タブ strip を sticky 化 — 長いセクションの中からでも他タブに移れる
+          CEO 指摘「各タブ内をクリックすると、ひとつ前のタブセクションに戻ることができない」 */}
+      <div style={{
+        display: 'flex',
+        gap: 4,
+        marginBottom: 16,
+        borderBottom: `1px solid ${al(T.tx, 0.1)}`,
+        flexWrap: 'wrap',
+        position: 'sticky',
+        top: 0,
+        zIndex: 10,
+        background: T.bg,
+        padding: '6px 0 0',
+        boxShadow: `0 4px 12px -8px ${al(T.tx, 0.2)}`,
+      }}>
+        {/* 「ページ編集の最初に戻る」= visual タブへのショートカット */}
+        {subTab !== 'visual' && (
+          <button
+            type="button"
+            onClick={() => {
+              setSubTab('visual');
+              window.scrollTo({top: 0, behavior: 'smooth'});
+            }}
+            title="ページ編集のトップ (ビジュアル編集) に戻る"
+            aria-label="ページ編集のトップに戻る"
+            style={{
+              padding: '10px 14px',
+              background: al(T.c, 0.1),
+              border: `1px solid ${al(T.c, 0.3)}`,
+              borderRadius: 6,
+              color: T.c,
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              marginRight: 6,
+            }}
+          >
+            ← ページ編集トップ
+          </button>
+        )}
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
-            onClick={() => setSubTab(t.key)}
+            onClick={() => {
+              setSubTab(t.key);
+              window.scrollTo({top: 0, behavior: 'smooth'});
+            }}
             style={{
               padding: '10px 18px',
               background: 'transparent',
