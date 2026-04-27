@@ -15,7 +15,39 @@
         "https://shop.mining-base.co.jp/cdn/shop/files/white04_e93c5c9b-48fa-440d-b1af-a5500af89676_2000x.jpg",
         "https://shop.mining-base.co.jp/cdn/shop/files/white05_e9612a57-1cb1-4d69-8cac-ffcec5c99318_2000x.jpg",
         "https://shop.mining-base.co.jp/cdn/shop/files/white06_877dc8fc-0d07-43ba-a23f-1959d11fc166_2000x.jpg",
-        "https://shop.mining-base.co.jp/cdn/shop/files/white07_a5f0eeb7-7363-4ad6-91e5-4b50e4c6524f_2000x.jpg"
+        "https://shop.mining-base.co.jp/cdn/shop/files/white07_a5f0eeb7-7363-4ad6-91e5-4b50e4c6524f_2000x.jpg",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_176a6e34-afe5-41f8-9ed6-40bb4c45a421.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_c09915a1-3959-49b3-a953-2027f439e396.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_ba16b11c-df11-4f9f-8b9e-369033f3880f.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_76d2478a-7913-41e8-9d5b-d7d14fd83d8e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_b89cca9d-cc10-4dbe-b21a-23541c9f1cc3.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_fd33a651-d98f-4021-a590-22292529e055.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_e72ac2f0-a09b-43cc-b33a-17dd692d6647.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_9082717b-d8e8-4fe8-a357-18e2d3b14997.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_638a631e-6b97-4e19-93ab-1a50c728902e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_4dfd177a-5683-486b-b32c-0d7551618538.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_a3fa2314-fadf-442c-ad83-f0fb9875d772.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_9609d6fb-62a1-4859-9f1c-bfeb5c002354.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_b0a20378-0940-43fb-964b-245eee4f29b5.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_05e47971-1fb7-4cbc-9c03-104c0ad42c3d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_40ec1a2f-c7de-47aa-9d35-d7e741e914ea.png"
+      ],
+      "localProducts": [
+        "/assets/setup/white/3_176a6e34-afe5-41f8-9ed6-40bb4c45a421.png",
+        "/assets/setup/white/2_c09915a1-3959-49b3-a953-2027f439e396.png",
+        "/assets/setup/white/4_ba16b11c-df11-4f9f-8b9e-369033f3880f.png",
+        "/assets/setup/white/5_76d2478a-7913-41e8-9d5b-d7d14fd83d8e.png",
+        "/assets/setup/white/1_b89cca9d-cc10-4dbe-b21a-23541c9f1cc3.png",
+        "/assets/setup/white/3_fd33a651-d98f-4021-a590-22292529e055.png",
+        "/assets/setup/white/2_e72ac2f0-a09b-43cc-b33a-17dd692d6647.png",
+        "/assets/setup/white/4_9082717b-d8e8-4fe8-a357-18e2d3b14997.png",
+        "/assets/setup/white/1_638a631e-6b97-4e19-93ab-1a50c728902e.png",
+        "/assets/setup/white/5_4dfd177a-5683-486b-b32c-0d7551618538.png",
+        "/assets/setup/white/3_a3fa2314-fadf-442c-ad83-f0fb9875d772.png",
+        "/assets/setup/white/2_9609d6fb-62a1-4859-9f1c-bfeb5c002354.png",
+        "/assets/setup/white/4_b0a20378-0940-43fb-964b-245eee4f29b5.png",
+        "/assets/setup/white/1_05e47971-1fb7-4cbc-9c03-104c0ad42c3d.png",
+        "/assets/setup/white/5_40ec1a2f-c7de-47aa-9d35-d7e741e914ea.png"
       ]
     },
     "black": {
@@ -29,38 +61,247 @@
         "https://shop.mining-base.co.jp/cdn/shop/files/black04_730c1b77-f90c-425d-8916-14cb91850293_2000x.jpg",
         "https://shop.mining-base.co.jp/cdn/shop/files/black05_97dacf67-29e8-47c7-a6d4-7315454a907a_2000x.jpg",
         "https://shop.mining-base.co.jp/cdn/shop/files/black06_ceebc4d1-4744-49b3-a138-668342646c4a_2000x.jpg",
-        "https://shop.mining-base.co.jp/cdn/shop/files/black07_4da140c3-72d3-4f7b-bcdf-830679f422a0_2000x.jpg"
+        "https://shop.mining-base.co.jp/cdn/shop/files/black07_4da140c3-72d3-4f7b-bcdf-830679f422a0_2000x.jpg",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_bb534cd0-92d0-48a1-8098-baff83740d18.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_51830348-7155-4ddb-929b-2487a328d7eb.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_97b59fb7-41e9-43a4-a8e7-4d65c0bf6c27.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_7773e28e-6386-424b-8c67-b5a899114ac3.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_aae0c1f1-fe5c-4ca1-ae58-2e9b1943c207.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_9d3b2184-b0f4-4f43-828f-b522385d52b4.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_5c4f9fe8-661d-4e16-abd9-72e3ed5289c7.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_ec7a261f-e28e-4235-b539-eb62b928d07d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_0f9cc587-6016-4e61-8cdd-4f02fd240873.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_941a0580-a876-4b5b-95b1-e7f52f1e0a5a.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_17ee53ee-3a7c-4cd6-890b-fd68826a8ef6.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_6a31019e-63e2-42ce-81a0-0be2eb77a638.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_7200394b-7eec-4292-a9ef-a13be16ccc8e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_b5827906-9b30-4118-87b9-ae218c62aa5a.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_987457b1-0b3e-4e20-a367-abf4933d2c20.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_9cdf2923-f8d6-439f-8e07-79deb49ddacc.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_fd700a85-ee8a-4a41-b675-59553e9556bf.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_14ea89eb-9845-4d44-b16c-9f4b5a46d5b2.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_034afd27-2df2-4330-a3bc-615e3b9c5c37.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_9bb2c8ba-8470-476e-a45e-e84d51a6d58e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_20400496-82a1-4501-a60e-de075e96e533.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_88549997-cbcf-44c3-be97-b02ee1334995.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_badb7453-4f2e-4c83-a888-7be692c8de3d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_4b6901b4-6e70-4e2d-aef2-b1eb0cb5b4d1.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_57f99d96-6ca7-4fd9-9d17-c8cf795fb44e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_de78fb18-dad1-47ae-81f8-e1986643958c.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_1f83a89c-029f-4120-9e3f-ca6c07747138.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_c85d51b9-2124-45fd-97a0-fa1d97101c10.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_143d1ac4-af9a-4f1e-aebb-3950770ec167.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_5d50f7b2-d9bc-4e29-b6e4-9349636b639e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_e1d4c51f-c769-4c6c-b87b-4b5a8bf8cefa.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_f41ade0d-9a04-4ca6-adca-7bb8f85364c7.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_b78aee1d-e36d-45ed-a725-60d1b1dbdf9e.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_d1c844c9-969f-4aae-a77d-9a4b3cca4f30.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_563f95c8-c002-442e-aa70-9d1b7a135ae4.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_8ca0fea5-ffe7-4560-b590-abd778f302ac.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_6a317ffc-117c-4cc1-ac21-85cbe654566b.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_de04e18c-cf57-43ea-83e7-0977ebe44b7d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_3089d492-c9b0-49e3-a848-0cad766e82d8.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_56d980ad-7469-43b0-97fe-e033e91d0478.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_6ca422ed-849e-438d-a3b6-d62ca0da5475.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/top_black_ededf1cf-b331-4b69-9ee6-1cdf32081b86.png"
+      ],
+      "localProducts": [
+        "/assets/setup/black/3_bb534cd0-92d0-48a1-8098-baff83740d18.png",
+        "/assets/setup/black/2_51830348-7155-4ddb-929b-2487a328d7eb.png",
+        "/assets/setup/black/4_97b59fb7-41e9-43a4-a8e7-4d65c0bf6c27.png",
+        "/assets/setup/black/5_7773e28e-6386-424b-8c67-b5a899114ac3.png",
+        "/assets/setup/black/1_aae0c1f1-fe5c-4ca1-ae58-2e9b1943c207.png",
+        "/assets/setup/black/3_9d3b2184-b0f4-4f43-828f-b522385d52b4.png",
+        "/assets/setup/black/2_5c4f9fe8-661d-4e16-abd9-72e3ed5289c7.png",
+        "/assets/setup/black/4_ec7a261f-e28e-4235-b539-eb62b928d07d.png",
+        "/assets/setup/black/5_0f9cc587-6016-4e61-8cdd-4f02fd240873.png",
+        "/assets/setup/black/1_941a0580-a876-4b5b-95b1-e7f52f1e0a5a.png",
+        "/assets/setup/black/3_17ee53ee-3a7c-4cd6-890b-fd68826a8ef6.png",
+        "/assets/setup/black/2_6a31019e-63e2-42ce-81a0-0be2eb77a638.png",
+        "/assets/setup/black/4_7200394b-7eec-4292-a9ef-a13be16ccc8e.png",
+        "/assets/setup/black/5_b5827906-9b30-4118-87b9-ae218c62aa5a.png",
+        "/assets/setup/black/1_987457b1-0b3e-4e20-a367-abf4933d2c20.png",
+        "/assets/setup/black/3_9cdf2923-f8d6-439f-8e07-79deb49ddacc.png",
+        "/assets/setup/black/2_fd700a85-ee8a-4a41-b675-59553e9556bf.png",
+        "/assets/setup/black/4_14ea89eb-9845-4d44-b16c-9f4b5a46d5b2.png",
+        "/assets/setup/black/5_034afd27-2df2-4330-a3bc-615e3b9c5c37.png",
+        "/assets/setup/black/1_9bb2c8ba-8470-476e-a45e-e84d51a6d58e.png",
+        "/assets/setup/black/3_20400496-82a1-4501-a60e-de075e96e533.png",
+        "/assets/setup/black/2_88549997-cbcf-44c3-be97-b02ee1334995.png",
+        "/assets/setup/black/4_badb7453-4f2e-4c83-a888-7be692c8de3d.png",
+        "/assets/setup/black/5_4b6901b4-6e70-4e2d-aef2-b1eb0cb5b4d1.png",
+        "/assets/setup/black/1_57f99d96-6ca7-4fd9-9d17-c8cf795fb44e.png",
+        "/assets/setup/black/3_de78fb18-dad1-47ae-81f8-e1986643958c.png",
+        "/assets/setup/black/2_1f83a89c-029f-4120-9e3f-ca6c07747138.png",
+        "/assets/setup/black/4_c85d51b9-2124-45fd-97a0-fa1d97101c10.png",
+        "/assets/setup/black/1_143d1ac4-af9a-4f1e-aebb-3950770ec167.png",
+        "/assets/setup/black/5_5d50f7b2-d9bc-4e29-b6e4-9349636b639e.png",
+        "/assets/setup/black/3_e1d4c51f-c769-4c6c-b87b-4b5a8bf8cefa.png",
+        "/assets/setup/black/3_f41ade0d-9a04-4ca6-adca-7bb8f85364c7.png",
+        "/assets/setup/black/2_b78aee1d-e36d-45ed-a725-60d1b1dbdf9e.png",
+        "/assets/setup/black/4_d1c844c9-969f-4aae-a77d-9a4b3cca4f30.png",
+        "/assets/setup/black/5_563f95c8-c002-442e-aa70-9d1b7a135ae4.png",
+        "/assets/setup/black/1_8ca0fea5-ffe7-4560-b590-abd778f302ac.png",
+        "/assets/setup/black/3_6a317ffc-117c-4cc1-ac21-85cbe654566b.png",
+        "/assets/setup/black/2_de04e18c-cf57-43ea-83e7-0977ebe44b7d.png",
+        "/assets/setup/black/1_3089d492-c9b0-49e3-a848-0cad766e82d8.png",
+        "/assets/setup/black/4_56d980ad-7469-43b0-97fe-e033e91d0478.png",
+        "/assets/setup/black/5_6ca422ed-849e-438d-a3b6-d62ca0da5475.png",
+        "/assets/setup/black/top_black_ededf1cf-b331-4b69-9ee6-1cdf32081b86.png"
       ]
     },
     "pink": {
       "name": "ピンク",
       "lifestyle": "/images/pc-setup/pink.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_c0205447-f639-4486-850d-b1fe43f79c6d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_e07adb19-1a81-47ca-8235-d33f430e3d7b.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_a41f4cfe-cffd-48e2-8991-2740965908ca.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_144190ca-d8b5-4dc0-8752-c30ac2d54a91.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_267cc242-16fe-4ef1-baae-294694be065d.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/top_pink_9f3a91b0-31e3-4726-9b66-b64a3ac37d27.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_ca6011de-7332-4b5d-8164-1a59c35966a4.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_4e359037-dfcb-451e-ad91-7bf91fb6edf3.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_b5a8a950-5884-41a4-9047-6ef3b796c024.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_9e7b1cbc-6f9f-40b2-9daa-001f4f716645.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_d5ed0525-3852-4e9f-9c7c-a11c4c23e4ad.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_dcbff478-1a97-44c3-9588-3cdaea055a65.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_f1931d45-a810-4dbc-8da9-ee2c9c9268d2.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_37735f1f-b9f3-48cc-b2f8-043107e17a3c.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_2d107c4f-77b6-4cf1-ac42-6a4bc83e5e51.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_d4f57d73-3849-4e32-9d3e-7c070f2b11f6.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/top_pink_5478a9fb-f4ce-47a0-ba3c-0a7fda2ac1ad.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_9a56c983-d66a-4110-9e96-0855714dc2f1.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_8e866883-5a29-4199-8b26-ac4fdc5405f1.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_6b8c8971-6a37-4765-8904-bdd371dd6aba.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_f3dee665-b450-48e1-b44f-a48ce4d38db8.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_f965518a-3256-41b0-8191-9ba1c8d806db.png"
+      ],
+      "localProducts": [
+        "/assets/setup/pink/3_c0205447-f639-4486-850d-b1fe43f79c6d.png",
+        "/assets/setup/pink/2_e07adb19-1a81-47ca-8235-d33f430e3d7b.png",
+        "/assets/setup/pink/4_a41f4cfe-cffd-48e2-8991-2740965908ca.png",
+        "/assets/setup/pink/1_144190ca-d8b5-4dc0-8752-c30ac2d54a91.png",
+        "/assets/setup/pink/5_267cc242-16fe-4ef1-baae-294694be065d.png",
+        "/assets/setup/pink/top_pink_9f3a91b0-31e3-4726-9b66-b64a3ac37d27.png",
+        "/assets/setup/pink/3_ca6011de-7332-4b5d-8164-1a59c35966a4.png",
+        "/assets/setup/pink/2_4e359037-dfcb-451e-ad91-7bf91fb6edf3.png",
+        "/assets/setup/pink/4_b5a8a950-5884-41a4-9047-6ef3b796c024.png",
+        "/assets/setup/pink/1_9e7b1cbc-6f9f-40b2-9daa-001f4f716645.png",
+        "/assets/setup/pink/5_d5ed0525-3852-4e9f-9c7c-a11c4c23e4ad.png",
+        "/assets/setup/pink/3_dcbff478-1a97-44c3-9588-3cdaea055a65.png",
+        "/assets/setup/pink/2_f1931d45-a810-4dbc-8da9-ee2c9c9268d2.png",
+        "/assets/setup/pink/1_37735f1f-b9f3-48cc-b2f8-043107e17a3c.png",
+        "/assets/setup/pink/4_2d107c4f-77b6-4cf1-ac42-6a4bc83e5e51.png",
+        "/assets/setup/pink/5_d4f57d73-3849-4e32-9d3e-7c070f2b11f6.png",
+        "/assets/setup/pink/top_pink_5478a9fb-f4ce-47a0-ba3c-0a7fda2ac1ad.png",
+        "/assets/setup/pink/3_9a56c983-d66a-4110-9e96-0855714dc2f1.png",
+        "/assets/setup/pink/2_8e866883-5a29-4199-8b26-ac4fdc5405f1.png",
+        "/assets/setup/pink/4_6b8c8971-6a37-4765-8904-bdd371dd6aba.png",
+        "/assets/setup/pink/1_f3dee665-b450-48e1-b44f-a48ce4d38db8.png",
+        "/assets/setup/pink/5_f965518a-3256-41b0-8191-9ba1c8d806db.png"
+      ]
     },
     "purple": {
       "name": "パープル",
       "lifestyle": "/images/pc-setup/purple.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/53_4ab02b5d-79a6-4cd0-9fce-22bcf0898d92.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/54_7787911e-7326-4c8c-a77e-00f6b00b4fc0.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/55_67fa55d4-a5a0-4a22-b417-478bca836ac5.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/52_2bc6c501-a144-46d2-863f-eca7c4db55a8.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/51_e4c2b042-869e-4e0b-9444-c221081f6de5.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/87d48d8ceae5963397d897e452e10189.png"
+      ],
+      "localProducts": [
+        "/assets/setup/purple/53_4ab02b5d-79a6-4cd0-9fce-22bcf0898d92.png",
+        "/assets/setup/purple/54_7787911e-7326-4c8c-a77e-00f6b00b4fc0.png",
+        "/assets/setup/purple/55_67fa55d4-a5a0-4a22-b417-478bca836ac5.png",
+        "/assets/setup/purple/52_2bc6c501-a144-46d2-863f-eca7c4db55a8.png",
+        "/assets/setup/purple/51_e4c2b042-869e-4e0b-9444-c221081f6de5.png",
+        "/assets/setup/purple/87d48d8ceae5963397d897e452e10189.png"
+      ]
     },
     "lightblue": {
       "name": "ライトブルー",
       "lifestyle": "/images/pc-setup/lightblue.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/32_b56b93df-55aa-4e6c-bcb6-2f47864f01fa.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/36_de86b2bd-7cfc-49bf-9621-55d03279baf2.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/35_3914bb83-5902-4632-bcf1-bd9cf17535b6.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/34_8fc1e11c-b16e-43af-8ee2-8f2bf53bb538.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/33_69dfa7cd-1275-438c-8668-a50b55fd3b8a.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/0f3b9fc4fa5e309faed016c3449e9b72.png"
+      ],
+      "localProducts": [
+        "/assets/setup/lightblue/32_b56b93df-55aa-4e6c-bcb6-2f47864f01fa.png",
+        "/assets/setup/lightblue/36_de86b2bd-7cfc-49bf-9621-55d03279baf2.png",
+        "/assets/setup/lightblue/35_3914bb83-5902-4632-bcf1-bd9cf17535b6.png",
+        "/assets/setup/lightblue/34_8fc1e11c-b16e-43af-8ee2-8f2bf53bb538.png",
+        "/assets/setup/lightblue/33_69dfa7cd-1275-438c-8668-a50b55fd3b8a.png",
+        "/assets/setup/lightblue/0f3b9fc4fa5e309faed016c3449e9b72.png"
+      ]
     },
     "red": {
       "name": "レッド",
       "lifestyle": "/images/pc-setup/red.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/77_78e4596d-669a-44f7-a784-92700e654757.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/75_bed8f074-59c7-4a80-aed5-bbf58c244b54.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/76_dc15f4fe-7df2-4b90-9046-d0b28b6af362.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/73_b6e6618c-92ec-411c-bcbc-8923202db6dc.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/74_a9905bd3-6e2b-48ab-8fc9-2e1ef0e1fade.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/6986d9bdd29d4f2bb71930a2883a5f5e.png"
+      ],
+      "localProducts": [
+        "/assets/setup/red/77_78e4596d-669a-44f7-a784-92700e654757.png",
+        "/assets/setup/red/75_bed8f074-59c7-4a80-aed5-bbf58c244b54.png",
+        "/assets/setup/red/76_dc15f4fe-7df2-4b90-9046-d0b28b6af362.png",
+        "/assets/setup/red/73_b6e6618c-92ec-411c-bcbc-8923202db6dc.png",
+        "/assets/setup/red/74_a9905bd3-6e2b-48ab-8fc9-2e1ef0e1fade.png",
+        "/assets/setup/red/6986d9bdd29d4f2bb71930a2883a5f5e.png"
+      ]
     },
     "green": {
       "name": "グリーン",
       "lifestyle": "/images/pc-setup/green.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/2_763c2862-1e43-45ca-b96e-938205c56519.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/5_ad164187-d06b-4f56-b08c-5d5ebc3a7238.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/1_37b2b50c-e5b9-49f3-8b91-67ee55871e84.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/3_cd99d3fd-c828-4798-9fd6-3e63e2fa25f5.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/4_ba2e53fc-415e-4c66-8451-602b2f76b550.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/38d7c5392d24a8fbcabf9ef6bd0bcebe.png"
+      ],
+      "localProducts": [
+        "/assets/setup/green/2_763c2862-1e43-45ca-b96e-938205c56519.png",
+        "/assets/setup/green/5_ad164187-d06b-4f56-b08c-5d5ebc3a7238.png",
+        "/assets/setup/green/1_37b2b50c-e5b9-49f3-8b91-67ee55871e84.png",
+        "/assets/setup/green/3_cd99d3fd-c828-4798-9fd6-3e63e2fa25f5.png",
+        "/assets/setup/green/4_ba2e53fc-415e-4c66-8451-602b2f76b550.png",
+        "/assets/setup/green/38d7c5392d24a8fbcabf9ef6bd0bcebe.png"
+      ]
     },
     "orange": {
       "name": "オレンジ",
       "lifestyle": "/images/pc-setup/orange.jpg",
-      "products": []
+      "products": [
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/11_be084bdd-92f1-4fab-9b20-13206c53b227.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/10_c47f2c6c-bdee-427e-9491-16baf0336889.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/7_8b84c906-1425-405e-a793-21ca02d336fb.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/8_866d0947-5ef0-47e1-b90c-524e94d8bdde.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/9_c4ba57d3-ca0d-4183-839e-401576ff238b.png",
+        "https://cdn.shopify.com/s/files/1/0741/0407/8628/files/a6da47d0731b1944efc190a1f64b3264.png"
+      ],
+      "localProducts": [
+        "/assets/setup/orange/11_be084bdd-92f1-4fab-9b20-13206c53b227.png",
+        "/assets/setup/orange/10_c47f2c6c-bdee-427e-9491-16baf0336889.png",
+        "/assets/setup/orange/7_8b84c906-1425-405e-a793-21ca02d336fb.png",
+        "/assets/setup/orange/8_866d0947-5ef0-47e1-b90c-524e94d8bdde.png",
+        "/assets/setup/orange/9_c4ba57d3-ca0d-4183-839e-401576ff238b.png",
+        "/assets/setup/orange/a6da47d0731b1944efc190a1f64b3264.png"
+      ]
     }
-  }
+  },
+  "_lastSyncAt": "2026-04-27T08:12:32.135Z"
 }
