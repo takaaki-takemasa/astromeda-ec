@@ -372,6 +372,10 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
   // CEO 指摘「商品一覧をクリックすると商品名の下に大量にプルダウンが羅列する」対応。
   const [showComponents, setShowComponents] = useState(false);
   const [hiddenComponentCount, setHiddenComponentCount] = useState(0);
+  // patch 0178: vendor ロール検出用。/api/admin/products GET の currentRole から取得して
+  // 「IP バナー選択 セクション」「IP コラボ商品の編集」を hide する。
+  const [currentRole, setCurrentRole] = useState<string | null>(null);
+  const isVendor = currentRole === 'vendor';
 
   // patch 0079: 新規作成モーダル
   const [createOpen, setCreateOpen] = useState(false);
@@ -476,6 +480,10 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
       setCursor(json.pageInfo.endCursor);
       // patch 0100: 隠した部品件数を保持 (reset 時のみ。ページング時は累積しない)
       if (opts.reset) setHiddenComponentCount(json.hiddenComponentCount ?? 0);
+      // patch 0178: vendor ロール検出。これで以降の UI render で IP バナー section 等を hide する
+      if (json.currentRole && typeof json.currentRole === 'string') {
+        setCurrentRole(json.currentRole);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : '商品データ取得に失敗しました');
     } finally {
@@ -793,7 +801,10 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
           非エンジニアが最初から理解する必要はないので、実際のIPバナーを画像つきで並べて
           「どのIPコラボに結びつける？」を絵で選ばせる。選んだ結果が内部的にタグ
           (コレクションハンドル) として保存される。
+          patch 0178 (P0): vendor (外注先) ロールには IP コラボ商品の作成権限がないので
+          このセクション全体を hide する。「何が修正できて何が修正できないか不明」を解消するため。
       */}
+      {!isVendor && (<>
       <div style={{ marginBottom: 14 }}>
         <label style={labelStyle}>IPコラボ（任意）</label>
         <div style={{
@@ -957,6 +968,7 @@ function ProductList({ onToast }: { onToast: (m: string, t: 'ok' | 'err') => voi
           )}
         </div>
       </details>
+      </>)}
 
       {/* 公開状態 */}
       <div style={{ marginBottom: 18 }}>

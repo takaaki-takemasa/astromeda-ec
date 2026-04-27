@@ -223,7 +223,24 @@ export async function loader({request, context}: Route.LoaderArgs) {
     });
 
     const {collections, pageInfo} = await client.listCollectionsAdmin(first, queryStr, cursor);
-    return data({success: true, collections, pageInfo, total: collections.length});
+
+    // patch 0178 (P0): vendor ロールには IP コラボ コレクションを一覧から除外。
+    // HANDLE_TO_IP に登録されている handle は IP 系 (NARUTO/呪術廻戦/ホロライブ等)。
+    // サーバ拒否 (vendor-scope.ts) と二重に防御するが、UI で見せないことが一次防御。
+    const {HANDLE_TO_IP} = await import('~/lib/collection-helpers');
+    const filteredCollections = role === 'vendor'
+      ? collections.filter((c) => !HANDLE_TO_IP[c.handle])
+      : collections;
+    const hiddenVendorIPCount = role === 'vendor'
+      ? collections.length - filteredCollections.length
+      : 0;
+    return data({
+      success: true,
+      collections: filteredCollections,
+      pageInfo,
+      total: filteredCollections.length,
+      hiddenVendorIPCount,
+    });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     auditLog({

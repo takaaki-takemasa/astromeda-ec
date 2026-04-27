@@ -225,13 +225,25 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     // 旧 patch 0100/0102 のヒューリスティクス (tags=[] / globo-product-options / 延長保証)
     // に加えて 'pulldown-component' canonical タグも検出。
     // 「部品を含める」トグルが ON のときだけ全件返す。OFF のときは limit 件にトリムする。
-    const filteredProducts = showComponents
+    const componentFiltered = showComponents
       ? products
       : products.filter((p) => !isPulldownComponent(p));
+
+    // patch 0178 (P0): vendor ロールには IP コラボ商品を一覧から除外する。
+    // 構造拒否 (vendor-scope.ts) は backstop だが、UI にも見せると vendor が
+    // 「何が編集できて何ができないか」分からず混乱する。一覧段階で隠す。
+    // detectIP で title+tags から IP 判定。null = 非IP のみ通す。
+    const {detectIP} = await import('~/lib/collection-helpers');
+    const filteredProducts = role === 'vendor'
+      ? componentFiltered.filter((p) => !detectIP(p.title || '', p.tags || []))
+      : componentFiltered;
     const visibleProducts = filteredProducts.slice(0, limit);
     const hiddenComponentCount = showComponents
       ? 0
       : products.filter((p) => isPulldownComponent(p)).length;
+    const hiddenVendorIPCount = role === 'vendor'
+      ? componentFiltered.length - filteredProducts.length
+      : 0;
 
     // patch 0094: Shopify 実総件数 (フィルタ適用後の件数)。Dashboard 50+ 頭打ち解消。
     const totalProducts = result.productsCount?.count ?? null;
@@ -244,6 +256,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       totalProducts,
       hiddenComponentCount, // patch 0100: 「部品を含める」トグル用の隠しカウント
       showComponents, // patch 0100: 現在の表示モードをクライアントに返す
+      hiddenVendorIPCount, // patch 0178: vendor ロールで隠した IP コラボ件数
+      currentRole: role, // patch 0178: クライアント側で IP banner section 等を hide するため
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
