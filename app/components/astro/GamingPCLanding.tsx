@@ -620,8 +620,10 @@ export function GamingPCLanding({
       </SectionOverride>
 
       {/* ── お知らせ INFORMATION ── */}
+      {/* patch 0186 (2026-04-27): SectionOverride wrap 外なので flex order=0 で最上部に来てしまう問題を
+          ハードコード order:95 で末尾に固定 (旧サイト踏襲設計に準拠) */}
       {newsItems.length > 0 && (
-        <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
+        <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto', order: 95}}>
           <SectionTitle ja="お知らせ" en="INFORMATION" />
           <div style={{borderTop: `1px solid ${cardBorder}`}}>
             {newsItems.map((news, i) => (
