@@ -249,6 +249,11 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     custom_css: { type: 'multi_line_text_field', maxLength: 100000 },
     is_active: { type: 'boolean' },
     notes: { type: 'multi_line_text_field', maxLength: 1000 },
+    // patch 0185 (2026-04-27): セクション位置の並び替え
+    // CSS order に渡されて GamingPCLanding 内でセクションの上下を入れ替えられる。
+    // 未設定 (0) は JSX 上のソース順 (Hydrogen がそのまま render)。
+    // vendor が drag-drop で 10/20/30/... と振り直す前提で 1 始まり。
+    display_order: { type: 'number_integer' },
   },
 };
 

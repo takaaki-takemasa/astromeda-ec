@@ -40,6 +40,8 @@ interface RootDataWithOverrides {
     customHtml: string;
     customCss: string;
     isActive: boolean;
+    /** patch 0185: CSS order 値。0 はソース順、1+ で並び替え */
+    displayOrder?: number;
   }> | null;
 }
 
@@ -54,6 +56,24 @@ export function SectionOverride({sectionKey, children, wrapperClassName}: Sectio
     [overrides, sectionKey],
   );
 
+  // patch 0185: section ordering — display_order が指定されたら CSS order に渡す。
+  // 0 (default) は無指定 → 親 flex の onSourceOrder で source 順に並ぶ。
+  // displayOrder>0 で並び替えが効く (vendor が drag-drop で 10/20/30/... と振る)。
+  // 親 (GamingPCLanding) が `display: flex; flex-direction: column` を持っている前提。
+  // 元の override が無い場合 (= mode default) も order は反映する必要があるため
+  // この hook は早期 return より前に呼ぶ。
+  // ただし order を持つのは「override metaobject が登録されていて display_order > 0」の時のみ。
+  // 他は 'auto' で source 順。
+  // Note: section_override で display_order だけ設定し is_active=false / mode=default にしておくと
+  //       「並びだけ変える」用途にも使える設計。
+  const allMetaForSection = useMemo(
+    () => overrides.find((o) => o.sectionKey === sectionKey),
+    [overrides, sectionKey],
+  );
+  const orderStyle: React.CSSProperties = allMetaForSection?.displayOrder && allMetaForSection.displayOrder > 0
+    ? {order: allMetaForSection.displayOrder}
+    : {};
+
   // React Hooks Rules: 全 useMemo を early-return より前で呼ぶこと
   // override が無い時はサニタイズ不要だが、hook 呼び出しを skip すると hooks count がズレるので
   // 空文字列の場合は no-op (sanitize-html('') === '')
@@ -66,15 +86,23 @@ export function SectionOverride({sectionKey, children, wrapperClassName}: Sectio
     [override?.customCss, sectionKey],
   );
 
-  // mode=default または override 不在 → children だけ
+  // mode=default または override 不在 → children だけ。
+  // patch 0185: display_order が指定されている場合は wrapping div で order を付与
   if (!override || override.mode === 'default') {
+    if (orderStyle.order !== undefined) {
+      return (
+        <div data-section-override={sectionKey} data-override-mode="order-only" style={orderStyle}>
+          {children}
+        </div>
+      );
+    }
     return <>{children}</>;
   }
 
   // mode=custom_css → children + <style> 注入
   if (override.mode === 'custom_css') {
     return (
-      <div data-section-override={sectionKey} data-override-mode="css" className={wrapperClassName}>
+      <div data-section-override={sectionKey} data-override-mode="css" className={wrapperClassName} style={orderStyle}>
         {children}
         {scopedCss && (
           <style
@@ -88,7 +116,7 @@ export function SectionOverride({sectionKey, children, wrapperClassName}: Sectio
 
   // mode=custom_html → sanitize 済 HTML + CSS 注入 (children は捨てる)
   return (
-    <div data-section-override={sectionKey} data-override-mode="html" className={wrapperClassName}>
+    <div data-section-override={sectionKey} data-override-mode="html" className={wrapperClassName} style={orderStyle}>
       <div dangerouslySetInnerHTML={{__html: safeHtml}} />
       {scopedCss && (
         <style

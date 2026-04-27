@@ -71,6 +71,8 @@ export interface SectionOverride {
   notes: string;
   /** Metaobject updatedAt (CAS 用) */
   updatedAt: string;
+  /** patch 0185: セクション順序 (CSS order 値)。0 はソース順 (default)、1+ で並び替え。 */
+  displayOrder: number;
 }
 
 /** モードラベル (admin UI 表示用) */
@@ -108,6 +110,11 @@ export function parseSectionOverride(node: {
   )
     ? (modeRaw as OverrideMode)
     : 'default';
+  // patch 0185: display_order — 数値変換失敗は 0 (default = JSX ソース順)
+  const displayOrderRaw = get('display_order');
+  const displayOrder = displayOrderRaw && /^-?\d+$/.test(displayOrderRaw)
+    ? parseInt(displayOrderRaw, 10)
+    : 0;
   return {
     id: node.id,
     handle: node.handle,
@@ -118,5 +125,6 @@ export function parseSectionOverride(node: {
     isActive: get('is_active') === 'true',
     notes: get('notes'),
     updatedAt: node.updatedAt,
+    displayOrder,
   };
 }

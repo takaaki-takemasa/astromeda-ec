@@ -359,6 +359,11 @@ export function GamingPCLanding({
 
   return (
     <div>
+      {/* patch 0185 (2026-04-27): セクション並び替え対応の flex container。
+          各 SectionOverride が display_order > 0 の時 CSS order を付与し、
+          flex の order spec に従って source 順を超えて並び替えできる。
+          source 順 = order:0 (default) なので並び替え未指定セクションは元位置のまま。 */}
+      <div style={{display: 'flex', flexDirection: 'column'}}>
       {/* ── Hero Slider ── */}
       <SectionOverride sectionKey="gpc_hero">
       <section>
@@ -643,6 +648,7 @@ export function GamingPCLanding({
       <SectionOverride sectionKey="gpc_extra_1">{null}</SectionOverride>
       <SectionOverride sectionKey="gpc_extra_2">{null}</SectionOverride>
       <SectionOverride sectionKey="gpc_extra_3">{null}</SectionOverride>
+      </div>{/* /flex container — patch 0185 セクション並び替え用 */}
 
       {/* Divider before product grid */}
       <div style={{

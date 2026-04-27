@@ -303,6 +303,8 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     'home_hero', 'home_color_models', 'home_about', 'home_category', 'home_ip_collabs',
     'home_product_shelf', 'home_ugc_reviews', 'home_marquee',
     'gpc_hero', 'gpc_feature_cards', 'gpc_ranking', 'gpc_parts_cards', 'gpc_price_ranges', 'gpc_contact',
+    // patch 0184 Phase 2: gpc 追加 3 slot を valid set に追加
+    'gpc_extra_1', 'gpc_extra_2', 'gpc_extra_3',
     'footer',
   ]);
   const VALID_MODES = new Set(['default', 'custom_html', 'custom_css']);
@@ -312,12 +314,16 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
       for (const kv of mo.fields) f[kv.key] = kv.value;
       const sectionKey = f['section_key'] || mo.handle;
       const modeRaw = f['mode'] || 'default';
+      // patch 0185: display_order — CSS order 値、未設定 (0) は JSX ソース順
+      const displayOrderRaw = f['display_order'] || '';
+      const displayOrder = /^-?\d+$/.test(displayOrderRaw) ? parseInt(displayOrderRaw, 10) : 0;
       return {
         sectionKey,
         mode: (VALID_MODES.has(modeRaw) ? modeRaw : 'default') as 'default' | 'custom_html' | 'custom_css',
         customHtml: f['custom_html'] || '',
         customCss: f['custom_css'] || '',
         isActive: f['is_active'] === 'true',
+        displayOrder,
       };
     })
     .filter((o) => VALID_SECTION_KEYS.has(o.sectionKey));
