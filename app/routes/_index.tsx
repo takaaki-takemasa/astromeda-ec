@@ -949,9 +949,13 @@ export default function Homepage() {
         {/* PCTierCards（GAMER/STREAMER/CREATOR）は削除済み */}
       </div>
 
-      {/* D1: ASTROMEDAとは — コンパクトバナー（Sprint 2 Part 3-4: Metaobject 優先） */}
+      {/* D1: ASTROMEDAとは — コンパクトバナー（Sprint 2 Part 3-4: Metaobject 優先）
+          patch 0183 (2026-04-27): CEO 指示「非表示にしていたABOUTが復活している。
+          非表示にしてください」を構造解決。Metaobject astromeda_about_section に
+          is_active=true で完全なエントリが**1件以上ある場合のみ**描画する。
+          以前のハードコード fallback は廃止 — admin で明示的に有効化されない限り
+          この section はレンダリングされない。 */}
       {(() => {
-        // Metaobject 完全性チェック: 全フィールドが非空 かつ is_active=true な最初のエントリを採用
         const stripTags = (s: string) => s.replace(/<[^>]*>/g, '').trim();
         const active = (data.metaAboutSections || []).find((a) =>
           a.isActive &&
@@ -960,11 +964,12 @@ export default function Homepage() {
           a.linkUrl.trim() !== '' &&
           a.linkLabel.trim() !== ''
         );
-        const title = active ? active.title : 'ASTROMEDAとは？';
-        const subtitle = active ? stripTags(active.bodyHtml) : '日本発・25タイトル以上のIPコラボゲーミングPC';
+        if (!active) return null; // ABOUT セクション非表示 (admin で明示的に有効化するまで)
+        const title = active.title;
+        const subtitle = stripTags(active.bodyHtml);
         // patch 0012: CMS linkUrl が旧サイト絶対URLで入っていても内部パスに畳む
-        const linkUrl = toInternalPath(active ? active.linkUrl : '/about');
-        const linkLabel = active ? active.linkLabel : '詳しく見る →';
+        const linkUrl = toInternalPath(active.linkUrl);
+        const linkLabel = active.linkLabel;
         return (
           <section style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', paddingBottom: 'clamp(16px, 2vw, 24px)'}}>
             <Link
