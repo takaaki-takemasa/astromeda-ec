@@ -201,7 +201,7 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
   const emptyFooterMo = (): Promise<Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>> =>
     Promise.resolve([]);
 
-  const [headerResult, footerConfigResult, legalInfoResult, siteConfigResult] = await Promise.allSettled([
+  const [headerResult, footerConfigResult, legalInfoResult, siteConfigResult, sectionOverrideResult] = await Promise.allSettled([
     storefront.query(HEADER_QUERY, {
       cache: storefront.CacheLong(),
       variables: {
@@ -213,6 +213,9 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     adminClient ? adminClient.getMetaobjects('astromeda_legal_info', 5) : emptyFooterMo(),
     // patch 0024: astromeda_site_config → ブランド名/会社名/連絡先を JSON-LD に反映
     adminClient ? adminClient.getMetaobjects('astromeda_site_config', 5) : emptyFooterMo(),
+    // patch 0167 (2026-04-27): astromeda_section_override → 全 storefront ページの SectionOverride wrapper に配信
+    // mode=default 以外を全件取得 (admin で is_active=false としたものは wrapper 側で除外)
+    adminClient ? adminClient.getMetaobjects('astromeda_section_override', 50) : emptyFooterMo(),
   ]);
 
   // ヘッダーが失敗したら従来通り throw（全ページが 500 する挙動は既存仕様のまま）
@@ -292,7 +295,34 @@ async function loadCriticalData({context}: Route.LoaderArgs) {
     };
   }
 
-  return {header, metaFooterConfigs, metaLegalInfo, metaSiteConfig};
+  // patch 0167 (2026-04-27): astromeda_section_override を Storefront wrapper 用に整形
+  // SectionOverride wrapper コンポーネント (app/components/astro/SectionOverride.tsx) が
+  // useRouteLoaderData('root') で取得して mode 別に切替える
+  const sectionOverrideRaw = sectionOverrideResult.status === 'fulfilled' ? sectionOverrideResult.value : [];
+  const VALID_SECTION_KEYS = new Set([
+    'home_hero', 'home_color_models', 'home_about', 'home_category', 'home_ip_collabs',
+    'home_product_shelf', 'home_ugc_reviews', 'home_marquee',
+    'gpc_hero', 'gpc_feature_cards', 'gpc_ranking', 'gpc_parts_cards', 'gpc_price_ranges', 'gpc_contact',
+    'footer',
+  ]);
+  const VALID_MODES = new Set(['default', 'custom_html', 'custom_css']);
+  const metaSectionOverrides = sectionOverrideRaw
+    .map((mo) => {
+      const f: Record<string, string> = {};
+      for (const kv of mo.fields) f[kv.key] = kv.value;
+      const sectionKey = f['section_key'] || mo.handle;
+      const modeRaw = f['mode'] || 'default';
+      return {
+        sectionKey,
+        mode: (VALID_MODES.has(modeRaw) ? modeRaw : 'default') as 'default' | 'custom_html' | 'custom_css',
+        customHtml: f['custom_html'] || '',
+        customCss: f['custom_css'] || '',
+        isActive: f['is_active'] === 'true',
+      };
+    })
+    .filter((o) => VALID_SECTION_KEYS.has(o.sectionKey));
+
+  return {header, metaFooterConfigs, metaLegalInfo, metaSiteConfig, metaSectionOverrides};
 }
 
 /**

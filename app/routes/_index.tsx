@@ -14,6 +14,8 @@ import type {MetaCollab} from '~/components/astro/CollabGrid';
 import {setAdminEnv, getAdminClient} from '../../agents/core/shopify-admin.js';
 import {PCShowcase} from '~/components/astro/PCShowcase';
 import type {MetaColorModel} from '~/components/astro/PCShowcase';
+// patch 0167 (2026-04-27): セクション単位 HTML/CSS 上書き wrapper
+import {SectionOverride} from '~/components/astro/SectionOverride';
 // ScrollReveal removed: causes opacity:0 issues when CSS files return 503 from Shopify CDN
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
 import {preloadImage, optimizeImageUrl} from '~/lib/cache-headers';
@@ -866,19 +868,25 @@ export default function Homepage() {
       </div>
 
       {/* Hero Slider — ATFデータはawait済みなので直接レンダリング（Hydration安定） */}
-      <HeroSlider
-        collections={data.ipCollections?.collections?.nodes ?? null}
-        metaBanners={data.metaBanners}
-      />
+      {/* patch 0167: SectionOverride で包む — admin の「🎨 デザイン上書き」設定があれば差し替え */}
+      <SectionOverride sectionKey="home_hero">
+        <HeroSlider
+          collections={data.ipCollections?.collections?.nodes ?? null}
+          metaBanners={data.metaBanners}
+        />
+      </SectionOverride>
 
       {/* PC Showcase — ATFデータはawait済み */}
       {/* patch 0144 P0: id="colors" を付与して admin TagPipelineMap の /#colors link を実機能化 */}
       <div id="colors" style={{...PAGE_WIDTH, paddingTop: 'clamp(20px, 3vw, 32px)', scrollMarginTop: 80}}>
-        <PCShowcase
-          colorImages={(data.pcColorProducts as Record<string, string>) ?? {}}
-          metaColors={data.metaColors}
-          metaPcTiers={data.metaPcTiers}
-        />
+        {/* patch 0167: SectionOverride で包む — 8色カラー UI をデザイン会社が差し替え可能 */}
+        <SectionOverride sectionKey="home_color_models">
+          <PCShowcase
+            colorImages={(data.pcColorProducts as Record<string, string>) ?? {}}
+            metaColors={data.metaColors}
+            metaPcTiers={data.metaPcTiers}
+          />
+        </SectionOverride>
         {/* PCTierCards（GAMER/STREAMER/CREATOR）は削除済み */}
       </div>
 
@@ -1096,10 +1104,13 @@ export default function Homepage() {
       {/* Collab Grid — ATFデータはawait済み */}
       {/* patch 0144 P0: id="collabs" を付与して admin TagPipelineMap の /#collabs link を実機能化 */}
       <div id="collabs" style={{scrollMarginTop: 80}}>
-        <CollabGrid
-          collections={data.ipCollections?.collections?.nodes ?? null}
-          metaCollabs={data.metaCollabs}
-        />
+        {/* patch 0167: SectionOverride で包む — IP コラボグリッドをデザイン会社が差し替え可能 */}
+        <SectionOverride sectionKey="home_ip_collabs">
+          <CollabGrid
+            collections={data.ipCollections?.collections?.nodes ?? null}
+            metaCollabs={data.metaCollabs}
+          />
+        </SectionOverride>
       </div>
 
       {/* Featured products from Shopify — Sprint 2 Part 3-3: Metaobject product shelf 優先 */}
