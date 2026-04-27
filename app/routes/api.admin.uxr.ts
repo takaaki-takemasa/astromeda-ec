@@ -21,6 +21,7 @@ import {
   listRecentSessions,
   readEventsForSession,
   computeFunnel,
+  computeMarketingStats,
   writeBatch,
   type UxrBatch,
 } from '~/lib/uxr-storage';
@@ -219,6 +220,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
         success: true,
         ...result,
       });
+    }
+
+    // patch 0161: マーケ統計 (流入経路 + クリック URL + ページビュー Top)
+    if (action === 'marketing') {
+      const days = Math.max(1, Math.min(30, Number(url.searchParams.get('days') || '7')));
+      const topN = Math.max(1, Math.min(50, Number(url.searchParams.get('topN') || '10')));
+      const result = await computeMarketingStats(contextEnv as unknown as Record<string, unknown>, {days, topN});
+      auditLog({
+        action: 'api_access',
+        role: authResult.role,
+        resource: `api/admin/uxr?action=marketing&days=${days}`,
+        success: true,
+      });
+      return data({success: true, ...result});
     }
 
     // patch 0126 Phase D: AI マーケアシスタント（Top3 おすすめアクション生成）

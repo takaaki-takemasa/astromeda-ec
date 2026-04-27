@@ -53,6 +53,10 @@ const AdminDiscounts = lazy(() => import('~/components/admin/tabs/AdminDiscounts
 const AdminMenus = lazy(() => import('~/components/admin/tabs/AdminMenus'));
 // patch 0156: メンバー管理（multi-user 認証）
 const AdminMembers = lazy(() => import('~/components/admin/tabs/AdminMembers'));
+// patch 0160: 在庫管理 (Shopify 双方向同期)
+const AdminInventory = lazy(() => import('~/components/admin/tabs/AdminInventory'));
+// patch 0161: マーケ分析 (流入経路・CVR・クリック・商品ランキング)
+const AdminMarketingStats = lazy(() => import('~/components/admin/tabs/AdminMarketingStats'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -284,7 +288,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members' | 'inventory' | 'marketingStats';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -299,7 +303,7 @@ type CommerceGroup = 'catalog' | 'content' | 'navmarketing';
 const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; default: SubTab}> = {
   catalog: {
     label: '🛍️ 商品・販売',
-    tabs: ['products', 'customization', 'collections', 'bulkTags', 'discounts'],
+    tabs: ['products', 'inventory', 'customization', 'collections', 'bulkTags', 'discounts'],
     default: 'products',
   },
   content: {
@@ -312,7 +316,7 @@ const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; def
     // patch 0123 Phase A: 分析の隣に「お客様の動き（uxr）」を配置
     // patch 0124 Phase B: uxr の隣に「お客様セッション再生（sessions）」を配置
     // patch 0125 Phase C: sessions の隣に「ファネル（離脱率の見える化）」を配置
-    tabs: ['marketing', 'menus', 'redirects', 'analytics', 'uxr', 'sessions', 'funnel', 'metaobjectDefs'],
+    tabs: ['marketing', 'marketingStats', 'menus', 'redirects', 'analytics', 'uxr', 'sessions', 'funnel', 'metaobjectDefs'],
     default: 'marketing',
   },
 };
@@ -342,7 +346,7 @@ const SECTION_TABS: Record<SectionId, { tabs: SubTab[]; default: SubTab }> = {
   // patch 0123 Phase A: uxr (お客様の動きを見る) を analytics の隣に追加
   // patch 0124 Phase B: sessions (お客様セッション再生) を uxr の隣に追加
   // patch 0125 Phase C: funnel (来訪→商品→カート→購入手続きの離脱率) を sessions の隣に追加
-  commerce: { tabs: ['products', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
+  commerce: { tabs: ['products', 'inventory', 'collections', 'bulkTags', 'customization', 'discounts', 'content', 'pageEditor', 'homepage', 'siteConfig', 'files', 'menus', 'redirects', 'metaobjectDefs', 'marketing', 'marketingStats', 'analytics', 'uxr', 'sessions', 'funnel'], default: 'products' },
   ai: { tabs: ['agents'], default: 'agents' },
   operations: { tabs: ['pipelines', 'control'], default: 'pipelines' },
   // patch 0156: 上級者設定に 👥 メンバー管理タブを追加
@@ -389,6 +393,10 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   update: '🔧 更新',
   // patch 0156: 個別ユーザー認証
   members: '👥 メンバー',
+  // patch 0160: Shopify 双方向同期 在庫管理
+  inventory: '📦 在庫',
+  // patch 0161: マーケ分析 (流入経路・CVR・クリック・売れた商品)
+  marketingStats: '📈 マーケ分析',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
@@ -911,6 +919,18 @@ export default function AdminDashboard() {
           {subTab === 'members' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminMembers />
+            </Suspense>
+          )}
+          {/* patch 0160: 📦 在庫管理タブ */}
+          {subTab === 'inventory' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminInventory />
+            </Suspense>
+          )}
+          {/* patch 0161: 📈 マーケ分析タブ */}
+          {subTab === 'marketingStats' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminMarketingStats />
             </Suspense>
           )}
         </main>

@@ -638,3 +638,137 @@ export async function computeFunnel(
 export function _resetFunnelCache(): void {
   cachedFunnel = null;
 }
+
+// ━━━ patch 0161: マーケティング集計 (流入経路・クリックURL ランキング) ━━━
+
+export interface ReferrerStat {
+  /** 表示用ラベル (= host or 'direct' or 'utm:google') */
+  source: string;
+  sessions: number;
+  /** 全体に占める割合 (0-100) */
+  share: number;
+}
+
+export interface ClickedLinkStat {
+  /** クリックされたページ path */
+  page: string;
+  /** クリックされた要素のセレクタ or テキスト */
+  target: string;
+  clicks: number;
+}
+
+export interface MarketingStats {
+  days: number;
+  totalSessions: number;
+  totalPageviews: number;
+  totalClicks: number;
+  /** 流入経路ランキング (Top N) */
+  referrers: ReferrerStat[];
+  /** クリックされたページ × 要素 ランキング (Top N) */
+  clickedLinks: ClickedLinkStat[];
+  /** ページビュー Top URL ランキング */
+  topPages: Array<{path: string; pageviews: number}>;
+}
+
+let cachedMarketing: {ts: number; key: string; result: MarketingStats} | null = null;
+const MARKETING_CACHE_MS = 60_000;
+
+export async function computeMarketingStats(
+  env: Record<string, unknown> | null | undefined,
+  options?: {days?: number; topN?: number},
+): Promise<MarketingStats> {
+  const days = options?.days ?? 7;
+  const topN = options?.topN ?? 10;
+  const sinceMs = Date.now() - days * 24 * 60 * 60 * 1000;
+  const cacheKey = `d=${days}|n=${topN}`;
+
+  const now = Date.now();
+  if (cachedMarketing && cachedMarketing.key === cacheKey && now - cachedMarketing.ts < MARKETING_CACHE_MS) {
+    return cachedMarketing.result;
+  }
+
+  const kv = resolveKv(env);
+  const list = await kv.list({prefix: UXR_KEY_PREFIX, limit: 1000});
+  const filtered = list.keys
+    .map((k) => {
+      const parts = k.name.split(':');
+      const ts = Number(parts[3] || 0);
+      return {name: k.name, ts};
+    })
+    .filter((x) => x.ts >= sinceMs)
+    .sort((a, b) => b.ts - a.ts)
+    .slice(0, 1000);
+
+  const batches = await Promise.all(
+    filtered.map(async (x) => {
+      try { return await kv.get<UxrBatch>(x.name); } catch { return null; }
+    }),
+  );
+
+  const sessionSet = new Set<string>();
+  const referrerCount: Record<string, Set<string>> = {}; // source -> sids
+  const pageviewCount: Record<string, number> = {}; // path -> count
+  const clickCount: Record<string, number> = {}; // `${path}|${selOrText}` -> count
+  let totalPageviews = 0;
+  let totalClicks = 0;
+
+  for (const b of batches) {
+    if (!b || !b.events) continue;
+    sessionSet.add(b.sid);
+    for (const ev of b.events) {
+      if (ev.t === 'pv') {
+        totalPageviews++;
+        pageviewCount[b.path] = (pageviewCount[b.path] || 0) + 1;
+        // referrer の優先度: utm > referrer host > direct
+        let source = 'direct (直接訪問)';
+        if (ev.u) source = `utm:${ev.u}`;
+        else if (ev.r) source = ev.r;
+        (referrerCount[source] ||= new Set<string>()).add(b.sid);
+      } else if (ev.t === 'click') {
+        totalClicks++;
+        const target = ev.txt || ev.sel || '(no label)';
+        const key = `${b.path}|${target.substring(0, 40)}`;
+        clickCount[key] = (clickCount[key] || 0) + 1;
+      }
+    }
+  }
+
+  const totalSessions = sessionSet.size;
+  const referrers: ReferrerStat[] = Object.entries(referrerCount)
+    .map(([source, sids]) => ({
+      source,
+      sessions: sids.size,
+      share: totalSessions > 0 ? Math.round((sids.size / totalSessions) * 1000) / 10 : 0,
+    }))
+    .sort((a, b) => b.sessions - a.sessions)
+    .slice(0, topN);
+
+  const clickedLinks: ClickedLinkStat[] = Object.entries(clickCount)
+    .map(([key, clicks]) => {
+      const [page, target] = key.split('|');
+      return {page, target, clicks};
+    })
+    .sort((a, b) => b.clicks - a.clicks)
+    .slice(0, topN);
+
+  const topPages = Object.entries(pageviewCount)
+    .map(([path, pageviews]) => ({path, pageviews}))
+    .sort((a, b) => b.pageviews - a.pageviews)
+    .slice(0, topN);
+
+  const result: MarketingStats = {
+    days,
+    totalSessions,
+    totalPageviews,
+    totalClicks,
+    referrers,
+    clickedLinks,
+    topPages,
+  };
+  cachedMarketing = {ts: now, key: cacheKey, result};
+  return result;
+}
+
+export function _resetMarketingCache(): void {
+  cachedMarketing = null;
+}
