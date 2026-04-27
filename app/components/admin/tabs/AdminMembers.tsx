@@ -182,7 +182,7 @@ export default function AdminMembers() {
 
   const handleDelete = async (member: MemberSafe) => {
     const ok = await confirm({
-      title: `${member.displayName} (${member.username}) を削除しますか?`,
+      title: `${member.displayName} (${member.email || member.username}) を削除しますか?`,
       message: 'このユーザーは以後ログインできなくなります。元に戻せません。',
       confirmLabel: '削除する',
       destructive: true,
@@ -342,16 +342,13 @@ export default function AdminMembers() {
                 const fullName = joinNamesForDisplay(m.firstName, m.lastName, m.displayName);
                 return (
                 <tr key={m.id} style={{borderBottom: `1px solid ${color.border}`, opacity: m.active ? 1 : 0.5}}>
-                  {/* patch 0170: メールアドレスを ID 列として最左に。username は補助情報 */}
+                  {/* patch 0170-fu: メールアドレス = ユーザー ID。internal handle は完全に隠す (バックエンド実装の都合をユーザーに見せない) */}
                   <td style={{padding: '12px 8px', color: color.text, fontSize: 13}}>
                     {m.email ? (
                       <div style={{fontWeight: 600}}>{m.email}</div>
                     ) : (
                       <div style={{color: '#FF2D55', fontSize: 11}}>⚠ メール未設定</div>
                     )}
-                    <div style={{fontSize: 10, color: color.textMuted, marginTop: 2, fontFamily: 'monospace'}}>
-                      内部 ID: {m.username}
-                    </div>
                   </td>
                   <td style={{padding: '12px 8px', color: color.text}}>
                     <div>{fullName}</div>
@@ -695,7 +692,7 @@ function EditMemberModal({member, onClose, onSuccess}: {member: MemberSafe; onCl
   };
 
   return (
-    <ModalShell title={`${member.username} を編集`} onClose={onClose}>
+    <ModalShell title={`${member.email || member.displayName} を編集`} onClose={onClose}>
       <form onSubmit={submit}>
         {/* patch 0169: 姓 + 名 (横並び) */}
         <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space[3]}}>
@@ -804,7 +801,7 @@ function ResetPasswordModal({member, onClose, onSuccess}: {member: MemberSafe; o
   };
 
   return (
-    <ModalShell title={`🔑 ${member.username} のパスワードを再設定`} onClose={onClose}>
+    <ModalShell title={`🔑 ${member.email || member.displayName} のパスワードを再設定`} onClose={onClose}>
       <div style={{padding: 12, background: 'rgba(255,149,0,0.08)', border: '1px solid rgba(255,149,0,0.3)', borderRadius: 6, fontSize: 12, color: '#FF9500', marginBottom: space[3]}}>
         ⚠ 設定後、新しいパスワードを {member.displayName} さんに直接伝えてください。
       </div>
