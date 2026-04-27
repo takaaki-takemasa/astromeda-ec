@@ -66,7 +66,8 @@ const CreateSchema = z
   .object({
     action: z.literal('create'),
     username: z.string().min(3).max(32),
-    displayName: z.string().min(1).max(100).optional(), // patch 0169: 姓+名から自動生成可・後方互換
+    // patch 0169-fu2: 空文字も許可 (姓+名 から自動生成にフォールバック)
+    displayName: z.string().trim().max(100).optional(),
     firstName: FirstNameSchema,
     lastName: LastNameSchema,
     email: EmailSchema,
@@ -89,7 +90,9 @@ const UpdateSchema = z
   .object({
     action: z.literal('update'),
     id: GidAdminUser,
-    displayName: z.string().min(1).max(100).optional(),
+    // patch 0169-fu2: 空文字も許可 (UI 側で空欄=変更しない意図のとき送られる可能性)
+    // 旧: z.string().min(1).max(100).optional() — 空文字を reject していたバグ
+    displayName: z.string().trim().max(100).optional(),
     firstName: FirstNameSchema,
     lastName: LastNameSchema,
     email: EmailSchema,

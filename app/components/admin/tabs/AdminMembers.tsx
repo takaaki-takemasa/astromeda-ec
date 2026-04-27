@@ -98,15 +98,25 @@ async function api(method: 'GET' | 'POST', body?: Record<string, unknown>, url =
   }
   const res = await fetch(url, init);
   const json = (await res.json().catch(() => ({success: false, error: 'JSON parse error'}))) as {success: boolean; error?: string; [k: string]: unknown};
-  if (!res.ok && !json.error) {
-    // patch 0169-fu: Zod issues があれば最初の問題をユーザに見せる
-    const issues = (json as {issues?: Array<{message?: string; path?: (string | number)[]}>}).issues;
+  // patch 0169-fu2: Zod の issues があれば常に詳細化する (サーバが既にエラー文言を返していても上書き)
+  // これにより「リクエストの形式が不正です」だけ見えていた状況で、実際にどのフィールドが原因かを特定できる
+  const issues = (json as {issues?: Array<{message?: string; path?: (string | number)[]}>}).issues;
+  if (!res.ok || !json.success) {
     if (Array.isArray(issues) && issues.length > 0) {
-      const first = issues[0];
-      const path = (first.path || []).join('.');
-      json.error = `入力エラー: ${path ? path + ' — ' : ''}${first.message || `HTTP ${res.status}`}`;
-    } else {
+      const detail = issues
+        .slice(0, 3) // 最大 3 件まで連結
+        .map((iss) => {
+          const path = (iss.path || []).join('.');
+          return `${path ? path + ': ' : ''}${iss.message || ''}`;
+        })
+        .join(' / ');
+      json.error = detail || json.error || `HTTP ${res.status}`;
+    } else if (!json.error) {
       json.error = `HTTP ${res.status}`;
+    }
+    // デバッグ用に console にも出す (本番でも見えるよう)
+    if (typeof console !== 'undefined') {
+      console.warn('[AdminMembers] API error', {url, status: res.status, json});
     }
   }
   return json;
@@ -686,14 +696,19 @@ function EditMemberModal({member, onClose, onSuccess}: {member: MemberSafe; onCl
     e.preventDefault();
     setBusy(true);
     setError('');
-    // patch 0169: 姓+名+メール も update に含める (空文字は明示クリア意図)
+    // patch 0169-fu2: 空文字は undefined に正規化 (Zod の min(1) を回避)
+    // 値を変更する意図がない field は送らない (undefined は JSON.stringify でドロップ)
+    const dn = displayName.trim();
+    const fn = firstName.trim();
+    const ln = lastName.trim();
+    const em = email.trim();
     const res = await api('POST', {
       action: 'update',
       id: member.id,
-      displayName: displayName.trim(),
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
+      displayName: dn || undefined,
+      firstName: fn || undefined,
+      lastName: ln || undefined,
+      email: em || undefined,
       role,
     });
     setBusy(false);
