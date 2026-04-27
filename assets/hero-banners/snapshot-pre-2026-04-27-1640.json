@@ -1,0 +1,40 @@
+{
+  "_comment": "patch 0179 (2026-04-27): 6 IP ヒーローバナー復元前の既存 3 件スナップショット。CEO 指示『修正する際、すべてのバックアップデータを保存する』への対応。 旧 3 件は新 6 件導入後に削除予定。復旧する場合はこの JSON を /api/admin/cms POST create で書き戻す。",
+  "captured_at": "2026-04-27T07:43:05Z",
+  "type": "astromeda_hero_banner",
+  "items": [
+    {
+      "id": "gid://shopify/Metaobject/261502894372",
+      "handle": "hero-new-arrivals",
+      "title": "新着IPコラボPC登場",
+      "subtitle": "国内自社工場で組み立て。最短10営業日でお届け。",
+      "image": "gid://shopify/MediaImage/45498862502180",
+      "link_url": "https://shop.mining-base.co.jp/collections/new-arrivals",
+      "cta_label": "新着を見る",
+      "display_order": "1",
+      "is_active": "true"
+    },
+    {
+      "id": "gid://shopify/Metaobject/261502927140",
+      "handle": "hero-collab-spotlight",
+      "title": "26タイトルIPコラボPC",
+      "subtitle": "ONE PIECE・NARUTO・呪術廻戦ほか、推しの世界観をそのままPCに。",
+      "image": "gid://shopify/MediaImage/45498861715748",
+      "link_url": "https://shop.mining-base.co.jp/collections/ip-collaborations",
+      "cta_label": "コラボPCを見る",
+      "display_order": "2",
+      "is_active": "true"
+    },
+    {
+      "id": "gid://shopify/Metaobject/261502959908",
+      "handle": "hero-pc-tiers",
+      "title": "GAMER / STREAMER / CREATOR",
+      "subtitle": "用途別に選べる3ティア。プロゲーマーから配信者・クリエイターまで。",
+      "image": "gid://shopify/MediaImage/(fetched-on-2026-04-27)",
+      "link_url": "https://shop.mining-base.co.jp/collections/astromeda",
+      "cta_label": "PCラインナップを見る",
+      "display_order": "3",
+      "is_active": "true"
+    }
+  ]
+}

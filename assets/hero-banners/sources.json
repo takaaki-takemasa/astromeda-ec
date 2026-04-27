@@ -1,0 +1,74 @@
+{
+  "_comment": "patch 0179 (2026-04-27): CEO 指示で旧サイト shop.mining-base.co.jp/collections/pc-collaboration から ヒーローバナーを回収。Shopify 削除事故対策として git にも source URL と画像本体を保存して二重化する。 Shopify Files が消えても git/CDN から再 upload 可能。",
+  "_recovery_command": "node scripts/restore-hero-banners.mjs (新規追加予定)",
+  "captured_at": "2026-04-27T16:40:00Z",
+  "captured_from": "https://shop.mining-base.co.jp/collections/pc-collaboration + 6 IP collection pages",
+  "banners": [
+    {
+      "handle": "hero-onepiece",
+      "name": "ONE PIECE バウンティラッシュ",
+      "ip_id": "onepiece",
+      "ip_collection_handle": "one-piece-bountyrush-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/11_5c383281-0813-4608-9396-6c156915b93e.png",
+      "local_file": "onepiece.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 1
+    },
+    {
+      "handle": "hero-heroaca",
+      "name": "僕のヒーローアカデミア",
+      "ip_id": "heroaca",
+      "ip_collection_handle": "heroaca-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/4_bcb98c4b-a189-4c51-8ee2-a359a7d472f1.png",
+      "local_file": "heroaca.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 2
+    },
+    {
+      "handle": "hero-hololive-en",
+      "name": "hololive English",
+      "ip_id": "hololive_en",
+      "ip_collection_handle": "hololive-english-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/EN1780_1000px_1c3a3d13-2626-4280-85c9-0572642487e3.png",
+      "local_file": "hololive-en.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 3
+    },
+    {
+      "handle": "hero-lovelive",
+      "name": "ラブライブ！虹ヶ咲学園スクールアイドル同好会",
+      "ip_id": "lovelive",
+      "ip_collection_handle": "lovelive-nijigasaki-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/5de897496c97a2ec3bda188d0b239e46.png",
+      "local_file": "lovelive.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 4
+    },
+    {
+      "handle": "hero-sanrio",
+      "name": "サンリオキャラクターズ",
+      "ip_id": "sanrio",
+      "ip_collection_handle": "sanrio-characters-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/1780_1000px_c737ae38-2ee0-43ff-ad11-3771481ab08e.png",
+      "local_file": "sanrio.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 5
+    },
+    {
+      "handle": "hero-sf6",
+      "name": "ストリートファイター6",
+      "ip_id": "sf6",
+      "ip_collection_handle": "streetfighter-collaboration",
+      "source_url": "https://shop.mining-base.co.jp/cdn/shop/files/SF6_1780_1000px_84527899-b2db-4a36-8471-5a3a2bf1ccea.png",
+      "local_file": "sf6.png",
+      "width": 1708,
+      "height": 960,
+      "display_order": 6
+    }
+  ]
+}
