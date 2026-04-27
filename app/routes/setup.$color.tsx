@@ -22,8 +22,13 @@ export const meta: Route.MetaFunction = ({data}) => {
   ];
 };
 
+// patch 0180 (2026-04-27): CEO 指示「Shopify から随時取得をやめろ・ファイル保存
+// データベースから繋ぎ込め」への対応。setup-manifest.json (git 永続) のみから読む。
+// Shopify Storefront 3 クエリは完全廃止。
+import setupManifest from '~/lib/setup-manifest.json';
+
 /* ─── loader ─── */
-export async function loader({params, context}: Route.LoaderArgs) {
+export async function loader({params}: Route.LoaderArgs) {
   const {color: slug} = params;
   const colorData = findColor(slug ?? '');
 
@@ -31,166 +36,32 @@ export async function loader({params, context}: Route.LoaderArgs) {
     throw new Response('カラーが見つかりません', {status: 404});
   }
 
-  // ── 上段・下段: 画像を並行取得 ──
+  // patch 0180: setup-manifest.json から直接読む。Shopify API 呼ばない。
+  // manifest にエントリ無しでもエラーにせず graceful degradation
+  const manifestEntry = (setupManifest.colors as Record<string, {lifestyle: string; products: string[]}>)[slug ?? ''] || null;
+
   const lifestyleImages: SetupImage[] = [];
   const productImages: SetupImage[] = [];
 
-  // 3クエリを並行実行（ページ + 製品 + カラーコレクション）
-  const colorCollectionHandle = `astromeda-${slug}`;
-  const kws = colorData.colorKw;
-
-  const [pageResult, prodResult, colorCollResult] = await Promise.allSettled([
-    context.storefront.query(PAGE_BY_HANDLE_QUERY as unknown as Parameters<typeof context.storefront.query>[0], {
-      variables: {handle: colorData.pageHandle},
-    }),
-    context.storefront.query(COLLECTION_PRODUCTS_QUERY as unknown as Parameters<typeof context.storefront.query>[0], {
-      variables: {handle: 'astromeda'},
-    }),
-    context.storefront.query(COLOR_COLLECTION_QUERY as unknown as Parameters<typeof context.storefront.query>[0], {
-      variables: {handle: colorCollectionHandle},
-    }),
-  ]);
-
-  // ── 上段: 製品利用イメージ（Shopifyページから抽出） ──
-  if (pageResult.status === 'fulfilled') {
-    try {
-      const pageData = pageResult.value;
-      const bodyHtml: string = (pageData as unknown as {page?: {body?: string}})?.page?.body ?? '';
-      // HTMLからShopify CDN画像URLを抽出
-      const imgRegex = /https:\/\/cdn\.shopify\.com\/s\/files\/[^"'\s>]+\.(jpg|jpeg|png|webp)(\?[^"'\s>]*)?/gi;
-      const matches = bodyHtml.match(imgRegex) ?? [];
-      const seen = new Set<string>();
-      for (const url of matches) {
-        // width パラメータなしのベースURLでdedup
-        const base = url.replace(/[?&](width|height|crop|v)=[^&]*/g, '').replace(/\?$/, '');
-        if (!seen.has(base) && lifestyleImages.length < 20) {
-          seen.add(base);
-          lifestyleImages.push({
-            url: base,
-            alt: `${colorData.n} 利用イメージ`,
-          });
-        }
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === 'development') console.error('Lifestyle images error:', e);
+  if (manifestEntry) {
+    if (manifestEntry.lifestyle) {
+      lifestyleImages.push({
+        url: manifestEntry.lifestyle,
+        alt: `${colorData.n} 利用イメージ`,
+      });
     }
-  }
-
-  // ── フォールバック1: カラーコレクション画像を製品利用イメージに追加 ──
-  if (colorCollResult.status === 'fulfilled') {
-    try {
-      const collData = colorCollResult.value as unknown as {
-        collectionByHandle?: {
-          image?: {url: string; altText?: string; width?: number; height?: number};
-          products?: {nodes?: Array<{featuredImage?: {url: string; altText?: string; width?: number; height?: number}; images?: {nodes?: Array<{url: string; altText?: string; width?: number; height?: number}>}}>};
-        };
-      };
-      const coll = collData?.collectionByHandle;
-      const existingUrls = new Set(lifestyleImages.map(i => i.url));
-
-      // コレクションバナー画像
-      if (coll?.image?.url && !existingUrls.has(coll.image.url)) {
-        lifestyleImages.push({url: coll.image.url, alt: `${colorData.n} コレクション`, width: coll.image.width, height: coll.image.height});
-        existingUrls.add(coll.image.url);
-      }
-      // コレクション内の商品画像（最大6枚）
-      const collProducts = coll?.products?.nodes ?? [];
-      for (const p of collProducts) {
-        if (lifestyleImages.length >= 12) break;
-        const imgs = [p.featuredImage, ...(p.images?.nodes ?? [])].filter(Boolean);
-        for (const img of imgs) {
-          if (img?.url && !existingUrls.has(img.url) && lifestyleImages.length < 12) {
-            existingUrls.add(img.url);
-            lifestyleImages.push({url: img.url, alt: img.altText || `${colorData.n} 製品`, width: img.width, height: img.height});
-          }
-        }
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === 'development') console.error('Color collection images error:', e);
+    for (const url of manifestEntry.products) {
+      productImages.push({
+        url,
+        alt: `${colorData.n} 製品画像`,
+      });
     }
-  }
-
-  // ── 製品利用イメージ = バナー/部屋セットアップ写真のみ ──
-  // 製品切り抜き画像（白背景のPC単体）は絶対に入れない。
-  // フォールバック: PC_COLORSのローカル部屋写真（トップCOLOR EDITIONSと同じ画像）
-  if (lifestyleImages.length === 0 && colorData.img) {
+  } else if (colorData.img) {
+    // 最終フォールバック: PC_COLORS 静的画像
     lifestyleImages.push({
       url: colorData.img,
       alt: `${colorData.n} セットアップイメージ`,
     });
-  }
-
-  // ── 下段: カラー別 製品画像 ──
-  // 各商品の画像はカラーグループ順に並んでいる。
-  // バリアントのfeatured_image位置を基準に、次バリアント画像までの範囲が
-  // そのカラーの全画像。これで商品ページと同じ画像セットを取得できる。
-  if (prodResult.status === 'fulfilled') {
-    try {
-      const prodData = prodResult.value;
-      const products = (prodData as unknown as {collectionByHandle?: {products?: {nodes?: unknown[]}}})?.collectionByHandle?.products?.nodes ?? [];
-      const seenUrls = new Set<string>();
-
-      for (const p of products as Array<{title?: string; images?: {nodes?: Array<{url: string; altText?: string; width?: number; height?: number}>}; variants?: {nodes?: Array<{selectedOptions?: Array<{name: string; value: string}>; image?: {url: string; altText?: string; width?: number; height?: number}}>}}>) {
-        if (productImages.length >= 40) break;
-        const allImages = p.images?.nodes ?? [];
-        const variants = p.variants?.nodes ?? [];
-        if (allImages.length === 0 || variants.length === 0) continue;
-
-        // 各バリアントのfeatured_image URLと、全画像リスト内での位置を特定
-        type VarPos = {color: string; idx: number; isTarget: boolean};
-        const variantPositions: VarPos[] = [];
-
-        for (const v of variants) {
-          const opts = v.selectedOptions ?? [];
-          const colorOpt = opts.find((o: {name: string; value: string}) =>
-            o.name === 'カラー' || o.name === 'Color' || o.name === 'color',
-          );
-          const colorName = colorOpt?.value ?? '';
-          const varImgUrl = v.image?.url;
-          if (!varImgUrl) continue;
-
-          // バリアント画像が全画像リストの何番目かを探す
-          const idx = allImages.findIndex((img: {url: string}) => img.url === varImgUrl);
-          if (idx >= 0) {
-            const isTarget = kws.some((kw: string) => colorName.includes(kw));
-            variantPositions.push({color: colorName, idx, isTarget});
-          }
-        }
-
-        // 位置でソート
-        variantPositions.sort((a, b) => a.idx - b.idx);
-
-        // ターゲットカラーの画像範囲を抽出
-        // 最大6枚/バリアント: 境界の画像混入（隣のカラー）を防止
-        const MAX_IMAGES_PER_VARIANT = 6;
-        for (let i = 0; i < variantPositions.length; i++) {
-          if (!variantPositions[i].isTarget) continue;
-
-          const startIdx = variantPositions[i].idx;
-          const nextVariantIdx =
-            i + 1 < variantPositions.length
-              ? variantPositions[i + 1].idx
-              : allImages.length;
-          const endIdx = Math.min(nextVariantIdx, startIdx + MAX_IMAGES_PER_VARIANT);
-
-          // この範囲の画像をすべて追加
-          for (let j = startIdx; j < endIdx && productImages.length < 40; j++) {
-            const img = allImages[j];
-            if (img?.url && !seenUrls.has(img.url)) {
-              seenUrls.add(img.url);
-              productImages.push({
-                url: img.url,
-                alt: img.altText || `${p.title} ${colorData.n}`,
-                width: img.width,
-                height: img.height,
-              });
-            }
-          }
-        }
-      }
-    } catch (e) {
-      if (process.env.NODE_ENV === 'development') console.error('Product images error:', e);
-    }
   }
 
   return {
@@ -577,70 +448,16 @@ export default function SetupPage() {
   );
 }
 
-/* ─── GraphQL ─── */
-
-// カラーコレクションの画像を取得（バナー + 商品画像）
-const COLOR_COLLECTION_QUERY = `#graphql
-  query ColorCollection($handle: String!) {
-    collectionByHandle(handle: $handle) {
-      image { url altText width height }
-      products(first: 6) {
-        nodes {
-          featuredImage { url altText width height }
-          images(first: 3) { nodes { url altText width height } }
-        }
-      }
-    }
-  }
-` as const;
-
-// Shopifyページのbody HTMLからライフスタイル画像を抽出
-const PAGE_BY_HANDLE_QUERY = `#graphql
-  query PageByHandle($handle: String!) {
-    page: pageByHandle(handle: $handle) {
-      id
-      title
-      body
-    }
-  }
-` as const;
-
-// コレクション内の製品（全画像+バリアント画像付き）からカラー別にフィルタ
-// 各商品は最大15枚の画像、最大10個のバリアント情報を取得
-const COLLECTION_PRODUCTS_QUERY = `#graphql
-  query CollectionProducts($handle: String!) {
-    collectionByHandle(handle: $handle) {
-      products(first: 20) {
-        nodes {
-          title
-          handle
-          images(first: 15) {
-            nodes {
-              url
-              altText
-              width
-              height
-            }
-          }
-          variants(first: 10) {
-            nodes {
-              selectedOptions {
-                name
-                value
-              }
-              image {
-                url
-                altText
-                width
-                height
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-` as const;
+/* ─── GraphQL queries (deleted patch 0180) ────────────────────────────────────
+ * 旧コード:
+ *   - COLOR_COLLECTION_QUERY (collectionByHandle 経由でカラー collection 画像取得)
+ *   - PAGE_BY_HANDLE_QUERY   (Shopify ページ body から画像 URL regex 抽出)
+ *   - COLLECTION_PRODUCTS_QUERY (collection 全商品 + variant 画像取得)
+ * すべて削除。CEO 指示「Shopify から随時取得をやめろ」への構造的対応。
+ * 新しい画像入手経路: app/lib/setup-manifest.json (git 永続)
+ * 新しい画像配信経路: /images/pc-setup/{slug}.jpg (public/ 配下) +
+ *                    .github/workflows/sync-setup-images.yml で download した /assets/setup/{color}/*.jpg
+ * ─────────────────────────────────────────────────────────────────────────── */
 
 export function ErrorBoundary() {
   return <RouteErrorBoundary />;

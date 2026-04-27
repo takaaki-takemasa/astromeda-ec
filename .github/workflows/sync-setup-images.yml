@@ -1,0 +1,89 @@
+name: Sync Setup Images (manifest → git binaries)
+
+# patch 0180 (2026-04-27): CEO 指示「Shopify から随時取得をやめる、ファイル保存
+# されたデータベースから繋ぎ込む」への構造的バックアップ。
+# manifest.json (URL 一覧) を読んで、shop.mining-base.co.jp CDN から各画像を
+# curl で git ローカル assets/setup/{color}/*.jpg に download し commit&push。
+# これで Shopify Files / 旧サイトが消えても git に画像 binary が残る。
+#
+# 手動 trigger: gh workflow run sync-setup-images.yml
+# 自動 trigger: 毎週月曜 03:00 UTC (差分 download — 既存ファイルは skip)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 1'  # 毎週月曜 03:00 UTC
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Read manifest + download missing images
+        run: |
+          set -e
+          MANIFEST="app/lib/setup-manifest.json"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "manifest not found: $MANIFEST"
+            exit 1
+          fi
+
+          # node script to read manifest and curl each missing image
+          cat > /tmp/sync.mjs <<'EOF'
+          import {readFileSync, existsSync, mkdirSync, writeFileSync} from 'node:fs';
+          import {execSync} from 'node:child_process';
+          import {dirname} from 'node:path';
+
+          const m = JSON.parse(readFileSync('app/lib/setup-manifest.json', 'utf8'));
+          let downloaded = 0, skipped = 0, failed = 0;
+          for (const [slug, entry] of Object.entries(m.colors)) {
+            for (const [idx, url] of (entry.products || []).entries()) {
+              const filename = url.split('/').pop().split('?')[0];
+              const localPath = `assets/setup/${slug}/${filename}`;
+              if (existsSync(localPath)) {
+                skipped++;
+                continue;
+              }
+              mkdirSync(dirname(localPath), {recursive: true});
+              try {
+                execSync(`curl -sSf -L --max-time 60 -o "${localPath}" "${url}"`, {stdio: 'inherit'});
+                downloaded++;
+                console.log(`✓ ${slug}/${filename}`);
+              } catch (e) {
+                failed++;
+                console.error(`✗ ${slug}/${filename}: ${e.message}`);
+              }
+            }
+          }
+          console.log(`\nSummary: downloaded=${downloaded} skipped=${skipped} failed=${failed}`);
+          writeFileSync('/tmp/sync-summary.txt',
+            `downloaded=${downloaded}\nskipped=${skipped}\nfailed=${failed}\n`);
+          EOF
+          node /tmp/sync.mjs
+
+      - name: Commit & push if new images
+        run: |
+          if [ -n "$(git status --porcelain assets/setup/)" ]; then
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git add assets/setup/
+            git commit -m "$(cat <<'MSG'
+          chore(assets): sync setup images from manifest (sync-setup-images.yml)
+
+          Auto-download from shop.mining-base.co.jp CDN per app/lib/setup-manifest.json.
+          Ensures git holds binary copies independent of Shopify Files lifecycle.
+
+          $(cat /tmp/sync-summary.txt)
+          MSG
+          )"
+            git push
+          else
+            echo "No changes — all images already in git"
+          fi

@@ -1,0 +1,66 @@
+{
+  "_comment": "patch 0180 (2026-04-27): CEO 指示『Shopify から随時取得する方法をやめて、ファイル保存されたデータベースから繋ぎ込む』への対応。 setup.$color.tsx は今後この manifest からのみ画像を読む。Shopify Storefront API 3 クエリ (PAGE_BY_HANDLE_QUERY / COLLECTION_PRODUCTS_QUERY / COLOR_COLLECTION_QUERY) は完全廃止。\n\n_lifestyle: /images/pc-setup/{slug}.jpg は public/ 配下に git 永続保存済 (78KB-152KB × 8色)。\n_products: 旧サイト shop.mining-base.co.jp/cdn/shop/files/ の安定 CDN URL を pin。GitHub Actions workflow .github/workflows/sync-setup-images.yml で git assets/setup/{color}/*.jpg として binary 取得 → URL を /assets/setup/{color}/*.jpg に切替予定。\n_recovery: この manifest さえ git にあれば Shopify Files が消えても復元可能。",
+  "_capturedAt": "2026-04-27T16:40:00Z",
+  "_capturedFrom": "shop.mining-base.co.jp/pages/{white|black|pink}-style + /collections/{purple|lightblue|red|green|orange}",
+  "_pendingDownload": "purple/lightblue/red/green/orange の追加 product 画像は次回セッションで /collections/{color} 製品ページから巡回取得予定",
+  "colors": {
+    "white": {
+      "name": "ホワイト",
+      "lifestyle": "/images/pc-setup/white.jpg",
+      "products": [
+        "https://shop.mining-base.co.jp/cdn/shop/files/img_mv_white_744c23d7-124c-4118-8175-171e28995aff_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white01_9619ea9c-c193-4ca9-b196-76cdfe802cb9_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white02_c9c8ca90-885c-4bee-9baa-dc80abfcf68d_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white03_d346306a-0117-4d2a-a8db-cdbba649bbff_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white04_e93c5c9b-48fa-440d-b1af-a5500af89676_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white05_e9612a57-1cb1-4d69-8cac-ffcec5c99318_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white06_877dc8fc-0d07-43ba-a23f-1959d11fc166_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/white07_a5f0eeb7-7363-4ad6-91e5-4b50e4c6524f_2000x.jpg"
+      ]
+    },
+    "black": {
+      "name": "ブラック",
+      "lifestyle": "/images/pc-setup/black.jpg",
+      "products": [
+        "https://shop.mining-base.co.jp/cdn/shop/files/img_mv_black_8636fa35-14a4-4243-b4e4-da32715d4157_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black01_f5ef822f-a110-426f-97d5-cab2873d528b_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black02_2cae13ee-5ce8-4e67-a2b3-27fd53efa80a_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black03_383b5293-67f0-490e-9cd6-ad4e6ce6699c_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black04_730c1b77-f90c-425d-8916-14cb91850293_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black05_97dacf67-29e8-47c7-a6d4-7315454a907a_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black06_ceebc4d1-4744-49b3-a138-668342646c4a_2000x.jpg",
+        "https://shop.mining-base.co.jp/cdn/shop/files/black07_4da140c3-72d3-4f7b-bcdf-830679f422a0_2000x.jpg"
+      ]
+    },
+    "pink": {
+      "name": "ピンク",
+      "lifestyle": "/images/pc-setup/pink.jpg",
+      "products": []
+    },
+    "purple": {
+      "name": "パープル",
+      "lifestyle": "/images/pc-setup/purple.jpg",
+      "products": []
+    },
+    "lightblue": {
+      "name": "ライトブルー",
+      "lifestyle": "/images/pc-setup/lightblue.jpg",
+      "products": []
+    },
+    "red": {
+      "name": "レッド",
+      "lifestyle": "/images/pc-setup/red.jpg",
+      "products": []
+    },
+    "green": {
+      "name": "グリーン",
+      "lifestyle": "/images/pc-setup/green.jpg",
+      "products": []
+    },
+    "orange": {
+      "name": "オレンジ",
+      "lifestyle": "/images/pc-setup/orange.jpg",
+      "products": []
+    }
+  }
+}
