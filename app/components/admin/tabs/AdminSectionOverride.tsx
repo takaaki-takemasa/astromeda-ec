@@ -52,17 +52,32 @@ function getCsrfToken(): string {
   return document.querySelector<HTMLMetaElement>('meta[name="_csrf"]')?.content || '';
 }
 
-async function cmsGet(): Promise<OverrideEntry[]> {
+// patch 0166-fu (2026-04-27): Metaobject 定義不在を検出するため definitionExists フラグを返す
+// /api/admin/cms?type=... は定義不在でも 200 + items=[] を返すので、別途 /api/admin/metaobject-definitions
+// で type の存在確認が必要。空配列だけでは「未セットアップ vs 単に上書きが 0 件」を区別できない。
+async function cmsGet(): Promise<{items: OverrideEntry[]; definitionExists: boolean}> {
+  // 1. 定義の存在確認 (これがないと create も失敗する)
+  let definitionExists = false;
+  try {
+    const defRes = await fetch('/api/admin/metaobject-definitions?type=astromeda_section_override', {credentials: 'include'});
+    if (defRes.ok) {
+      const dj = await defRes.json() as {success: boolean; definition?: unknown};
+      definitionExists = !!(dj.success && dj.definition);
+    }
+  } catch {
+    definitionExists = false;
+  }
+  // 2. 既存上書きの取得
   const res = await fetch('/api/admin/cms?type=astromeda_section_override', {
     credentials: 'include',
   });
   if (!res.ok) {
-    if (res.status === 404 || res.status === 400) return []; // 定義未作成
+    if (res.status === 404 || res.status === 400) return {items: [], definitionExists};
     throw new Error(`HTTP ${res.status}`);
   }
   const json = (await res.json()) as {success: boolean; items?: Array<{id: string; handle: string; updatedAt: string; fields: Array<{key: string; value: string | null}>}>};
-  if (!json.success || !json.items) return [];
-  return json.items.map((item) => {
+  if (!json.success || !json.items) return {items: [], definitionExists};
+  const items: OverrideEntry[] = json.items.map((item) => {
     const get = (k: string) => item.fields.find((f) => f.key === k)?.value || '';
     const sectionKey = (get('section_key') || item.handle) as SectionKey;
     const modeRaw = get('mode') || 'default';
@@ -81,6 +96,7 @@ async function cmsGet(): Promise<OverrideEntry[]> {
       updatedAt: item.updatedAt,
     };
   });
+  return {items, definitionExists};
 }
 
 async function cmsPost(action: 'create' | 'update' | 'delete', body: Record<string, unknown>): Promise<{success: boolean; error?: string}> {
@@ -103,11 +119,12 @@ async function setupDefinition(): Promise<{success: boolean; error?: string}> {
     method: 'POST',
     credentials: 'include',
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
+    // patch 0166-fu (2026-04-27): Zod schema は `fields` を期待 (`fieldDefinitions` は未定義キーで 400)
     body: JSON.stringify({
       action: 'create',
       type: 'astromeda_section_override',
       name: 'セクションHTML上書き',
-      fieldDefinitions: [
+      fields: [
         {key: 'section_key', name: 'セクション識別子', type: 'single_line_text_field'},
         {key: 'mode', name: 'モード', type: 'single_line_text_field'},
         {key: 'custom_html', name: 'カスタムHTML', type: 'multi_line_text_field'},
@@ -139,11 +156,11 @@ export default function AdminSectionOverride() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await cmsGet();
+      // patch 0166-fu: 定義の存在確認結果を直接取得 (空配列だけでは判別不能)
+      const {items, definitionExists} = await cmsGet();
       setEntries(items);
-      setSetupNeeded(false);
+      setSetupNeeded(!definitionExists);
     } catch (e) {
-      // 定義未作成と推定
       setSetupNeeded(true);
       setEntries([]);
     } finally {
