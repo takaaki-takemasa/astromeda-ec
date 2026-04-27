@@ -19,6 +19,8 @@ import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {Wizard, type WizardStep} from '~/components/admin/ds/Wizard';
 // patch 0152 (2026-04-24): IPバナーのリンク先を「コレクション/記事/外部URL」から選べるようにする
 import {UrlPicker} from '~/components/admin/ds/UrlPicker';
+// patch 0172 (P1): 画像入力を <input type="text"> から ImagePicker に置換 (HeroBanners と同じ silent drop 経路を排除)
+import {ImagePicker} from '~/components/admin/ds/ImagePicker';
 import {
   type IpBanner,
   type SectionProps,
@@ -114,9 +116,18 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
     const res = await apiPost('/api/admin/homepage', body);
     setSaving(false);
     if (res.success) {
-      pushToast('保存しました', 'success');
-      setEditing(null);
-      setCreating(false);
+      // patch 0172 (P1): image silent drop の検知 (HeroBanners と同じ事故防止)
+      const notes = (res as {imageNotes?: string[]}).imageNotes;
+      const dropped = Array.isArray(notes)
+        ? notes.find((n) => /dropped|fileCreate-failed|unresolvable/i.test(n))
+        : undefined;
+      if (dropped) {
+        pushToast(`⚠️ 画像保存に失敗しました: ${dropped}\nもう一度ファイルを選び直してください。`, 'error');
+      } else {
+        pushToast('保存しました', 'success');
+        setEditing(null);
+        setCreating(false);
+      }
       await load();
     } else {
       pushToast(`失敗: ${res.error || 'unknown'}`, 'error');
@@ -592,9 +603,15 @@ function IpBannerForm({
           <input type="text" value={shopHandle} onChange={(e) => setShopHandle(e.target.value)} style={inputStyle} placeholder="onepiece" />
         </div>
         <div>
-          {/* patch 0085: 「Shopify file GID」→「Shopify 画像 ID」（GID は内部用語） */}
-          <label style={labelStyle}>画像 (URL または Shopify 画像 ID)</label>
-          <input type="text" value={image} onChange={(e) => setImage(e.target.value)} style={inputStyle} />
+          {/* patch 0172 (P1): 画像入力を ImagePicker に統一 (HeroBanners と同じ silent drop 経路を排除) */}
+          <ImagePicker
+            value={image}
+            onChange={setImage}
+            label="画像 (アップロード/Shopifyライブラリ/URL から選べます)"
+            optional
+            hint="トップページの IPコラボグリッドに表示する画像。空欄なら Shopify コレクション画像のフォールバックを使用します。"
+            initialMode="upload"
+          />
         </div>
         <div>
           <label style={labelStyle}>タグライン（任意）</label>
@@ -783,20 +800,15 @@ function IpBannerWizard({
       body: (
         <div style={{display: 'grid', gap: 12}}>
           <div>
-            <label style={labelStyle}>画像 URL（任意）</label>
-            <input
-              type="text"
+            {/* patch 0172 (P1): Wizard 内の画像入力も ImagePicker に統一 */}
+            <ImagePicker
               value={image}
-              onChange={(e) => setImage(e.target.value)}
-              style={inputStyle}
-              placeholder="https://cdn.shopify.com/... または Shopify 画像 ID"
+              onChange={setImage}
+              label="画像（任意・アップロード/Shopifyライブラリ/URL）"
+              optional
+              hint={`空のままにすると Shopify の「${shopHandle || 'コレクション'}」の画像が自動で使われます。${resolvedImage ? ' 現在のプレビュー画像あり ✓' : ''}`}
+              initialMode="upload"
             />
-            <div style={{fontSize: 11, color: T.t5, marginTop: 4, lineHeight: 1.5}}>
-              空のままにすると Shopify の「{shopHandle || 'コレクション'}」の画像が自動で使われます。
-              {resolvedImage && (
-                <span style={{color: T.c, fontWeight: 700}}> 現在のプレビュー画像あり ✓</span>
-              )}
-            </div>
           </div>
           <div>
             <label style={labelStyle}>タグライン（任意）</label>
