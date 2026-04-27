@@ -28,7 +28,8 @@ interface MemberSafe {
   handle: string;
   username: string;
   displayName: string;
-  role: 'owner' | 'admin' | 'editor' | 'viewer';
+  // patch 0165: vendor (他社デザイン会社等の限定ロール) 追加
+  role: 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer';
   active: boolean;
   lastLoginAt: string | null;
   updatedAt: string;
@@ -44,6 +45,8 @@ const ROLE_LABEL: Record<MemberSafe['role'], {label: string; color: string; desc
   owner: {label: 'オーナー', color: '#FF2D55', description: 'すべての操作・メンバー管理可'},
   admin: {label: '管理者', color: '#FF9500', description: '商品・コンテンツ・メンバー閲覧可'},
   editor: {label: '編集者', color: '#00F0FF', description: '商品・コンテンツ編集可'},
+  // patch 0165: vendor — 他社（デザイン会社・PC組立業者など）に渡す限定ロール
+  vendor: {label: '外注先（限定）', color: '#A855F7', description: 'ゲーミングPCタブの編集 + コラボ以外の商品/コレクション編集のみ。IPコラボ・トップページ・メンバー管理には触れません。'},
   viewer: {label: '閲覧者', color: '#888', description: '閲覧のみ'},
 };
 
@@ -169,7 +172,8 @@ export default function AdminMembers() {
 
   // ─── Render ───
   const sortedMembers = [...members].sort((a, b) => {
-    const order = {owner: 0, admin: 1, editor: 2, viewer: 3} as const;
+    // patch 0165: vendor は editor (2) と viewer (4) の間 (3) に挿入
+    const order = {owner: 0, admin: 1, editor: 2, vendor: 3, viewer: 4} as const;
     return (order[a.role] - order[b.role]) || a.username.localeCompare(b.username);
   });
 

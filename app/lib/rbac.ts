@@ -20,8 +20,13 @@ import type {AppSession} from '~/lib/session';
 
 // ━━━ ロール定義 ━━━
 
-/** システムロール（階層順: owner > admin > editor > viewer） */
-export type Role = 'owner' | 'admin' | 'editor' | 'viewer';
+/** システムロール（階層順: owner > admin > editor > vendor > viewer）
+ * patch 0165: vendor 追加 — 他社（デザイン会社等）向けの限定ロール
+ *   - ゲーミングPCタブ (gaming_*) のデザイン編集
+ *   - コラボ以外の商品/コレクションの CRUD
+ *   - IPコラボ系・トップページ系・メンバー管理・課金系には触れない
+ */
+export type Role = 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer';
 
 /** 権限名（ドメイン.アクション 形式） */
 export type Permission =
@@ -87,6 +92,23 @@ const ROLE_PERMISSIONS: Readonly<Record<Role, ReadonlySet<Permission>>> = {
     'approvals.view',
     'andon.view',
     'geo.view',
+  ]),
+
+  /**
+   * patch 0165: vendor — 他社（デザイン会社等）向け限定ロール
+   * 権限: 商品編集 / コレクション編集 / ダッシュ閲覧 のみ。
+   * 観察: viewer の閲覧 + 商品/コレクションの編集だけ追加。
+   * orders / settings / users / system は一切触れない。
+   * gaming_* Metaobject 編集は collections.edit + products.edit で判定。
+   * ※ collab タグの商品/コレクションは API 層で別途 scope filter する (patch 0168)。
+   */
+  vendor: new Set<Permission>([
+    'dashboard.view',
+    'products.view',
+    'collections.view',
+    'products.edit',
+    'collections.edit',
+    'system.download', // 編集に必要 (画像 DL 等)
   ]),
 
   editor: new Set<Permission>([
@@ -177,16 +199,21 @@ const ROLE_PERMISSIONS: Readonly<Record<Role, ReadonlySet<Permission>>> = {
   ]),
 } as const;
 
-/** ロール階層レベル（数値が大きいほど権限が高い） */
+/** ロール階層レベル（数値が大きいほど権限が高い）
+ * patch 0165: vendor を viewer (0) と editor (1) の間に配置 (0.5)。
+ * 商品/コレクション編集はできるが、orders/users/settings は触れない。
+ * isRoleAtLeast('editor') の判定で vendor は不合格になる (1 > 0.5)。
+ */
 const ROLE_HIERARCHY: Readonly<Record<Role, number>> = {
   viewer: 0,
+  vendor: 0.5,
   editor: 1,
   admin: 2,
   owner: 3,
 } as const;
 
 /** 全ロール一覧 */
-export const ALL_ROLES: readonly Role[] = ['owner', 'admin', 'editor', 'viewer'] as const;
+export const ALL_ROLES: readonly Role[] = ['owner', 'admin', 'editor', 'vendor', 'viewer'] as const;
 
 // ━━━ 権限チェック関数 ━━━
 

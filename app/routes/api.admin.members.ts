@@ -44,7 +44,8 @@ const GidAdminUser = z
   .string()
   .regex(/^gid:\/\/shopify\/Metaobject\/\d+$/, '無効な userId です');
 
-const RoleEnum = z.enum(['owner', 'admin', 'editor', 'viewer']);
+// patch 0165: vendor (他社デザイン会社等の限定ロール) を許可
+const RoleEnum = z.enum(['owner', 'admin', 'editor', 'vendor', 'viewer']);
 
 const SetupDefinitionSchema = z.object({action: z.literal('setup_definition')}).strict();
 
