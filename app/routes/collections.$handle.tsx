@@ -577,7 +577,7 @@ export default function Collection() {
           ))}
           {/* フィルタ結果件数 */}
           {/* patch 0016: cpu/gpu/material/price 単独でも件数表示 */}
-          {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter) && (
+          {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter || tagsArr.length > 0) && (
             <span style={{fontSize: 11, color: T.t4, marginLeft: 4}}>
               {filteredProducts.length}件
             </span>
@@ -589,8 +589,11 @@ export default function Collection() {
       <div style={{padding: 'clamp(20px, 3vw, 40px) clamp(16px, 4vw, 48px)'}}>
         {/* patch 0016: cpu/gpu/material/price 単独でも filteredProducts grid を使う
             （以前は ip/type 以外のフィルタが無視され PaginatedResourceSection の
-             生データが描画されていた） */}
-        {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter) ? (
+             生データが描画されていた）
+            patch 0184 Phase 2.2 (2026-04-27): tagsArr (?tags= URL filter) も grid 経路に含める。
+            これが無いと ?tags=foo だけ送ると filteredProducts ではなく未フィルタ
+            PaginatedResourceSection が描画され「効いていない」ように見えていた。 */}
+        {(ipFilter || typeFilter || cpuFilter || gpuFilter || materialFilter || priceFilter || tagsArr.length > 0) ? (
           <div className="astro-products-grid">
             {filteredProducts.map((product, index: number) => (
               <AstroProductItem key={product.id} product={product} accent={accent} loading={index < 8 ? 'eager' : undefined} />
