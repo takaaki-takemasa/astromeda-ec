@@ -18,8 +18,10 @@ import { AppError } from '~/lib/app-error';
 import { generateCsrfToken, verifyCsrfToken } from '~/lib/admin-auth';
 import { applyRateLimit, RATE_LIMIT_PRESETS } from '~/lib/rate-limiter';
 // patch 0156: multi-user 認証の追加
+// patch 0170: メールアドレスをユーザー ID として優先
 import {
   findAdminUserByUsername,
+  findAdminUserByEmail,
   countAdminUsers,
   recordAdminUserLogin,
   ADMIN_USER_METAOBJECT_TYPE,
@@ -111,7 +113,11 @@ export async function action({ request, context }: { request: Request; context: 
 
   const formData = await request.formData();
   const password = String(formData.get('password') || '');
+  // patch 0170: メールアドレスを最優先 ID として受付。username も後方互換で受け付ける
+  const emailInput = String(formData.get('email') || '').trim();
   const usernameInput = String(formData.get('username') || '').trim();
+  // どちらかに値があれば identifier として使う (メール優先)
+  const identifierInput = emailInput || usernameInput;
 
   // CSRF検証（免疫系: 抗原マーカーの照合）
   // 共有セッション優先: hydrogenContext.session を再利用、無ければフォールバック
@@ -146,20 +152,28 @@ export async function action({ request, context }: { request: Request; context: 
 
   if (!bootstrapMode && adminClient) {
     // ── Multi-user モード: admin_user に対して認証 ──
-    if (!usernameInput) {
-      return data({ error: 'ユーザー名を入力してください' }, { status: 400 });
+    if (!identifierInput) {
+      return data({ error: 'メールアドレスを入力してください' }, { status: 400 });
     }
-    const user = await findAdminUserByUsername(adminClient, usernameInput);
+    // patch 0170: メールアドレスを優先 ID として照合。@ 含むなら email、含まないなら username (後方互換)
+    const looksLikeEmail = identifierInput.includes('@');
+    let user = looksLikeEmail
+      ? await findAdminUserByEmail(adminClient, identifierInput)
+      : await findAdminUserByUsername(adminClient, identifierInput);
+    // フォールバック: email で見つからなければ username 検索 (パッチ移行期の救済)
+    if (!user && looksLikeEmail) {
+      user = await findAdminUserByUsername(adminClient, identifierInput);
+    }
     if (!user) {
       // ユーザー不在 — 存在しないことを悟られないように同じメッセージ
       auditLog({
         action: 'login_failed',
         role: null,
         resource: 'admin.login',
-        detail: `unknown username: ${usernameInput}`,
+        detail: `unknown identifier: ${identifierInput}`,
         success: false,
       });
-      return data({ error: 'ユーザー名またはパスワードが正しくありません' }, { status: 401 });
+      return data({ error: 'メールアドレスまたはパスワードが正しくありません' }, { status: 401 });
     }
     if (!user.active) {
       auditLog({
@@ -184,7 +198,7 @@ export async function action({ request, context }: { request: Request; context: 
         detail: 'password mismatch',
         success: false,
       });
-      return data({ error: 'ユーザー名またはパスワードが正しくありません' }, { status: 401 });
+      return data({ error: 'メールアドレスまたはパスワードが正しくありません' }, { status: 401 });
     }
 
     // 認証成功
@@ -329,14 +343,15 @@ export default function AdminLogin() {
             marginBottom: 28,
             lineHeight: 1.5,
           }}>
-            パスワードを入力してください
+            {isBootstrap ? 'パスワードを入力してください' : 'メールアドレスとパスワードを入力してください'}
           </div>
 
           <Form method="post">
             {/* CSRF トークン（免疫系: 抗原マーカー） */}
             <input type="hidden" name="_csrf" value={loaderData?.csrfToken || ''} />
 
-            {/* patch 0156: bootstrap モードでない時のみユーザー名欄を表示 */}
+            {/* patch 0156: bootstrap モードでない時のみユーザー識別欄を表示 */}
+            {/* patch 0170: メールアドレスを ID として優先 (input type=email) */}
             {!isBootstrap && (
               <div style={{ marginBottom: 16 }}>
                 <label style={{
@@ -347,15 +362,16 @@ export default function AdminLogin() {
                   letterSpacing: 2,
                   marginBottom: 8,
                 }}>
-                  USERNAME
+                  EMAIL
                 </label>
                 <input
-                  type="text"
-                  name="username"
+                  type="email"
+                  name="email"
                   required
                   autoFocus
-                  autoComplete="username"
-                  placeholder="ユーザー名"
+                  autoComplete="username email"
+                  placeholder="example@mining-base.co.jp"
+                  inputMode="email"
                   style={{
                     width: '100%',
                     padding: '14px 16px',

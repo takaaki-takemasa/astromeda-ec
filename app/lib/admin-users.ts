@@ -184,6 +184,33 @@ export async function findAdminUserByUsername(
   return users.find((u) => u.username.toLowerCase() === needle) ?? null;
 }
 
+/** patch 0170: メールアドレスでユーザーを検索 (ID として最優先) */
+export async function findAdminUserByEmail(
+  admin: ShopifyAdminMinimal,
+  email: string,
+): Promise<AdminUser | null> {
+  const users = await listAdminUsers(admin);
+  const needle = email.toLowerCase().trim();
+  return users.find((u) => (u.email || '').toLowerCase() === needle) ?? null;
+}
+
+/**
+ * patch 0170: メールアドレスから handle にできる username を自動生成
+ * 例: 'takaaki.takemasa@mng-base.com' → 'takaaki-takemasa-mng-base-com'
+ * isValidUsername (3-32 文字 + [a-zA-Z0-9._\-@]) を満たすこと
+ */
+export function emailToUsername(email: string): string {
+  const safe = email
+    .toLowerCase()
+    .trim()
+    .replace(/@/g, '-at-')
+    .replace(/\./g, '-')
+    .replace(/[^a-z0-9._\-@]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+  return safe.substring(0, 32);
+}
+
 /** Metaobject ID でユーザーを取得 */
 export async function getAdminUserById(
   admin: ShopifyAdminMinimal,

@@ -30,6 +30,7 @@ import {
   ADMIN_USER_METAOBJECT_TYPE,
   listAdminUsers,
   findAdminUserByUsername,
+  findAdminUserByEmail,
   getAdminUserById,
   createAdminUser,
   updateAdminUser,
@@ -39,6 +40,7 @@ import {
   isValidUsername,
   isValidEmail,
   buildDisplayName,
+  emailToUsername,
 } from '~/lib/admin-users';
 import {hashPassword, verifyPassword, validatePasswordMinimum} from '~/lib/admin-password';
 
@@ -62,15 +64,25 @@ const EmailSchema = z
   .refine((v) => v === '' || isValidEmail(v), 'メールアドレスの形式が不正です')
   .optional();
 
+// patch 0170: メールアドレスをユーザー ID として優先採用。
+// - email は全ロールで必須 (ログイン ID として使うため)
+// - username は任意。空なら email から自動生成 (Metaobject handle 用)
 const CreateSchema = z
   .object({
     action: z.literal('create'),
-    username: z.string().min(3).max(32),
+    // patch 0170: username は任意化 (email から自動生成可能)
+    username: z.string().trim().max(32).optional(),
     // patch 0169-fu2: 空文字も許可 (姓+名 から自動生成にフォールバック)
     displayName: z.string().trim().max(100).optional(),
     firstName: FirstNameSchema,
     lastName: LastNameSchema,
-    email: EmailSchema,
+    // patch 0170: email は全ロールで必須化 (ログイン ID)
+    email: z
+      .string()
+      .trim()
+      .min(1, 'メールアドレスを入力してください')
+      .max(254)
+      .refine((v) => isValidEmail(v), 'メールアドレスの形式が不正です'),
     password: z.string().min(8).max(128),
     role: RoleEnum,
   })
@@ -79,11 +91,6 @@ const CreateSchema = z
     // patch 0169: displayName / firstName / lastName のいずれかは必須
     (v) => (v.displayName && v.displayName.trim()) || (v.firstName && v.firstName.trim()) || (v.lastName && v.lastName.trim()),
     {message: '表示名、または 姓 / 名 のいずれかを入力してください'},
-  )
-  .refine(
-    // patch 0169: owner / admin はメール必須 (ログイン復旧手段の防御策)
-    (v) => v.role !== 'owner' && v.role !== 'admin' ? true : !!(v.email && v.email.trim()),
-    {message: 'オーナー / 管理者はメールアドレス必須です (ログインできなくなった時の本人確認用)'},
   );
 
 const UpdateSchema = z
@@ -379,34 +386,61 @@ export async function action({request, context}: ActionFunctionArgs) {
       if (!pwCheck.valid) {
         return data({success: false, error: pwCheck.error}, {status: 400});
       }
-      if (!isValidUsername(body.username)) {
-        return data({success: false, error: 'ユーザー名は 3-32 文字の英数字+._-@ のみ'}, {status: 400});
+
+      // patch 0170: email を ID として正規化。username は email から自動生成 (省略時)
+      const email = body.email.trim();
+      const username = (body.username && body.username.trim()) || emailToUsername(email);
+      if (!isValidUsername(username)) {
+        return data({success: false, error: 'ログイン ID 用の username が生成できませんでした (メールが極端に短い等)'}, {status: 400});
       }
 
-      // patch 0169: bootstrap (初代 owner) もメール必須 (ログイン復旧手段)
-      if (isBootstrap && (!body.email || !body.email.trim())) {
+      // patch 0170: email の重複チェック (ID として一意性が必要)
+      const existingByEmail = await findAdminUserByEmail(client, email).catch(() => null);
+      if (existingByEmail) {
         return data(
-          {success: false, error: '最初のオーナーはメールアドレス必須です (ログインできなくなった時の本人確認用)'},
-          {status: 400},
+          {success: false, error: `このメールアドレス (${email}) はすでに登録されています`},
+          {status: 409},
         );
       }
 
       // patch 0169: displayName が空でも 姓+名 から自動生成 (どちらかは Zod refine で必須化済)
-      const fallback = body.displayName?.trim() || body.username;
+      const fallback = body.displayName?.trim() || username;
       const computedDisplayName = buildDisplayName(body.firstName, body.lastName, fallback);
 
       const passwordHash = await hashPassword(body.password);
-      const user = await createAdminUser(client, {
-        username: body.username,
-        displayName: computedDisplayName,
-        firstName: body.firstName?.trim() || undefined,
-        lastName: body.lastName?.trim() || undefined,
-        email: body.email?.trim() || undefined,
-        passwordHash,
-        // bootstrap 時の初代は強制的に owner (管理者不在状態を作らないため)
-        role: isBootstrap ? 'owner' : body.role,
-        active: true,
-      });
+
+      // patch 0170: Metaobject 定義に first_name/last_name/email フィールドが
+      // まだ追加されていない場合は、その場で migration を実行して再試行 (auto-migration)
+      let user;
+      try {
+        user = await createAdminUser(client, {
+          username,
+          displayName: computedDisplayName,
+          firstName: body.firstName?.trim() || undefined,
+          lastName: body.lastName?.trim() || undefined,
+          email,
+          passwordHash,
+          // bootstrap 時の初代は強制的に owner (管理者不在状態を作らないため)
+          role: isBootstrap ? 'owner' : body.role,
+          active: true,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        const isFieldMissing = /Field definition .* does not exist|first_name|last_name|email/.test(msg);
+        if (!isFieldMissing) throw err;
+        // 自動 migration を実行
+        await ensureAdminUserDefinition(client as unknown as Parameters<typeof ensureAdminUserDefinition>[0]);
+        user = await createAdminUser(client, {
+          username,
+          displayName: computedDisplayName,
+          firstName: body.firstName?.trim() || undefined,
+          lastName: body.lastName?.trim() || undefined,
+          email,
+          passwordHash,
+          role: isBootstrap ? 'owner' : body.role,
+          active: true,
+        });
+      }
 
       auditLog({
         action: 'user_create',
