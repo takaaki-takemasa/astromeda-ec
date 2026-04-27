@@ -105,7 +105,8 @@ async function cmsPost(action: 'create' | 'update' | 'delete', body: Record<stri
     method: 'POST',
     credentials: 'include',
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrf},
-    body: JSON.stringify({...body, action, type: 'astromeda_section_override', _csrf: csrf}),
+    // patch 0166-fu2: Zod schema は strict() なので _csrf を body に入れない (header 経由のみ)
+    body: JSON.stringify({...body, action, type: 'astromeda_section_override'}),
   });
   const json = (await res.json().catch(() => ({success: false, error: 'JSON parse error'}))) as {success: boolean; error?: string};
   if (!res.ok && !json.error) json.error = `HTTP ${res.status}`;
@@ -124,6 +125,7 @@ async function setupDefinition(): Promise<{success: boolean; error?: string}> {
       action: 'create',
       type: 'astromeda_section_override',
       name: 'セクションHTML上書き',
+      description: 'セクション単位の HTML/CSS 上書き (patch 0166)',
       fields: [
         {key: 'section_key', name: 'セクション識別子', type: 'single_line_text_field'},
         {key: 'mode', name: 'モード', type: 'single_line_text_field'},
@@ -132,7 +134,7 @@ async function setupDefinition(): Promise<{success: boolean; error?: string}> {
         {key: 'is_active', name: '有効', type: 'boolean'},
         {key: 'notes', name: '編集メモ', type: 'multi_line_text_field'},
       ],
-      _csrf: csrf,
+      // patch 0166-fu2: _csrf を body に入れない (header 経由のみ)
     }),
   });
   const json = (await res.json().catch(() => ({success: false, error: 'JSON parse error'}))) as {success: boolean; error?: string};
@@ -196,7 +198,8 @@ export default function AdminSectionOverride() {
     ];
     const body = isCreate
       ? {handle, fields}
-      : {metaobjectId: entry.id, fields};
+      // patch 0166-fu2: API は metaobjectId ではなく id を期待
+      : {id: entry.id, fields};
     const res = await cmsPost(isCreate ? 'create' : 'update', body);
     if (res.success) {
       pushToast('保存しました', 'success');
@@ -216,7 +219,8 @@ export default function AdminSectionOverride() {
       confirmLabel: '削除する',
     });
     if (!ok) return;
-    const res = await cmsPost('delete', {metaobjectId: entry.id, confirm: true});
+    // patch 0166-fu2: API は metaobjectId ではなく id を期待
+    const res = await cmsPost('delete', {id: entry.id, confirm: true});
     if (res.success) {
       pushToast('削除しました — このセクションは元のデザインに戻ります', 'success');
       await refresh();
