@@ -73,6 +73,12 @@ export default function Collection() {
   const cpuFilter = searchParams.get('cpu') || null;     // D-11
   const gpuFilter = searchParams.get('gpu') || null;     // D-12
   const priceFilter = searchParams.get('price') || null; // D-13
+  // patch 0184 Phase 2.1 (2026-04-27): タグでソート/フィルタした遷移先設計。
+  // ?tags=tag1,tag2 で AND filter (商品が全 tag を持つ必要あり)。
+  // vendor が「自分の担当商品だけ表示するページ」を共有 URL で配布できる。
+  // 例: /collections/astromeda?tags=vendor:foo,gpc-feature
+  const tagsFilter = searchParams.get('tags') || null;
+  const tagsArr = tagsFilter ? tagsFilter.split(',').map((t) => t.trim()).filter(Boolean) : [];
 
   // GA4 view_item_list イベント（社会ネットワーク層 — コレクション閲覧の記録）
   useEffect(() => {
@@ -238,9 +244,15 @@ export default function Collection() {
         const max = maxStr ? parseInt(maxStr) : Infinity;
         if (price < min || price > max) return false;
       }
+      // patch 0184 Phase 2.1: ?tags=foo,bar で AND filter (商品が全 tag を持つ必要)
+      if (tagsArr.length > 0) {
+        const productTags = (p as unknown as {tags?: string[]}).tags || [];
+        const hasAll = tagsArr.every((t) => productTags.includes(t));
+        if (!hasAll) return false;
+      }
       return true;
     });
-  }, [baseProducts, ipFilter, typeFilter, materialFilter, cpuFilter, gpuFilter, priceFilter]);
+  }, [baseProducts, ipFilter, typeFilter, materialFilter, cpuFilter, gpuFilter, priceFilter, tagsArr]);
 
   const sortOptions = [
     {label: '新着順', value: 'newest'},
