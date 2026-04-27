@@ -25,11 +25,17 @@ export interface AdminUser {
   handle: string;
   /** ログイン ID */
   username: string;
-  /** 表示名 */
+  /** 表示名 (姓+名 から自動生成 or 手動入力 — 後方互換: 既存ユーザーはこのフィールドだけ持つ) */
   displayName: string;
+  /** patch 0169: 姓 (例: 武正) — リカバリー連絡時の本人特定 */
+  firstName?: string;
+  /** patch 0169: 名 (例: 貴昭) */
+  lastName?: string;
+  /** patch 0169: メールアドレス — ログインできなくなった時の本人確認・パスワードリセット連絡先 */
+  email?: string;
   /** pbkdf2 ハッシュ文字列 */
   passwordHash: string;
-  /** 役割 (owner/admin/editor/viewer) */
+  /** 役割 (owner/admin/editor/vendor/viewer) */
   role: Role;
   /** 有効フラグ (false のユーザーはログイン不可) */
   active: boolean;
@@ -42,6 +48,12 @@ export interface AdminUser {
 export interface CreateAdminUserInput {
   username: string;
   displayName: string;
+  /** patch 0169: 姓 (任意・省略時は displayName のみ) */
+  firstName?: string;
+  /** patch 0169: 名 (任意) */
+  lastName?: string;
+  /** patch 0169: メールアドレス (オーナー/管理者は必須・編集者以下は任意) */
+  email?: string;
   passwordHash: string;
   role: Role;
   active?: boolean;
@@ -49,10 +61,33 @@ export interface CreateAdminUserInput {
 
 export interface UpdateAdminUserInput {
   displayName?: string;
+  /** patch 0169: 姓・名・メールも更新可能 */
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   passwordHash?: string;
   role?: Role;
   active?: boolean;
   lastLoginAt?: string;
+}
+
+/** patch 0169: 姓+名 から表示名を構築 (空なら fallback) */
+export function buildDisplayName(firstName?: string, lastName?: string, fallback = ''): string {
+  const f = (firstName || '').trim();
+  const l = (lastName || '').trim();
+  // 日本語慣習: 姓 (firstName) → 名 (lastName) を半角スペースで結合
+  if (f && l) return `${f} ${l}`;
+  if (f) return f;
+  if (l) return l;
+  return fallback;
+}
+
+/** patch 0169: メールアドレスのバリデーション (RFC 5321 簡易版) */
+export function isValidEmail(email: string): boolean {
+  if (!email || typeof email !== 'string') return false;
+  if (email.length > 254) return false;
+  // 基本パターン: ローカル@ドメイン.tld
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
 /** handle にする前の username をサニタイズ (lowercase + allowed chars only) */
@@ -104,11 +139,21 @@ function recordToUser(rec: {
 }): AdminUser {
   const m = fieldMap(rec.fields);
   const role = m.get('role') ?? 'viewer';
+  // patch 0169: 姓+名+メール (任意・既存ユーザーは未設定なので空文字 → undefined)
+  const firstName = (m.get('first_name') || '').trim() || undefined;
+  const lastName = (m.get('last_name') || '').trim() || undefined;
+  const email = (m.get('email') || '').trim() || undefined;
+  // 表示名: 姓+名 が両方あればそれを優先、無ければ display_name → username → handle
+  const explicitDisplay = m.get('display_name') || '';
+  const displayName = buildDisplayName(firstName, lastName, explicitDisplay) || m.get('username') || rec.handle;
   return {
     id: rec.id,
     handle: rec.handle,
     username: m.get('username') ?? rec.handle,
-    displayName: m.get('display_name') ?? m.get('username') ?? rec.handle,
+    displayName,
+    firstName,
+    lastName,
+    email,
     passwordHash: m.get('password_hash') ?? '',
     role: isValidRole(role) ? role : 'viewer',
     active: m.get('active') === 'true',
@@ -169,14 +214,23 @@ export async function createAdminUser(
     throw new Error(`ユーザー「${input.username}」はすでに登録されています`);
   }
 
+  // patch 0169: メールフォーマット検証 (指定された場合のみ)
+  if (input.email && !isValidEmail(input.email)) {
+    throw new Error('メールアドレスの形式が不正です');
+  }
+
   const handle = usernameToHandle(input.username);
-  const fields = [
+  const fields: Array<{key: string; value: string}> = [
     {key: 'username', value: input.username},
     {key: 'display_name', value: input.displayName || input.username},
     {key: 'password_hash', value: input.passwordHash},
     {key: 'role', value: input.role},
     {key: 'active', value: String(input.active !== false)},
   ];
+  // patch 0169: 姓+名+メール (任意フィールドなので、空でなければ送る)
+  if (input.firstName) fields.push({key: 'first_name', value: input.firstName.trim()});
+  if (input.lastName) fields.push({key: 'last_name', value: input.lastName.trim()});
+  if (input.email) fields.push({key: 'email', value: input.email.trim()});
 
   const rec = await admin.createMetaobject(ADMIN_USER_METAOBJECT_TYPE, handle, fields);
   const full = await getAdminUserById(admin, rec.id);
@@ -203,6 +257,16 @@ export async function updateAdminUser(
   }
   if (input.active !== undefined) fields.push({key: 'active', value: String(input.active)});
   if (input.lastLoginAt !== undefined) fields.push({key: 'last_login_at', value: input.lastLoginAt});
+  // patch 0169: 姓+名+メール (空文字は明示的クリア意図として渡す = '' を送る)
+  if (input.firstName !== undefined) fields.push({key: 'first_name', value: input.firstName.trim()});
+  if (input.lastName !== undefined) fields.push({key: 'last_name', value: input.lastName.trim()});
+  if (input.email !== undefined) {
+    const trimmed = input.email.trim();
+    if (trimmed && !isValidEmail(trimmed)) {
+      throw new Error('メールアドレスの形式が不正です');
+    }
+    fields.push({key: 'email', value: trimmed});
+  }
 
   if (fields.length === 0) {
     const existing = await getAdminUserById(admin, id);

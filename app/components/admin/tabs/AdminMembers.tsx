@@ -28,11 +28,30 @@ interface MemberSafe {
   handle: string;
   username: string;
   displayName: string;
+  // patch 0169: 姓+名+メール (任意・後方互換のため optional)
+  firstName?: string;
+  lastName?: string;
+  email?: string;
   // patch 0165: vendor (他社デザイン会社等の限定ロール) 追加
   role: 'owner' | 'admin' | 'editor' | 'vendor' | 'viewer';
   active: boolean;
   lastLoginAt: string | null;
   updatedAt: string;
+}
+
+// patch 0169: 姓+名 から表示名を組み立てる (空なら fallback)
+function joinNamesForDisplay(firstName?: string, lastName?: string, fallback = ''): string {
+  const f = (firstName || '').trim();
+  const l = (lastName || '').trim();
+  if (f && l) return `${f} ${l}`;
+  if (f) return f;
+  if (l) return l;
+  return fallback;
+}
+
+// patch 0169: owner / admin はメール必須
+function isEmailRequiredFor(role: MemberSafe['role']): boolean {
+  return role === 'owner' || role === 'admin';
 }
 
 interface BootstrapState {
@@ -291,7 +310,8 @@ export default function AdminMembers() {
             <thead>
               <tr style={{textAlign: 'left', borderBottom: `1px solid ${color.border}`}}>
                 <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>ユーザー名</th>
-                <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>表示名</th>
+                <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>姓 名 / 表示名</th>
+                <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>メールアドレス</th>
                 <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>役割</th>
                 <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>状態</th>
                 <th style={{padding: '10px 8px', fontWeight: 700, color: color.textMuted, fontSize: 11}}>最終ログイン</th>
@@ -299,10 +319,31 @@ export default function AdminMembers() {
               </tr>
             </thead>
             <tbody>
-              {sortedMembers.map((m) => (
+              {sortedMembers.map((m) => {
+                const fullName = joinNamesForDisplay(m.firstName, m.lastName, m.displayName);
+                const emailWarning = isEmailRequiredFor(m.role) && !m.email;
+                return (
                 <tr key={m.id} style={{borderBottom: `1px solid ${color.border}`, opacity: m.active ? 1 : 0.5}}>
                   <td style={{padding: '12px 8px', fontFamily: 'monospace', color: color.text}}>{m.username}</td>
-                  <td style={{padding: '12px 8px', color: color.text}}>{m.displayName}</td>
+                  <td style={{padding: '12px 8px', color: color.text}}>
+                    <div>{fullName}</div>
+                    {/* patch 0169: 姓+名 がある場合は表示名も小さく併記 (差異がある時) */}
+                    {(m.firstName || m.lastName) && m.displayName && m.displayName !== fullName && (
+                      <div style={{fontSize: 10, color: color.textMuted, marginTop: 2}}>表示名: {m.displayName}</div>
+                    )}
+                  </td>
+                  <td style={{padding: '12px 8px', color: m.email ? color.text : color.textMuted, fontSize: 12}}>
+                    {m.email ? (
+                      m.email
+                    ) : emailWarning ? (
+                      // patch 0169: owner/admin にメール未設定なら警告
+                      <span style={{color: '#FF2D55', fontSize: 11}} title="ログインできなくなった時の本人確認用に必須です">
+                        ⚠ 未設定
+                      </span>
+                    ) : (
+                      <span style={{color: color.textMuted, fontSize: 11}}>—</span>
+                    )}
+                  </td>
                   <td style={{padding: '12px 8px'}}>
                     <span style={{
                       padding: '3px 8px',
@@ -349,7 +390,8 @@ export default function AdminMembers() {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -445,21 +487,43 @@ function ModalShell({title, children, onClose}: {title: string; children: React.
 
 function CreateMemberModal({isBootstrap, onClose, onSuccess}: {isBootstrap: boolean; onClose: () => void; onSuccess: () => void}) {
   const [username, setUsername] = useState('');
-  const [displayName, setDisplayName] = useState('');
+  // patch 0169: 姓 + 名 を分けて入力 (リカバリー連絡時の本人特定用)
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  // patch 0169: メールアドレス (owner/admin 必須・ログイン復旧手段)
+  const [email, setEmail] = useState('');
+  const [displayName, setDisplayName] = useState(''); // 任意・空なら 姓+名 から自動生成
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<MemberSafe['role']>(isBootstrap ? 'owner' : 'editor');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const {pushToast} = useToast();
 
+  // patch 0169: 役割によって email 必須かを動的に判定
+  const emailRequired = isBootstrap || isEmailRequiredFor(role);
+  const computedDisplayName = joinNamesForDisplay(firstName, lastName, displayName.trim() || username);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
-    const res = await api('POST', {action: 'create', username: username.trim(), displayName: displayName.trim(), password, role});
+    // patch 0169: 姓+名+メール を含めて送信 (空文字は trim で空欄として扱われる)
+    const res = await api('POST', {
+      action: 'create',
+      username: username.trim(),
+      displayName: displayName.trim() || undefined,
+      firstName: firstName.trim() || undefined,
+      lastName: lastName.trim() || undefined,
+      email: email.trim() || undefined,
+      password,
+      role,
+    });
     setBusy(false);
     if (res.success) {
-      pushToast(`作成しました：${username} を ${ROLE_LABEL[role].label} で登録`, 'success');
+      pushToast(
+        `作成しました：${username} (${computedDisplayName}) を ${ROLE_LABEL[role].label} で登録`,
+        'success',
+      );
       onSuccess();
     } else {
       setError(String(res.error || '作成に失敗しました'));
@@ -483,17 +547,67 @@ function CreateMemberModal({isBootstrap, onClose, onSuccess}: {isBootstrap: bool
             placeholder="tanaka-marketing"
           />
         </FormField>
-        <FormField label="表示名 (画面に出る名前)" required>
+
+        {/* patch 0169: 姓 + 名 (横並び・両方入れると displayName 自動生成) */}
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space[3]}}>
+          <FormField label="姓 (例: 武正)" required>
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              required
+              maxLength={50}
+              style={inputStyle}
+              placeholder="武正"
+            />
+          </FormField>
+          <FormField label="名 (例: 貴昭)" required>
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              required
+              maxLength={50}
+              style={inputStyle}
+              placeholder="貴昭"
+            />
+          </FormField>
+        </div>
+
+        {/* patch 0169: メールアドレス — owner/admin は必須 (ログイン復旧手段) */}
+        <FormField label={emailRequired ? 'メールアドレス (ログインできなくなった時の本人確認用)' : 'メールアドレス (任意)'} required={emailRequired}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required={emailRequired}
+            maxLength={254}
+            style={inputStyle}
+            placeholder="example@mining-base.co.jp"
+          />
+          {emailRequired && (
+            <div style={{fontSize: 11, color: '#FF9500', marginTop: 4, lineHeight: 1.5}}>
+              ⚠ オーナー / 管理者は必須です。パスワードを忘れた時や不正アクセス疑いがあった時に、このアドレスへ連絡します。
+            </div>
+          )}
+        </FormField>
+
+        <FormField label="表示名 (画面に出る名前・空なら 姓+名 を自動利用)">
           <input
             type="text"
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            required
             maxLength={100}
             style={inputStyle}
-            placeholder="田中太郎"
+            placeholder={computedDisplayName || '田中太郎'}
           />
+          {(firstName || lastName) && !displayName.trim() && (
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 4}}>
+              → 表示名: <strong style={{color: color.text}}>{computedDisplayName}</strong> として登録されます
+            </div>
+          )}
         </FormField>
+
         <FormField label="パスワード (8 文字以上)" required>
           <input
             type="password"
@@ -515,6 +629,7 @@ function CreateMemberModal({isBootstrap, onClose, onSuccess}: {isBootstrap: bool
               <option value="owner">オーナー — 全権限・メンバー削除可</option>
               <option value="admin">管理者 — メンバー閲覧・全機能</option>
               <option value="editor">編集者 — 商品・コンテンツ編集</option>
+              <option value="vendor">外注先（限定）— ゲーミングPCタブ + コラボ以外の商品</option>
               <option value="viewer">閲覧者 — 閲覧のみ</option>
             </select>
           )}
@@ -541,17 +656,33 @@ function CreateMemberModal({isBootstrap, onClose, onSuccess}: {isBootstrap: bool
 }
 
 function EditMemberModal({member, onClose, onSuccess}: {member: MemberSafe; onClose: () => void; onSuccess: () => void}) {
+  // patch 0169: 姓 + 名 + メール を編集可能に
+  const [firstName, setFirstName] = useState(member.firstName || '');
+  const [lastName, setLastName] = useState(member.lastName || '');
+  const [email, setEmail] = useState(member.email || '');
   const [displayName, setDisplayName] = useState(member.displayName);
   const [role, setRole] = useState<MemberSafe['role']>(member.role);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const {pushToast} = useToast();
 
+  const emailRequired = isEmailRequiredFor(role);
+  const computedDisplayName = joinNamesForDisplay(firstName, lastName, displayName.trim() || member.username);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
-    const res = await api('POST', {action: 'update', id: member.id, displayName: displayName.trim(), role});
+    // patch 0169: 姓+名+メール も update に含める (空文字は明示クリア意図)
+    const res = await api('POST', {
+      action: 'update',
+      id: member.id,
+      displayName: displayName.trim(),
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: email.trim(),
+      role,
+    });
     setBusy(false);
     if (res.success) {
       pushToast('更新しました', 'success');
@@ -564,16 +695,75 @@ function EditMemberModal({member, onClose, onSuccess}: {member: MemberSafe; onCl
   return (
     <ModalShell title={`${member.username} を編集`} onClose={onClose}>
       <form onSubmit={submit}>
-        <FormField label="表示名">
-          <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} required maxLength={100} style={inputStyle} />
+        {/* patch 0169: 姓 + 名 (横並び) */}
+        <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: space[3]}}>
+          <FormField label="姓">
+            <input
+              type="text"
+              value={firstName}
+              onChange={(e) => setFirstName(e.target.value)}
+              maxLength={50}
+              style={inputStyle}
+              placeholder="武正"
+            />
+          </FormField>
+          <FormField label="名">
+            <input
+              type="text"
+              value={lastName}
+              onChange={(e) => setLastName(e.target.value)}
+              maxLength={50}
+              style={inputStyle}
+              placeholder="貴昭"
+            />
+          </FormField>
+        </div>
+
+        {/* patch 0169: メール — owner/admin は必須 */}
+        <FormField label={emailRequired ? 'メールアドレス (ログイン復旧用)' : 'メールアドレス'} required={emailRequired}>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required={emailRequired}
+            maxLength={254}
+            style={inputStyle}
+            placeholder="example@mining-base.co.jp"
+          />
+          {emailRequired && (
+            <div style={{fontSize: 11, color: '#FF9500', marginTop: 4, lineHeight: 1.5}}>
+              ⚠ オーナー / 管理者は必須です。パスワードを忘れた時の連絡先になります。
+            </div>
+          )}
         </FormField>
+
+        <FormField label="表示名 (画面に出る名前・空なら 姓+名 を自動利用)">
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            maxLength={100}
+            style={inputStyle}
+            placeholder={computedDisplayName}
+          />
+          {(firstName || lastName) && (
+            <div style={{fontSize: 11, color: color.textMuted, marginTop: 4}}>
+              → 表示名: <strong style={{color: color.text}}>{computedDisplayName}</strong>
+            </div>
+          )}
+        </FormField>
+
         <FormField label="役割">
           <select value={role} onChange={(e) => setRole(e.target.value as MemberSafe['role'])} style={inputStyle as React.CSSProperties}>
             <option value="owner">オーナー</option>
             <option value="admin">管理者</option>
             <option value="editor">編集者</option>
+            <option value="vendor">外注先（限定）</option>
             <option value="viewer">閲覧者</option>
           </select>
+          <div style={{fontSize: 11, color: color.textMuted, marginTop: 4}}>
+            {ROLE_LABEL[role].description}
+          </div>
         </FormField>
 
         {error && (

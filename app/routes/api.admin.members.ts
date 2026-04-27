@@ -37,6 +37,8 @@ import {
   countAdminUsers,
   toSafeAdminUser,
   isValidUsername,
+  isValidEmail,
+  buildDisplayName,
 } from '~/lib/admin-users';
 import {hashPassword, verifyPassword, validatePasswordMinimum} from '~/lib/admin-password';
 
@@ -49,28 +51,61 @@ const RoleEnum = z.enum(['owner', 'admin', 'editor', 'vendor', 'viewer']);
 
 const SetupDefinitionSchema = z.object({action: z.literal('setup_definition')}).strict();
 
+// patch 0169: 姓+名+メールを任意で受け付ける Zod helper (空文字は除外)
+// メールは isValidEmail で簡易検証 (RFC 5321 簡易版)
+const FirstNameSchema = z.string().trim().max(50).optional();
+const LastNameSchema = z.string().trim().max(50).optional();
+const EmailSchema = z
+  .string()
+  .trim()
+  .max(254)
+  .refine((v) => v === '' || isValidEmail(v), 'メールアドレスの形式が不正です')
+  .optional();
+
 const CreateSchema = z
   .object({
     action: z.literal('create'),
     username: z.string().min(3).max(32),
-    displayName: z.string().min(1).max(100),
+    displayName: z.string().min(1).max(100).optional(), // patch 0169: 姓+名から自動生成可・後方互換
+    firstName: FirstNameSchema,
+    lastName: LastNameSchema,
+    email: EmailSchema,
     password: z.string().min(8).max(128),
     role: RoleEnum,
   })
-  .strict();
+  .strict()
+  .refine(
+    // patch 0169: displayName / firstName / lastName のいずれかは必須
+    (v) => (v.displayName && v.displayName.trim()) || (v.firstName && v.firstName.trim()) || (v.lastName && v.lastName.trim()),
+    {message: '表示名、または 姓 / 名 のいずれかを入力してください'},
+  )
+  .refine(
+    // patch 0169: owner / admin はメール必須 (ログイン復旧手段の防御策)
+    (v) => v.role !== 'owner' && v.role !== 'admin' ? true : !!(v.email && v.email.trim()),
+    {message: 'オーナー / 管理者はメールアドレス必須です (ログインできなくなった時の本人確認用)'},
+  );
 
 const UpdateSchema = z
   .object({
     action: z.literal('update'),
     id: GidAdminUser,
     displayName: z.string().min(1).max(100).optional(),
+    firstName: FirstNameSchema,
+    lastName: LastNameSchema,
+    email: EmailSchema,
     role: RoleEnum.optional(),
     active: z.boolean().optional(),
   })
   .strict()
   .refine(
-    (v) => v.displayName !== undefined || v.role !== undefined || v.active !== undefined,
-    {message: 'displayName / role / active のいずれかを指定してください'},
+    (v) =>
+      v.displayName !== undefined ||
+      v.firstName !== undefined ||
+      v.lastName !== undefined ||
+      v.email !== undefined ||
+      v.role !== undefined ||
+      v.active !== undefined,
+    {message: 'displayName / firstName / lastName / email / role / active のいずれかを指定してください'},
   );
 
 const ResetPasswordSchema = z
@@ -129,9 +164,58 @@ interface AdminClientQuery {
   query: <T>(gql: string, variables?: Record<string, unknown>) => Promise<T>;
 }
 
-async function ensureAdminUserDefinition(client: AdminClientQuery): Promise<{created: boolean; id: string}> {
+// patch 0169: admin_user の正規フィールド定義 (新規 + 既存に追加するフィールド)
+const ADMIN_USER_FIELD_DEFINITIONS = [
+  {key: 'username', name: 'ユーザー名', type: 'single_line_text_field'},
+  {key: 'display_name', name: '表示名', type: 'single_line_text_field'},
+  {key: 'first_name', name: '姓', type: 'single_line_text_field'}, // patch 0169
+  {key: 'last_name', name: '名', type: 'single_line_text_field'}, // patch 0169
+  {key: 'email', name: 'メールアドレス', type: 'single_line_text_field'}, // patch 0169
+  {key: 'password_hash', name: 'パスワードハッシュ', type: 'single_line_text_field'},
+  {key: 'role', name: '役割', type: 'single_line_text_field'},
+  {key: 'active', name: '有効', type: 'boolean'},
+  {key: 'last_login_at', name: '最終ログイン', type: 'date_time'},
+] as const;
+
+async function ensureAdminUserDefinition(
+  client: AdminClientQuery,
+): Promise<{created: boolean; id: string; fieldsAdded: string[]}> {
   const existing = await client.getMetaobjectDefinition(ADMIN_USER_METAOBJECT_TYPE);
-  if (existing) return {created: false, id: existing.id};
+
+  if (existing) {
+    // patch 0169: 既存定義に新フィールド (first_name/last_name/email) が無ければ追加
+    const existingKeys = new Set(existing.fieldDefinitions.map((f) => f.key));
+    const missingFields = ADMIN_USER_FIELD_DEFINITIONS.filter((f) => !existingKeys.has(f.key));
+    if (missingFields.length === 0) {
+      return {created: false, id: existing.id, fieldsAdded: []};
+    }
+    const updateGql = `
+      mutation adminUserDefAddFields($id: ID!, $definition: MetaobjectDefinitionUpdateInput!) {
+        metaobjectDefinitionUpdate(id: $id, definition: $definition) {
+          metaobjectDefinition { id }
+          userErrors { field message }
+        }
+      }
+    `;
+    const updateRes = await client.query<{
+      metaobjectDefinitionUpdate: {
+        metaobjectDefinition: {id: string} | null;
+        userErrors: Array<{field: string[]; message: string}>;
+      };
+    }>(updateGql, {
+      id: existing.id,
+      definition: {
+        fieldDefinitions: missingFields.map((f) => ({
+          create: {key: f.key, name: f.name, type: f.type},
+        })),
+      },
+    });
+    const ue = updateRes.metaobjectDefinitionUpdate.userErrors;
+    if (ue && ue.length > 0) {
+      throw new Error(`admin_user 定義へのフィールド追加に失敗: ${ue.map((e) => e.message).join('; ')}`);
+    }
+    return {created: false, id: existing.id, fieldsAdded: missingFields.map((f) => f.key)};
+  }
 
   // セキュリティ: password_hash を保持するので storefront には絶対に露出させない (access.storefront=NONE)
   const gql = `
@@ -152,14 +236,7 @@ async function ensureAdminUserDefinition(client: AdminClientQuery): Promise<{cre
       type: ADMIN_USER_METAOBJECT_TYPE,
       name: '管理画面ユーザー',
       access: {storefront: 'NONE'},
-      fieldDefinitions: [
-        {key: 'username', name: 'ユーザー名', type: 'single_line_text_field'},
-        {key: 'display_name', name: '表示名', type: 'single_line_text_field'},
-        {key: 'password_hash', name: 'パスワードハッシュ', type: 'single_line_text_field'},
-        {key: 'role', name: '役割', type: 'single_line_text_field'},
-        {key: 'active', name: '有効', type: 'boolean'},
-        {key: 'last_login_at', name: '最終ログイン', type: 'date_time'},
-      ],
+      fieldDefinitions: ADMIN_USER_FIELD_DEFINITIONS.map((f) => ({key: f.key, name: f.name, type: f.type})),
     },
   });
 
@@ -168,7 +245,7 @@ async function ensureAdminUserDefinition(client: AdminClientQuery): Promise<{cre
     throw new Error(`admin_user 定義作成失敗: ${userErrors.map((e) => e.message).join('; ')}`);
   }
   if (!metaobjectDefinition) throw new Error('admin_user 定義: レスポンスが空');
-  return {created: true, id: metaobjectDefinition.id};
+  return {created: true, id: metaobjectDefinition.id, fieldsAdded: ADMIN_USER_FIELD_DEFINITIONS.map((f) => f.key)};
 }
 
 // ── GET: list / bootstrap 状態 ──
@@ -266,15 +343,25 @@ export async function action({request, context}: ActionFunctionArgs) {
     if (body.action === 'setup_definition') {
       requireRole(session, 'admin');
       const res = await ensureAdminUserDefinition(client as unknown as Parameters<typeof ensureAdminUserDefinition>[0]);
+      const detail = res.created
+        ? 'created'
+        : res.fieldsAdded.length > 0
+          ? `existed; fields added: ${res.fieldsAdded.join(', ')}`
+          : 'already exists (no migration needed)';
       auditLog({
         action: 'settings_change',
         role: (session.get('role') as Role | undefined) ?? 'owner',
         ...actor,
         resource: `metaobject_definition/${ADMIN_USER_METAOBJECT_TYPE}`,
-        detail: res.created ? 'created' : 'already exists',
+        detail,
         success: true,
       });
-      return data({success: true, definitionId: res.id, created: res.created});
+      return data({
+        success: true,
+        definitionId: res.id,
+        created: res.created,
+        fieldsAdded: res.fieldsAdded,
+      });
     }
 
     if (body.action === 'create') {
@@ -293,10 +380,25 @@ export async function action({request, context}: ActionFunctionArgs) {
         return data({success: false, error: 'ユーザー名は 3-32 文字の英数字+._-@ のみ'}, {status: 400});
       }
 
+      // patch 0169: bootstrap (初代 owner) もメール必須 (ログイン復旧手段)
+      if (isBootstrap && (!body.email || !body.email.trim())) {
+        return data(
+          {success: false, error: '最初のオーナーはメールアドレス必須です (ログインできなくなった時の本人確認用)'},
+          {status: 400},
+        );
+      }
+
+      // patch 0169: displayName が空でも 姓+名 から自動生成 (どちらかは Zod refine で必須化済)
+      const fallback = body.displayName?.trim() || body.username;
+      const computedDisplayName = buildDisplayName(body.firstName, body.lastName, fallback);
+
       const passwordHash = await hashPassword(body.password);
       const user = await createAdminUser(client, {
         username: body.username,
-        displayName: body.displayName,
+        displayName: computedDisplayName,
+        firstName: body.firstName?.trim() || undefined,
+        lastName: body.lastName?.trim() || undefined,
+        email: body.email?.trim() || undefined,
         passwordHash,
         // bootstrap 時の初代は強制的に owner (管理者不在状態を作らないため)
         role: isBootstrap ? 'owner' : body.role,
@@ -337,8 +439,34 @@ export async function action({request, context}: ActionFunctionArgs) {
         return data({success: false, error: '自分自身を無効化することはできません'}, {status: 400});
       }
 
+      // patch 0169: owner / admin への昇格や維持時はメール必須
+      const targetRoleAfter = body.role ?? target.role;
+      if (targetRoleAfter === 'owner' || targetRoleAfter === 'admin') {
+        const emailAfter = body.email !== undefined ? body.email.trim() : target.email;
+        if (!emailAfter) {
+          return data(
+            {
+              success: false,
+              error: 'オーナー / 管理者はメールアドレス必須です (ログインできなくなった時の本人確認用)',
+            },
+            {status: 400},
+          );
+        }
+      }
+
+      // patch 0169: displayName 自動再計算 (姓+名 が指定されていれば優先・無ければ既存値維持)
+      let nextDisplayName = body.displayName;
+      const newFirst = body.firstName !== undefined ? body.firstName.trim() : target.firstName;
+      const newLast = body.lastName !== undefined ? body.lastName.trim() : target.lastName;
+      if ((body.firstName !== undefined || body.lastName !== undefined) && (newFirst || newLast)) {
+        nextDisplayName = buildDisplayName(newFirst, newLast, body.displayName ?? target.displayName);
+      }
+
       const updated = await updateAdminUser(client, body.id, {
-        displayName: body.displayName,
+        displayName: nextDisplayName,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
         role: body.role,
         active: body.active,
       });
@@ -348,7 +476,7 @@ export async function action({request, context}: ActionFunctionArgs) {
         role,
         ...actor,
         resource: `admin_user/${target.username}`,
-        detail: `displayName=${body.displayName ?? '-'}, role=${body.role ?? '-'}, active=${body.active ?? '-'}`,
+        detail: `displayName=${nextDisplayName ?? '-'}, firstName=${body.firstName ?? '-'}, lastName=${body.lastName ?? '-'}, email=${body.email ? '***' : '-'}, role=${body.role ?? '-'}, active=${body.active ?? '-'}`,
         success: true,
       });
 
