@@ -1,0 +1,47 @@
+name: Process Category Card Images (white-bg cutout)
+
+# patch 0182 (2026-04-27): CEO 指示「白抜きできている製品と背景の白が残っている製品の二つ。
+# 製品の白抜きをしたうえで、保存して、さしかえをしてください」への対応。
+#
+# Pillow flood-fill で 3 枚の CATEGORY カード画像から白背景を除去し
+# public/category-cards/{gaming-pc,gadgets,goods}.png に保存・git 永続化する。
+#
+# 手動 trigger: gh workflow run process-category-images.yml
+# (storefront 側 _index.tsx は既に /category-cards/{slug}.png を優先参照する)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install --quiet Pillow requests
+
+      - name: Process category images
+        run: python scripts/process-category-images.py
+
+      - name: Commit & push if changed
+        run: |
+          if [ -n "$(git status --porcelain public/category-cards/)" ]; then
+            git config user.email "actions@github.com"
+            git config user.name "GitHub Actions"
+            git add public/category-cards/
+            git commit -m "chore(assets): refresh category card cutouts"
+            git push
+          else
+            echo "No changes — cutouts already up to date"
+          fi

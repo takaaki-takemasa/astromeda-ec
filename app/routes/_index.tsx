@@ -1038,12 +1038,15 @@ export default function Homepage() {
                     img: c.image || '',
                   }))
                 : [
+                // patch 0182 (2026-04-27): public/category-cards/{slug}.png は GitHub Actions の
+                // process-category-images.yml が flood-fill で白背景を除去した PNG。
+                // ローカル cutout を最優先・無ければ Shopify CDN フォールバック。
                 {name: 'ゲーミングPC', sub: 'GAMING PC', to: '/collections/astromeda', pr: '¥199,980〜', ac: '#3498DB', bg: '#0a1424',
-                  img: catImgs['astromeda'] || ''},
+                  img: '/category-cards/gaming-pc.png', imgFallback: catImgs['astromeda'] || ''},
                 {name: 'ガジェット', sub: 'GADGETS', to: '/collections/gadgets', pr: '¥4,980〜', ac: '#FF3333', bg: '#1a0a0a',
-                  img: catImgs['gadgets'] || ''},
+                  img: '/category-cards/gadgets.png', imgFallback: catImgs['gadgets'] || ''},
                 {name: 'グッズ', sub: 'GOODS', to: '/collections/goods', pr: '¥990〜', ac: '#00C853', bg: '#0a1a0e',
-                  img: catImgs['goods'] || ''},
+                  img: '/category-cards/goods.png', imgFallback: catImgs['goods'] || ''},
               ];
               const useAutoGrid = cats.length > 3;
               return (
@@ -1074,19 +1077,31 @@ export default function Homepage() {
                         background: c.bg,
                       }}
                     >
-                      {/* Product image — CSS background (壊れた画像アイコンが出ない) */}
+                      {/* Product image — patch 0182: img タグに切替えて onError で
+                          local cutout PNG → Shopify CDN フォールバック (workflow 未実行時の保険)。 */}
                       {c.img && (
-                        <div style={{
-                          position: 'absolute',
-                          right: '-5%',
-                          top: '5%',
-                          width: '70%',
-                          height: '90%',
-                          backgroundImage: `url(${c.img}${c.img.includes('?') ? '&' : '?'}width=600)`,
-                          backgroundSize: 'contain',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'center right',
-                        }} />
+                        <img
+                          src={c.img}
+                          alt=""
+                          onError={(e) => {
+                            const fb = (c as {imgFallback?: string}).imgFallback;
+                            if (fb && (e.currentTarget as HTMLImageElement).src !== fb) {
+                              (e.currentTarget as HTMLImageElement).src = fb;
+                            } else {
+                              (e.currentTarget as HTMLImageElement).style.display = 'none';
+                            }
+                          }}
+                          style={{
+                            position: 'absolute',
+                            right: '-5%',
+                            top: '5%',
+                            width: '70%',
+                            height: '90%',
+                            objectFit: 'contain',
+                            objectPosition: 'center right',
+                            pointerEvents: 'none',
+                          }}
+                        />
                       )}
                       {/* Gradient overlay */}
                       <div style={{
