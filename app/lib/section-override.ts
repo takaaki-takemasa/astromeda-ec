@@ -39,6 +39,12 @@ export const SECTION_KEYS = [
   {key: 'gpc_parts_cards', label: 'ゲーミングPC：パーツで選ぶ', page: 'gaming-pc'},
   {key: 'gpc_price_ranges', label: 'ゲーミングPC：価格帯で選ぶ', page: 'gaming-pc'},
   {key: 'gpc_contact', label: 'ゲーミングPC：お問い合わせ', page: 'gaming-pc'},
+  // patch 0184 Phase 2: 「セクション追加」用の予備スロット 3 つ。
+  // GamingPCLanding 末尾に空 wrap として描画され、vendor が新規セクションを
+  // ここに HTML/CSS で挿入できる (custom_html mode で空 → 任意の HTML を投入)。
+  {key: 'gpc_extra_1', label: 'ゲーミングPC：追加セクション 1', page: 'gaming-pc'},
+  {key: 'gpc_extra_2', label: 'ゲーミングPC：追加セクション 2', page: 'gaming-pc'},
+  {key: 'gpc_extra_3', label: 'ゲーミングPC：追加セクション 3', page: 'gaming-pc'},
   // フッター (全ページ共通)
   {key: 'footer', label: 'フッター (全ページ共通)', page: 'global'},
 ] as const;

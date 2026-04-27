@@ -198,6 +198,31 @@ export async function action({ request, context }: Route.ActionArgs) {
       );
     }
 
+    // patch 0184 P0 (2026-04-27): vendor 深層防御 — vendor は astromeda_section_override
+    // の gpc_* セクションのみ編集可能。それ以外の Metaobject 型 (hero_banner / pc_color /
+    // legal_info / site_config 等) は全て 403。CEO「ベンダーが触れるところのみ」要件への
+    // server-side 強制。Sidebar の hide だけでは API 直叩きで漏洩するため必須。
+    if (authResult.role === 'vendor') {
+      if (type !== 'astromeda_section_override') {
+        return data(
+          { success: false, error: 'ベンダーはセクション上書き以外の編集ができません' },
+          { status: 403 },
+        );
+      }
+      // section_override の場合、section_key が gpc_* のみ許可
+      const fieldsForGuard = payload.fields as Array<{ key: string; value: string }> | undefined;
+      const sectionKeyField = fieldsForGuard?.find((f) => f.key === 'section_key');
+      // create では handle = section_key (canonical), update では fields に含まれる
+      const handleForGuard = String(payload.handle || '');
+      const sectionKeyValue = sectionKeyField?.value || handleForGuard;
+      if (sectionKeyValue && !sectionKeyValue.startsWith('gpc_')) {
+        return data(
+          { success: false, error: 'ベンダーはゲーミングPC関連セクション (gpc_*) のみ編集可能です' },
+          { status: 403 },
+        );
+      }
+    }
+
     const client = await getAdminClientFromContext(contextEnv);
 
     switch (cmsAction) {

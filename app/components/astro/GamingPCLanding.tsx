@@ -1,6 +1,8 @@
 import {useState, useEffect, useCallback, useRef} from 'react';
 import {Link} from 'react-router';
 import {T, al} from '~/lib/astromeda-data';
+// patch 0184 Phase 2 (2026-04-27): vendor が gpc_* セクションを HTML/CSS 上書きできるよう wrap
+import {SectionOverride} from './SectionOverride';
 
 // ─── Types ───
 interface RankingProduct {
@@ -358,11 +360,14 @@ export function GamingPCLanding({
   return (
     <div>
       {/* ── Hero Slider ── */}
+      <SectionOverride sectionKey="gpc_hero">
       <section>
         <HeroSlider slides={HERO_SLIDES} />
       </section>
+      </SectionOverride>
 
       {/* ── 特集 FEATURE ── */}
+      <SectionOverride sectionKey="gpc_feature_cards">
       <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
         <SectionTitle ja="特集" en="FEATURE" />
         <div style={{
@@ -405,8 +410,10 @@ export function GamingPCLanding({
           ))}
         </div>
       </section>
+      </SectionOverride>
 
       {/* ── 人気ランキング RANKING ── */}
+      <SectionOverride sectionKey="gpc_ranking">
       {rankingProducts.length > 0 && (
         <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
           <SectionTitle ja="人気ランキング" en="RANKING" />
@@ -466,8 +473,10 @@ export function GamingPCLanding({
           </div>
         </section>
       )}
+      </SectionOverride>
 
       {/* ── パーツで選ぶ SEARCH ── */}
+      <SectionOverride sectionKey="gpc_parts_cards">
       <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
         <SectionTitle ja="パーツで選ぶ" en="SEARCH" />
         {/* CPU */}
@@ -541,8 +550,10 @@ export function GamingPCLanding({
           </div>
         </div>
       </section>
+      </SectionOverride>
 
       {/* ── 値段で選ぶ PRICE RANGE ── */}
+      <SectionOverride sectionKey="gpc_price_ranges">
       <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
         <SectionTitle ja="値段で選ぶ" en="PRICE RANGE" />
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(200px, 100%), 1fr))', gap: 'clamp(10px, 1.5vw, 16px)'}}>
@@ -564,8 +575,10 @@ export function GamingPCLanding({
           ))}
         </div>
       </section>
+      </SectionOverride>
 
       {/* ── お問い合わせ CONTACT ── patch 0039: Metaobject 化 */}
+      <SectionOverride sectionKey="gpc_contact">
       <section style={{padding: sectionPad, maxWidth: maxW, margin: '0 auto'}}>
         <SectionTitle ja="お問い合わせ" en="CONTACT" />
         <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 'clamp(10px, 1.5vw, 16px)'}}>
@@ -599,6 +612,7 @@ export function GamingPCLanding({
           </a>
         </div>
       </section>
+      </SectionOverride>
 
       {/* ── お知らせ INFORMATION ── */}
       {newsItems.length > 0 && (
@@ -623,6 +637,12 @@ export function GamingPCLanding({
           </div>
         </section>
       )}
+
+      {/* patch 0184 Phase 2: vendor が「セクション追加」で挿入できる予備スロット x3
+          custom_html mode で SectionOverride に内容を入れない限り何も描画しない */}
+      <SectionOverride sectionKey="gpc_extra_1">{null}</SectionOverride>
+      <SectionOverride sectionKey="gpc_extra_2">{null}</SectionOverride>
+      <SectionOverride sectionKey="gpc_extra_3">{null}</SectionOverride>
 
       {/* Divider before product grid */}
       <div style={{
