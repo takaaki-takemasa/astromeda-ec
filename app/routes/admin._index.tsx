@@ -749,7 +749,11 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        <main style={{ flex: 1, padding: '24px 32px', overflow: 'auto' }}>
+        {/* patch 0164-fu: overflow:auto を visible に変更 — sub-tab 内の sticky position が window スクロールに追従するように。
+            元々 main を独立スクロールさせる意図だったが、main の高さは content に応じて自然に伸びるため scroll が発生せず、
+            実際は HTML element が scroll する状態になっていた。sticky は最寄りの scrolling ancestor (main) に固定されるため
+            画面外に消えていた。overflow:visible にすることで sticky の固定先が html/body になり、画面上部に常駐できる。 */}
+        <main style={{ flex: 1, padding: '24px 32px', overflow: 'visible' }}>
           {/* 2026-04-22: CEO「中学生・高校生にわかる管理画面か」を受けた構造修正
               業務語タスク中心 6 カード（商品を売る / お店の見た目を変える / 売上を見る /
               AI スタッフ / 困ったとき / 上級者モード）。各カードから既存 22 タブへ deep link。
