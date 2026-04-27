@@ -84,7 +84,9 @@ function getCsrfToken(): string {
 
 async function api(method: 'GET' | 'POST', body?: Record<string, unknown>, url = '/api/admin/inventory') {
   const init: RequestInit = {method, credentials: 'include', headers: {'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken()}};
-  if (body && method === 'POST') init.body = JSON.stringify({...body, _csrf: getCsrfToken()});
+  // patch 0169-fu: CSRF は X-CSRF-Token header のみ。body に _csrf を入れると Zod .strict() が
+  // unknown key として reject し「リクエストの形式が不正です」エラーになる。
+  if (body && method === 'POST') init.body = JSON.stringify(body);
   const res = await fetch(url, init);
   return res.json().catch(() => ({success: false, error: `HTTP ${res.status}`})) as Promise<{success: boolean; [k: string]: unknown}>;
 }

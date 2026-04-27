@@ -88,14 +88,27 @@ async function api(method: 'GET' | 'POST', body?: Record<string, unknown>, url =
   const init: RequestInit = {
     method,
     credentials: 'include',
+    // patch 0169-fu: CSRF は X-CSRF-Token header (Origin/Referer ベース) のみで検証する。
+    // body に _csrf を入れると Zod schema の .strict() が unknown key として reject し
+    // 「リクエストの形式が不正です」になる。patch 0166-fu2 と同じ修正。
     headers: {'Content-Type': 'application/json', 'X-CSRF-Token': getCsrfToken()},
   };
   if (body && method === 'POST') {
-    init.body = JSON.stringify({...body, _csrf: getCsrfToken()});
+    init.body = JSON.stringify(body); // _csrf を body には入れない
   }
   const res = await fetch(url, init);
   const json = (await res.json().catch(() => ({success: false, error: 'JSON parse error'}))) as {success: boolean; error?: string; [k: string]: unknown};
-  if (!res.ok && !json.error) json.error = `HTTP ${res.status}`;
+  if (!res.ok && !json.error) {
+    // patch 0169-fu: Zod issues があれば最初の問題をユーザに見せる
+    const issues = (json as {issues?: Array<{message?: string; path?: (string | number)[]}>}).issues;
+    if (Array.isArray(issues) && issues.length > 0) {
+      const first = issues[0];
+      const path = (first.path || []).join('.');
+      json.error = `入力エラー: ${path ? path + ' — ' : ''}${first.message || `HTTP ${res.status}`}`;
+    } else {
+      json.error = `HTTP ${res.status}`;
+    }
+  }
   return json;
 }
 
