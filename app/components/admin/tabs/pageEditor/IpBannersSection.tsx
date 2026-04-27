@@ -51,6 +51,10 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
   const [collabImages, setCollabImages] = useState<Record<string, string>>({});
   // patch 0037: 一括登録（COLLABS 26 件 → astromeda_ip_banner Metaobject）中フラグ
   const [seeding, setSeeding] = useState(false);
+  // patch 0162: ドラッグ&ドロップ並び替え用 state
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [reordering, setReordering] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -129,6 +133,66 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
       pushToast(`削除失敗: ${res.error || 'unknown'}`, 'error');
     }
   };
+
+  // patch 0162: ドラッグ&ドロップ並び替え
+  // 行をドラッグ→新しい位置にドロップ → 即座にローカル並び替え + 全エントリの sortOrder を再計算 → 並列で API 更新
+  const sortedItems = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
+
+  const handleReorder = useCallback(async (fromIdx: number, toIdx: number) => {
+    if (fromIdx === toIdx || fromIdx < 0 || toIdx < 0 || fromIdx >= sortedItems.length || toIdx >= sortedItems.length) return;
+
+    // ローカルで並び替え (即座の視覚反映)
+    const newList = [...sortedItems];
+    const [moved] = newList.splice(fromIdx, 1);
+    newList.splice(toIdx, 0, moved);
+
+    // 新しい sortOrder を割り当て (1, 2, 3, …)
+    const updates: Array<{id: string; oldSort: number; newSort: number}> = [];
+    newList.forEach((item, idx) => {
+      const newSort = idx + 1;
+      if (item.sortOrder !== newSort) {
+        updates.push({id: item.id, oldSort: item.sortOrder, newSort});
+      }
+    });
+
+    if (updates.length === 0) return;
+
+    // 楽観的 UI 更新: items state を即更新 (API 完了待ちなし)
+    setItems((prev) => {
+      const map = new Map(prev.map((p) => [p.id, p]));
+      updates.forEach((u) => {
+        const cur = map.get(u.id);
+        if (cur) map.set(u.id, {...cur, sortOrder: u.newSort});
+      });
+      return Array.from(map.values());
+    });
+
+    setReordering(true);
+    try {
+      // 並列 POST (Shopify rate limit 内・26 件くらいなら問題なし)
+      const results = await Promise.all(
+        updates.map((u) =>
+          apiPost('/api/admin/homepage', {
+            action: 'update_collab',
+            metaobjectId: u.id,
+            sortOrder: u.newSort,
+          }).catch((e) => ({success: false, error: String(e)})),
+        ),
+      );
+      const failed = results.filter((r) => !r.success);
+      if (failed.length > 0) {
+        pushToast(`並び替え部分失敗: ${failed.length}/${updates.length} 件`, 'error');
+        await load(); // サーバー側の真値で再描画
+      } else {
+        pushToast(`並び順を保存しました (${updates.length} 件更新)`, 'success');
+      }
+    } catch (e) {
+      pushToast(`並び替え失敗: ${(e as Error).message}`, 'error');
+      await load();
+    } finally {
+      setReordering(false);
+    }
+  }, [sortedItems, pushToast, load]);
 
   const modalOpen = creating || editing !== null;
   const initial: Partial<IpBanner> = creating ? {sortOrder: 0, featured: true} : editing || {};
@@ -225,7 +289,7 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
                         <div
                           style={{
                             width: 72, height: 48, borderRadius: 4,
-                            background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
+                            background: `linear-gradient(135deg, ${T.c}, ${T.g})`,
                             color: T.bg, fontSize: 9, display: 'flex',
                             alignItems: 'center', justifyContent: 'center',
                             textAlign: 'center', lineHeight: 1.1, padding: 4,
@@ -247,65 +311,128 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
           </table>
         </div>
       ) : (
-        <table style={{width: '100%', borderCollapse: 'collapse'}}>
-          <thead>
-            <tr>
-              {/* patch 0026: CEO 要望「同線にもどこかわかるように現在の画像を入れてください」
-                  — 各行が storefront のどの IP コラボカードを制御するか一目で分かるように
-                  現在の表示画像のサムネを先頭列に置く。Metaobject に image 未設定なら
-                  shopHandle から解決した Shopify コレクション画像で代用する。*/}
-              <th style={thStyle}>現在の画像</th>
-              <th style={thStyle}>IP名</th>
-              <th style={thStyle}>コレクション</th>
-              <th style={thStyle}>ラベル</th>
-              <th style={thStyle}>順</th>
-              <th style={thStyle}>状態</th>
-              <th style={thStyle}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((c) => {
-              const storedImg = (c.image || '').trim();
-              const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
-              const fallbackImg = c.shopHandle ? collabImages[c.shopHandle] : null;
-              const thumb = usableStored || fallbackImg || null;
-              return (
-                <tr key={c.id}>
-                  <td style={{...tdStyle, width: 84}}>
-                    {thumb ? (
-                      <img
-                        src={thumb}
-                        alt={c.name || c.shopHandle || 'preview'}
-                        style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`}}
-                      />
-                    ) : (
-                      <div
-                        style={{
-                          width: 72, height: 48, borderRadius: 4,
-                          background: `linear-gradient(135deg, ${T.c}, ${T.s})`,
-                          color: T.bg, fontSize: 9, display: 'flex',
-                          alignItems: 'center', justifyContent: 'center',
-                          textAlign: 'center', lineHeight: 1.1, padding: 4,
-                        }}
-                      >
-                        画像{'\n'}未設定
-                      </div>
-                    )}
-                  </td>
-                  <td style={tdStyle}>{c.name}</td>
-                  <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shopHandle}</td>
-                  <td style={tdStyle}>{c.label || '—'}</td>
-                  <td style={tdStyle}>{c.sortOrder}</td>
-                  <td style={tdStyle}>{c.featured ? '✓' : '—'}</td>
-                  <td style={{...tdStyle, textAlign: 'right'}}>
-                    <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
-                    <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <>
+          {/* patch 0162: ドラッグ操作のヒント */}
+          <div style={{
+            background: al(T.c, 0.06),
+            border: `1px dashed ${al(T.c, 0.3)}`,
+            borderRadius: 6,
+            padding: '8px 12px',
+            marginBottom: 10,
+            fontSize: 11,
+            color: T.t4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+          }}>
+            <span style={{fontSize: 14}}>⇅</span>
+            <span>並び順を変えたい時は、左端の <span style={{color: T.c, fontWeight: 700}}>≡</span> アイコンを掴んで上下にドラッグしてください
+              {reordering && <span style={{marginLeft: 8, color: '#FF9500'}}>● 保存中...</span>}
+            </span>
+          </div>
+          <table style={{width: '100%', borderCollapse: 'collapse'}}>
+            <thead>
+              <tr>
+                <th style={{...thStyle, width: 32}}></th>
+                {/* patch 0026: CEO 要望「同線にもどこかわかるように現在の画像を入れてください」
+                    — 各行が storefront のどの IP コラボカードを制御するか一目で分かるように
+                    現在の表示画像のサムネを先頭列に置く。Metaobject に image 未設定なら
+                    shopHandle から解決した Shopify コレクション画像で代用する。*/}
+                <th style={thStyle}>現在の画像</th>
+                <th style={thStyle}>IP名</th>
+                <th style={thStyle}>コレクション</th>
+                <th style={thStyle}>ラベル</th>
+                <th style={thStyle}>順</th>
+                <th style={thStyle}>状態</th>
+                <th style={thStyle}></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedItems.map((c, idx) => {
+                const storedImg = (c.image || '').trim();
+                const usableStored = storedImg && /^https?:\/\//i.test(storedImg) ? storedImg : null;
+                const fallbackImg = c.shopHandle ? collabImages[c.shopHandle] : null;
+                const thumb = usableStored || fallbackImg || null;
+                const isDragging = dragIndex === idx;
+                const isDropTarget = dropIndex === idx && dragIndex !== null && dragIndex !== idx;
+                return (
+                  <tr
+                    key={c.id}
+                    draggable
+                    onDragStart={(e) => {
+                      setDragIndex(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                      // Firefox 互換: 何かしらデータが必要
+                      e.dataTransfer.setData('text/plain', String(idx));
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault(); // 必須: drop を許可
+                      e.dataTransfer.dropEffect = 'move';
+                      if (dropIndex !== idx) setDropIndex(idx);
+                    }}
+                    onDragEnd={() => {
+                      setDragIndex(null);
+                      setDropIndex(null);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragIndex !== null && dragIndex !== idx) {
+                        void handleReorder(dragIndex, idx);
+                      }
+                      setDragIndex(null);
+                      setDropIndex(null);
+                    }}
+                    style={{
+                      cursor: reordering ? 'wait' : 'grab',
+                      opacity: isDragging ? 0.4 : 1,
+                      // ドロップ位置を視覚化: 上方向へドロップなら top border、下方向なら bottom border
+                      borderTop: isDropTarget && (dragIndex ?? 0) > idx ? `2px solid ${T.c}` : undefined,
+                      borderBottom: isDropTarget && (dragIndex ?? 0) < idx ? `2px solid ${T.c}` : undefined,
+                      background: isDragging ? al(T.c, 0.05) : undefined,
+                      transition: 'background 0.15s, opacity 0.15s',
+                    }}
+                    aria-label={`${c.name} の行 (上下にドラッグして順位変更可)`}
+                  >
+                    <td style={{...tdStyle, textAlign: 'center', color: al(T.tx, 0.4), fontSize: 18, userSelect: 'none', width: 32}}>
+                      ≡
+                    </td>
+                    <td style={{...tdStyle, width: 84}}>
+                      {thumb ? (
+                        <img
+                          src={thumb}
+                          alt={c.name || c.shopHandle || 'preview'}
+                          style={{width: 72, height: 48, objectFit: 'cover', borderRadius: 4, border: `1px solid ${al(T.tx, 0.15)}`, pointerEvents: 'none'}}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 72, height: 48, borderRadius: 4,
+                            background: `linear-gradient(135deg, ${T.c}, ${T.g})`,
+                            color: T.bg, fontSize: 9, display: 'flex',
+                            alignItems: 'center', justifyContent: 'center',
+                            textAlign: 'center', lineHeight: 1.1, padding: 4,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          画像{'\n'}未設定
+                        </div>
+                      )}
+                    </td>
+                    <td style={tdStyle}>{c.name}</td>
+                    <td style={{...tdStyle, color: T.t5, fontFamily: 'monospace', fontSize: 11}}>{c.shopHandle}</td>
+                    <td style={tdStyle}>{c.label || '—'}</td>
+                    <td style={tdStyle}>{c.sortOrder}</td>
+                    <td style={tdStyle}>{c.featured ? '✓' : '—'}</td>
+                    <td style={{...tdStyle, textAlign: 'right'}}>
+                      <button type="button" onClick={() => setEditing(c)} style={{...btn(), marginRight: 6}}>編集</button>
+                      <button type="button" onClick={() => handleDelete(c.id)} style={btn(false, true)}>削除</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
       )}
 
       {modalOpen && creating && (
