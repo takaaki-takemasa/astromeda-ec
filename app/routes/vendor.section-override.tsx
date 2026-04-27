@@ -28,6 +28,40 @@ interface VendorOverrideLoaderData {
   username: string;
 }
 
+// patch 0185-fu (2026-04-27): per-isolate guard for one-time idempotent
+// `display_order` field migration on Shopify Metaobject definition.
+// Shopify Metaobject 定義に display_order field が無い状態で patch 0185 をデプロイすると
+// vendor が並び替え保存しても 500 エラー (Field definition does not exist) になる。
+// ここで vendor が初めてセクション編集ページを開いた時に自動で field を追加する。
+let _displayOrderMigrated = false;
+
+async function ensureDisplayOrderField(env: Env): Promise<void> {
+  if (_displayOrderMigrated) return;
+  try {
+    const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
+    setAdminEnv(env);
+    const client = getAdminClient();
+    const def = await client.getMetaobjectDefinitionByType('astromeda_section_override');
+    if (!def) {
+      _displayOrderMigrated = true; // no definition → cms-seed will create with the new field
+      return;
+    }
+    const hasDisplayOrder = def.fieldDefinitions.some((f) => f.key === 'display_order');
+    if (hasDisplayOrder) {
+      _displayOrderMigrated = true;
+      return;
+    }
+    await client.updateMetaobjectDefinition(def.id, [
+      { key: 'display_order', name: '並び順 (数字が小さいほど上に表示)', type: 'number_integer' },
+    ]);
+    _displayOrderMigrated = true;
+    console.log('[vendor.section-override] migrated: added display_order to astromeda_section_override');
+  } catch (e) {
+    // 失敗しても loader 自体は通す。次回再実行で再試行。
+    console.warn('[vendor.section-override] display_order migration failed (will retry):', (e as Error).message);
+  }
+}
+
 export async function loader({ context, request }: Route.LoaderArgs) {
   try {
     const env = context.env as Env;
@@ -37,6 +71,8 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     if (session.get('isAdmin') !== true) return redirect('/admin/login?next=/vendor/section-override');
     const role = session.get('role') as string | undefined;
     if (role !== 'vendor' && role !== 'owner') return redirect('/admin');
+    // patch 0185-fu: 認証済 vendor/owner が来た時だけ migration 実行 (RBAC 安全)
+    await ensureDisplayOrderField(env);
     return { username: (session.get('username') as string) ?? 'vendor' };
   } catch {
     return redirect('/admin/login');
