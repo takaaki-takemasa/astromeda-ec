@@ -277,6 +277,44 @@ export async function loader({context}: Route.LoaderArgs) {
     };
   });
 
+  // patch 0174 (P0): hero_banner image=null の時、linkUrl から抽出したコレクション handle を
+  // Storefront API で取得して image URL を埋める。
+  // 既存実装は IP_HANDLES に含まれるコレクションのみ imageMap で解決していたため、
+  // /collections/new-arrivals 等のシード handle が解決できず <img> がガードで完全に消えていた。
+  // 対象 handle: linkUrl='/collections/{handle}' の {handle} (IP_HANDLES に未含のみ)
+  // 取得失敗時は image:null のまま → HeroSlider のグラデーション placeholder にフォールバック
+  const heroFallbackHandles = Array.from(new Set(
+    metaBannersRaw
+      .filter((b) => !b.image && b.linkUrl)
+      .map((b) => b.linkUrl!.match(/\/collections\/([^/?#]+)/)?.[1])
+      .filter((h): h is string => !!h && !IP_HANDLES.includes(h)),
+  ));
+  if (heroFallbackHandles.length > 0) {
+    try {
+      const aliases = heroFallbackHandles
+        .map((h, i) => `c${i}: collectionByHandle(handle: "${h.replace(/"/g, '\\"')}") { handle image { url altText width height } products(first:1) { nodes { featuredImage { url altText width height } } } }`)
+        .join('\n');
+      const heroFbRes = (await context.storefront.query(
+        `#graphql\nquery HeroFallbackImages { ${aliases} }`,
+      )) as Record<string, {handle: string; image?: {url: string} | null; products?: {nodes: {featuredImage?: {url: string} | null}[]}} | null> | null;
+      const handleToUrl = new Map<string, string>();
+      if (heroFbRes) {
+        for (const node of Object.values(heroFbRes)) {
+          if (!node) continue;
+          const url = node.image?.url || node.products?.nodes?.[0]?.featuredImage?.url;
+          if (url) handleToUrl.set(node.handle, url);
+        }
+      }
+      metaBannersRaw.forEach((b) => {
+        if (b.image || !b.linkUrl) return;
+        const h = b.linkUrl.match(/\/collections\/([^/?#]+)/)?.[1];
+        if (h && handleToUrl.has(h)) b.image = handleToUrl.get(h)!;
+      });
+    } catch {
+      // Storefront 失敗時はそのまま — HeroSlider の gradient placeholder が最終フォールバック
+    }
+  }
+
   const metaColorsRaw: MetaColorModel[] = pcColorModelRaw.map((mo) => {
     const f = fieldsToMap(mo.fields);
     return {
