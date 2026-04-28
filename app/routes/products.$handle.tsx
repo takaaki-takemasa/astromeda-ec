@@ -15,6 +15,8 @@ import {ImageZoom} from '~/components/astro/ImageZoom';
 import {StockIndicator} from '~/components/astro/StockIndicator';
 import {ProductRating} from '~/components/astro/ProductRating';
 import {RouteErrorBoundary} from '~/components/astro/RouteErrorBoundary';
+// patch 0192 (2026-04-28): 商品個別ページ下段の説明セクション
+import {ProductContentSection} from '~/components/astro/ProductContentSection';
 import {T, al, STORE_URL, BENCHMARKS} from '~/lib/astromeda-data';
 import {ReviewStars} from '~/components/astro/ReviewStars';
 import {ReviewForm} from '~/components/astro/ReviewForm';
@@ -122,10 +124,22 @@ export async function loader(args: Route.LoaderArgs) {
     }
   })();
 
-  const [criticalData, metaOptionsResult] = await Promise.all([
+  const [criticalData, metaOptionsResult, productContentResult, relatedGroupResult] = await Promise.all([
     loadCriticalData(args),
     adminClient
       ? adminClient.getMetaobjects('astromeda_custom_option', 100).catch(
+          () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>,
+        )
+      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+    // patch 0192 (2026-04-28): 商品個別ページ下段の製品コンテンツ
+    adminClient
+      ? adminClient.getMetaobjects('astromeda_product_content', 100).catch(
+          () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>,
+        )
+      : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
+    // patch 0193 (2026-04-28): 商品個別ページ下段の関連製品グループ
+    adminClient
+      ? adminClient.getMetaobjects('astromeda_related_group', 50).catch(
           () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>,
         )
       : Promise.resolve([] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>),
@@ -166,7 +180,42 @@ export async function loader(args: Route.LoaderArgs) {
     })
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
-  return {...deferredData, ...criticalData, metaCustomOptions};
+  // patch 0192 (2026-04-28): 製品コンテンツ matching (target_tag が product.tags に含まれる)
+  const productContents = productContentResult
+    .map((mo) => {
+      const f: Record<string, string> = {};
+      for (const kv of mo.fields) f[kv.key] = kv.value;
+      return {
+        id: mo.id,
+        targetTag: (f.target_tag || '').toLowerCase(),
+        heading: f.heading || '',
+        contentHtml: f.content_html || '',
+        imageUrl: f.image_url || '',
+        displayOrder: parseInt(f.display_order || '0', 10),
+        isActive: f.is_active === 'true',
+      };
+    })
+    .filter((c) => c.isActive && c.targetTag && productTags.includes(c.targetTag))
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+
+  // patch 0193 (2026-04-28): 関連製品グループ definitions (group_tag → group_label)
+  const relatedGroups = relatedGroupResult
+    .map((mo) => {
+      const f: Record<string, string> = {};
+      for (const kv of mo.fields) f[kv.key] = kv.value;
+      return {
+        id: mo.id,
+        groupTag: (f.group_tag || '').toLowerCase(),
+        groupLabel: f.group_label || '',
+        displayOrder: parseInt(f.display_order || '0', 10),
+        maxItems: parseInt(f.max_items || '4', 10),
+        isActive: f.is_active === 'true',
+      };
+    })
+    .filter((g) => g.isActive && g.groupTag && productTags.includes(g.groupTag))
+    .sort((a, b) => a.displayOrder - b.displayOrder);
+
+  return {...deferredData, ...criticalData, metaCustomOptions, productContents, relatedGroups};
 }
 
 /* ═══════════════════════════════════════════════════
@@ -174,7 +223,7 @@ export async function loader(args: Route.LoaderArgs) {
    ═══════════════════════════════════════════════════ */
 
 export default function Product() {
-  const {product, customizationVariants, relatedProducts, metaCustomOptions} = useLoaderData<typeof loader>();
+  const {product, customizationVariants, relatedProducts, metaCustomOptions, productContents, relatedGroups} = useLoaderData<typeof loader>();
 
   // Metaobject 由来のカスタマイズオプション → ProductCustomization が期待する {name, options} 形へ
   // 管理画面 (カスタマイズマトリックス) の CRUD を storefront に反映する配管
@@ -959,6 +1008,28 @@ export default function Product() {
         .astro-description ul, .astro-description ol { padding-left: 20px; }
         .astro-description li { margin-bottom: 4px; }
       `}} />
+
+      {/* patch 0192 (2026-04-28): 商品個別ページ下段の製品コンテンツ
+          (信頼できるメーカー品 / 360mm水冷 / 限定特典 等の旧サイト相当セクション)
+          target_tag が product.tags に含まれる astromeda_product_content を表示 */}
+      <ProductContentSection contents={productContents || []} />
+
+      {/* patch 0193 (2026-04-28): 関連製品グループ (Phase 4 MVP - matched groups info)
+          実際の商品取得は次 patch で実装予定。今回は group 一致確認のみログ出力。 */}
+      {relatedGroups && relatedGroups.length > 0 && (
+        <section
+          aria-label="関連製品グループ"
+          data-related-groups
+          style={{padding: '24px clamp(16px, 4vw, 48px)', maxWidth: 1200, margin: '0 auto'}}
+        >
+          {relatedGroups.map((g) => (
+            <div key={g.id} style={{marginBottom: 16, padding: 12, border: `1px solid ${T.t1}`, borderRadius: 8}}>
+              <h2 style={{fontSize: 18, fontWeight: 800, marginBottom: 8}}>{g.groupLabel || g.groupTag}</h2>
+              <p style={{fontSize: 12, opacity: 0.65}}>このグループ ({g.groupTag}) の関連商品が表示されます (MVP)</p>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Related Products — Deferred loaded */}
       {relatedProducts && (

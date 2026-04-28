@@ -62,6 +62,8 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     label: { type: 'single_line_text_field', maxLength: 50 },
     display_order: { type: 'number_integer' },
     is_active: { type: 'boolean' },
+    // patch 0191 (2026-04-28): バナークリック後の表示商品を絞り込むタグ (banner-target:* 推奨)
+    accepting_tags: { type: 'single_line_text_field', maxLength: 500 },
   },
   astromeda_hero_banner: {
     title: { type: 'single_line_text_field', maxLength: 200, required: true },
@@ -73,6 +75,8 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
     is_active: { type: 'boolean' },
     start_at: { type: 'date_time' },
     end_at: { type: 'date_time' },
+    // patch 0191 (2026-04-28): バナークリック後の表示商品を絞り込むタグ (banner-target:* 推奨)
+    accepting_tags: { type: 'single_line_text_field', maxLength: 500 },
   },
   astromeda_seo_article: {
     title: { type: 'single_line_text_field', maxLength: 200, required: true },
@@ -149,6 +153,27 @@ const FIELD_SCHEMAS: Record<string, Record<string, FieldSpec>> = {
   astromeda_marquee_item: {
     text: { type: 'single_line_text_field', maxLength: 500, required: true },
     display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+    // patch 0191 (2026-04-28): マーキーをクリックした後の表示商品を絞り込むタグ
+    accepting_tags: { type: 'single_line_text_field', maxLength: 500 },
+  },
+  // patch 0192 (2026-04-28): 商品個別ページ下段の説明セクション (画像+H2+テキスト)
+  // 商品の tags に target_tag が含まれていれば該当商品ページ下段に表示される
+  astromeda_product_content: {
+    target_tag: { type: 'single_line_text_field', maxLength: 200, required: true },
+    heading: { type: 'single_line_text_field', maxLength: 300 },
+    content_html: { type: 'multi_line_text_field', maxLength: 50000 },
+    image_url: { type: 'single_line_text_field', maxLength: 2000 },
+    display_order: { type: 'number_integer' },
+    is_active: { type: 'boolean' },
+  },
+  // patch 0193 (2026-04-28): 商品個別ページ下段の関連製品グループ (例: その他モデル / マウスパッド)
+  // related-group:* タグ持ち商品が同一グループとして表示される
+  astromeda_related_group: {
+    group_tag: { type: 'single_line_text_field', maxLength: 200, required: true },
+    group_label: { type: 'single_line_text_field', maxLength: 200 },
+    display_order: { type: 'number_integer' },
+    max_items: { type: 'number_integer' },
     is_active: { type: 'boolean' },
   },
   astromeda_category_card: {
