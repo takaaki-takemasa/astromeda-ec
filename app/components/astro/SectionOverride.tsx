@@ -5,7 +5,7 @@
  * astromeda_section_override Metaobject の設定に応じて以下のいずれかで描画する:
  *
  *   mode='default'      → children をそのまま (元のデザイン)
- *   mode='custom_css'   → children + <style>{customCss}</style> を後追加 (CSS 上書き)
+ *   mode='custom_css'   → children + style 要素 (dangerouslySetInnerHTML で customCss 注入)
  *   mode='custom_html'  → sanitize 済の customHtml を dangerouslySetInnerHTML で描画 (HTML 完全置換)
  *                          + customCss も同時注入
  *

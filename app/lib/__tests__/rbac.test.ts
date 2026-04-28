@@ -37,15 +37,18 @@ function mockSession(data: Record<string, unknown> = {}) {
 }
 
 // ━━━ ロール定義 ━━━
+// patch 0198-fu (2026-04-28): vendor ロール追加 (patch 0165) に追従。
+// 旧テストは 4 ロール想定で stale になり、Run 309 以降 6 連続デプロイ失敗の原因の 1 つだった。
 describe('RBAC ロール定義 (H-001)', () => {
-  it('4つのロールが定義されている', () => {
-    expect(ALL_ROLES).toEqual(['owner', 'admin', 'editor', 'viewer']);
+  it('5つのロールが定義されている', () => {
+    expect(ALL_ROLES).toEqual(['owner', 'admin', 'editor', 'vendor', 'viewer']);
   });
 
   it('isValidRole が正しく判定する', () => {
     expect(isValidRole('owner')).toBe(true);
     expect(isValidRole('admin')).toBe(true);
     expect(isValidRole('editor')).toBe(true);
+    expect(isValidRole('vendor')).toBe(true);
     expect(isValidRole('viewer')).toBe(true);
     expect(isValidRole('superadmin')).toBe(false);
     expect(isValidRole('')).toBe(false);
