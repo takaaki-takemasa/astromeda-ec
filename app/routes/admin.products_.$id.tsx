@@ -738,18 +738,72 @@ export default function AdminProductDetail() {
                 <div style={{marginTop: 6, fontSize: 11, color: '#999', lineHeight: 1.5}}>
                   💡 既存のタグは候補から選べます。新しいタグは入力後 Enter で追加できます。
                 </div>
-                {/* patch 0135 Phase B: 各タグの効果リアルタイムプレビュー (compact chip) */}
+                {/* patch 0135 Phase B: 各タグの効果リアルタイムプレビュー (compact chip)
+                    patch 0191-fu (2026-04-28): pulldown 系タグは下の専用セクションに分離
+                    するため、ここでは表示しない (CEO 指示「他タグと混ざらないように表示」) */}
                 {basic.tagsCsv && basic.tagsCsv.trim() && (
                   <div style={{marginTop: 10, display: 'flex', flexWrap: 'wrap', gap: 6}}>
                     {basic.tagsCsv
                       .split(',')
                       .map((t) => t.trim())
                       .filter(Boolean)
+                      .filter((tag) => !tag.startsWith('pulldown') && tag !== 'pulldown-component' && tag !== 'globo-product-options')
                       .map((tag) => (
                         <TagEffectCard key={tag} tag={tag} size="compact" />
                       ))}
                   </div>
                 )}
+
+                {/* patch 0191-fu (2026-04-28): プルダウンタグ専用セクション
+                    CEO 指示「製品プルダウンタグも個別製品出品画面上でほかのタグと
+                    混ざらないように表示してください」への対応。
+                    pulldown-component / globo-product-options / pulldown:* で始まるタグを
+                    通常タグから切り離して別カードで表示。下の「カスタマイズ：プルダウン構成」
+                    セクションへの導線も明示。 */}
+                {(() => {
+                  const allTags = (basic.tagsCsv || '').split(',').map((t) => t.trim()).filter(Boolean);
+                  const pulldownTags = allTags.filter((t) =>
+                    t.startsWith('pulldown') || t === 'pulldown-component' || t === 'globo-product-options',
+                  );
+                  if (pulldownTags.length === 0) return null;
+                  return (
+                    <div
+                      style={{
+                        marginTop: 14,
+                        padding: 12,
+                        background: 'rgba(255,159,67,0.06)',
+                        border: '1px solid rgba(255,159,67,0.3)',
+                        borderRadius: 8,
+                      }}
+                    >
+                      <div style={{fontSize: 12, fontWeight: 800, color: '#ff9f43', marginBottom: 8}}>
+                        🧩 プルダウン部品 (この商品の選択肢として接続中)
+                      </div>
+                      <div style={{display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8}}>
+                        {pulldownTags.map((tag) => (
+                          <span
+                            key={tag}
+                            style={{
+                              display: 'inline-block',
+                              padding: '4px 10px',
+                              background: 'rgba(255,159,67,0.15)',
+                              border: '1px solid rgba(255,159,67,0.4)',
+                              borderRadius: 12,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: '#ffb066',
+                            }}
+                          >
+                            🧩 {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <div style={{fontSize: 11, color: '#999', lineHeight: 1.5}}>
+                        💡 これらは下の「カスタマイズ：プルダウン構成」で設定された自動付与タグです。通常タグとは別管理されており、ここでは編集できません。
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
               {/* patch 0109 (CEO P0): 生 ENUM (ACTIVE/DRAFT/ARCHIVED) → 自然日本語 + 絵文字 + ヒント */}
               <div>
