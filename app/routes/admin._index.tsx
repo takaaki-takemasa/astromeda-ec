@@ -59,6 +59,9 @@ const AdminInventory = lazy(() => import('~/components/admin/tabs/AdminInventory
 const AdminMarketingStats = lazy(() => import('~/components/admin/tabs/AdminMarketingStats'));
 // patch 0166: セクション単位 HTML/CSS 上書き (他社デザイン会社向け一括変更基盤)
 const AdminSectionOverride = lazy(() => import('~/components/admin/tabs/AdminSectionOverride'));
+// patch 0194 / 0195 (2026-04-28): 製品コンテンツ + 関連製品グループ admin CRUD (Apple Just Works)
+const AdminProductContent = lazy(() => import('~/components/admin/tabs/AdminProductContent'));
+const AdminRelatedGroup = lazy(() => import('~/components/admin/tabs/AdminRelatedGroup'));
 const AdminCustomization = lazy(() => import('~/components/admin/tabs/AdminCustomization'));
 const AdminHomepageCMS = lazy(() => import('~/components/admin/tabs/AdminHomepageCMS'));
 const AdminPageEditor = lazy(() => import('~/components/admin/tabs/AdminPageEditor'));
@@ -311,7 +314,7 @@ export const meta = () => [
 // ── Tab configuration ──
 // patch 0059: 'onboarding' を追加（非エンジニア向け 出品ガイド）
 // 2026-04-22: 'simpleHome' を追加（中学生でも理解できる業務語タスク中心ホーム）
-type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members' | 'inventory' | 'marketingStats' | 'sectionOverride';
+type SubTab = 'simpleHome' | 'onboarding' | 'siteMap' | 'summary' | 'content' | 'products' | 'collections' | 'bulkTags' | 'redirects' | 'files' | 'metaobjectDefs' | 'discounts' | 'menus' | 'customization' | 'homepage' | 'pageEditor' | 'siteConfig' | 'marketing' | 'analytics' | 'uxr' | 'sessions' | 'funnel' | 'agents' | 'pipelines' | 'control' | 'update' | 'members' | 'inventory' | 'marketingStats' | 'sectionOverride' | 'productContent' | 'relatedGroup';
 
 // patch 0071 R0-2: commerce セクションを 3 サブグループに再編（Stripe Dashboard 基準: 第一階層は 7-10 以内）
 // 15 タブ → 商品 / コンテンツ / ナビ&マーケ の 3 グループに分割し、非エンジニアでも迷子にならない IA へ
@@ -331,7 +334,8 @@ const COMMERCE_GROUPS: Record<CommerceGroup, {label: string; tabs: SubTab[]; def
   },
   content: {
     label: '📝 コンテンツ・ページ',
-    tabs: ['pageEditor', 'content', 'siteConfig', 'files', 'homepage'],
+    // patch 0194/0195 (2026-04-28): 製品コンテンツ + 関連製品グループタブ追加 (Apple Just Works)
+    tabs: ['pageEditor', 'content', 'productContent', 'relatedGroup', 'sectionOverride', 'siteConfig', 'files', 'homepage'],
     default: 'pageEditor',
   },
   navmarketing: {
@@ -422,6 +426,10 @@ const SUB_TAB_LABELS: Record<SubTab, string> = {
   marketingStats: '📈 マーケ分析',
   // patch 0166: セクション単位 HTML/CSS 上書き (他社デザイン会社向け一括変更基盤)
   sectionOverride: '🎨 デザイン上書き',
+  // patch 0194 (2026-04-28): 商品個別ページ下段の説明 (画像+H2+本文 HTML) admin CRUD
+  productContent: '📝 製品コンテンツ',
+  // patch 0195 (2026-04-28): 商品個別ページ下段の関連製品グループ admin CRUD
+  relatedGroup: '🔗 関連製品グループ',
 };
 
 // patch 0048 (Phase D): Breadcrumbs 用セクション名
@@ -969,6 +977,18 @@ export default function AdminDashboard() {
           {subTab === 'sectionOverride' && (
             <Suspense fallback={<TabLoadingSkeleton />}>
               <AdminSectionOverride />
+            </Suspense>
+          )}
+          {/* patch 0194 (2026-04-28): 📝 製品コンテンツ admin CRUD タブ */}
+          {subTab === 'productContent' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminProductContent />
+            </Suspense>
+          )}
+          {/* patch 0195 (2026-04-28): 🔗 関連製品グループ admin CRUD タブ */}
+          {subTab === 'relatedGroup' && (
+            <Suspense fallback={<TabLoadingSkeleton />}>
+              <AdminRelatedGroup />
             </Suspense>
           )}
         </main>
