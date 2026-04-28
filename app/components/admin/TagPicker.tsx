@@ -171,13 +171,16 @@ export default function TagPicker({
 
   // ── タグ一覧ロード ──
   // patch 0117: excludePulldown=true で部品マーカータグを除外する
+  // patch 0199 (2026-04-28): onlyUsed=true で productCount=0 の未使用タグを除外する (CEO 指令)。
+  // canonical prefix (banner-target:/category:/content:/related-group:) は productCount=0 でも残す。
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const url = excludePulldown
-          ? '/api/admin/product-tags?excludePulldown=true'
-          : '/api/admin/product-tags';
+        const params = new URLSearchParams();
+        if (excludePulldown) params.set('excludePulldown', 'true');
+        params.set('onlyUsed', 'true'); // patch 0199: 既定で未使用タグを TagPicker から隠す
+        const url = `/api/admin/product-tags?${params.toString()}`;
         const res = await fetch(url);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();

@@ -53,6 +53,11 @@ export async function loader({ request, context }: Route.LoaderArgs) {
     // を結果から除外する。製品出品 UI で「部品タグ」が候補に混入しないようにするため。
     const url = new URL(request.url);
     const excludePulldown = url.searchParams.get('excludePulldown') === 'true';
+    // patch 0199 (2026-04-28): ?onlyUsed=true で未使用タグ (productCount=0) を除外する。
+    // CEO 指令「使ってないタグが多すぎる」← admin の TagPicker サジェストを綺麗にする。
+    // ただし canonical prefix (banner-target:/category:/content:/related-group:) のタグは
+    // 新規作成直後で productCount=0 でも除外しない (これから商品に付与される運用予定のため)
+    const onlyUsed = url.searchParams.get('onlyUsed') === 'true';
 
     const { setAdminEnv, getAdminClient } = await import('../../agents/core/shopify-admin.js');
     setAdminEnv(contextEnv);
@@ -84,6 +89,20 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       excludedCount = before - tags.length;
     }
 
+    // patch 0199 (2026-04-28): productCount=0 タグを除外 (onlyUsed=true 時)
+    // ただし canonical prefix で始まるタグは新規バナー紐付け予定のため残す
+    let unusedExcludedCount = 0;
+    if (onlyUsed) {
+      const CANONICAL_PREFIXES = ['banner-target:', 'category:', 'content:', 'related-group:'];
+      const before = tags.length;
+      tags = tags.filter((t) => {
+        if (t.productCount > 0) return true;
+        // 0 件でも canonical prefix のタグは保持 (空っぽの新規タグは作りたて)
+        return CANONICAL_PREFIXES.some((p) => t.name.startsWith(p));
+      });
+      unusedExcludedCount = before - tags.length;
+    }
+
     // 名前順にソート（日本語 locale）
     tags.sort((a, b) => a.name.localeCompare(b.name, 'ja'));
 
@@ -94,6 +113,8 @@ export async function loader({ request, context }: Route.LoaderArgs) {
       sampledProductCount: sampled.length,
       excludePulldown,
       excludedCount,
+      onlyUsed,
+      unusedExcludedCount,
       note: sampled.length >= 250
         ? '商品数が 250 件を超えるため件数は最新 250 件のサンプル推計です'
         : '全商品を走査した正確な件数です',
