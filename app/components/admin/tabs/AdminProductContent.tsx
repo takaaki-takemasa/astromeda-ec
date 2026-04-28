@@ -20,7 +20,7 @@ import {ConfirmDialog} from '~/components/admin/ds/ConfirmDialog';
 import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineListState';
 import {TabHeaderHint} from '~/components/admin/ds/TabHeaderHint';
 import {ImagePicker} from '~/components/admin/ds/ImagePicker';
-import {RichTextEditor} from '~/components/admin/ds/RichTextEditor';
+import RichTextEditor from '~/components/admin/ds/RichTextEditor';
 import TagPicker from '~/components/admin/TagPicker';
 
 interface ContentItem {
