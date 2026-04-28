@@ -371,10 +371,10 @@ export default function Collection() {
           isGamingLanding 時に "gpc-hide-after" class が body 直下から子要素を CSS で非表示にする */}
       {isGamingLanding && (
         <style dangerouslySetInnerHTML={{__html:`
-          [data-collection-handle="gaming-pc"] .post-landing-content { display: none !important; }
+          .post-landing-hidden { display: none !important; }
         `}} />
       )}
-      <div className={isGamingLanding ? 'post-landing-content' : undefined} data-collection-handle={collection.handle}>
+      <div className={isGamingLanding ? 'post-landing-hidden' : undefined} data-collection-handle={collection.handle}>
 
       {/* Filter & Sort bar — ボタン形式: 製品群 → 素材 → IP → 並べ替え */}
       <div style={{
