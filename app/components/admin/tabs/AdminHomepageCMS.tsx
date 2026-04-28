@@ -21,6 +21,8 @@ import { RequiredMark, OptionalMark, HintText } from '~/components/admin/ds/Form
 import { CanonicalRedirectBanner } from '~/components/admin/ds/CanonicalRedirectBanner';
 import { AdminListSkeleton, AdminEmptyCard } from '~/components/admin/ds/InlineListState';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
+// patch 0196-fu2 (2026-04-28): マーキーにも accepting_tags を入れる (clicked後の表示商品絞り込み等)
+import TagPicker from '~/components/admin/TagPicker';
 
 // ── Types ──
 interface MetaField {
@@ -1016,6 +1018,8 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
 
   const emptyForm = () => ({
     text: '', icon: '✦', display_order: String((items.length || 0) + 1),
+    // patch 0196-fu2 (2026-04-28): accepting_tags を空で初期化
+    accepting_tags: '',
   });
 
   const startEdit = (item: MetaobjectNode) => {
@@ -1024,6 +1028,8 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
       text: f(item, 'text'),
       icon: f(item, 'icon'),
       display_order: f(item, 'display_order'),
+      // patch 0196-fu2 (2026-04-28): 既存値があれば読み込む
+      accepting_tags: f(item, 'accepting_tags') || '',
     });
   };
 
@@ -1093,21 +1099,43 @@ function MarqueeList({ items, onRefresh, onMsg }: { items: MetaobjectNode[]; onR
   );
 
   const renderForm = () => (
-    <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px', gap: 10 }}>
-      <div>
-        <label style={labelStyle}>アイコン <OptionalMark /></label>
-        <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
-        <HintText>テキストの左に出す絵文字・記号です（例: ✦ ・ 🚚）。</HintText>
+    <div style={{display: 'flex', flexDirection: 'column', gap: 14}}>
+      <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 100px', gap: 10 }}>
+        <div>
+          <label style={labelStyle}>アイコン <OptionalMark /></label>
+          <input style={inputStyle} value={form.icon} onChange={(e) => setForm({ ...form, icon: e.target.value })} />
+          <HintText>テキストの左に出す絵文字・記号です（例: ✦ ・ 🚚）。</HintText>
+        </div>
+        <div>
+          <label style={labelStyle}>テキスト <RequiredMark /></label>
+          <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="送料無料" />
+          <HintText>トップ上部を横に流れる 1 行のキャッチです（例: 送料無料・即日発送）。</HintText>
+        </div>
+        <div>
+          <label style={labelStyle}>並び順 <OptionalMark /></label>
+          <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
+          <HintText>数字が小さいほど先に流れます。</HintText>
+        </div>
       </div>
-      <div>
-        <label style={labelStyle}>テキスト <RequiredMark /></label>
-        <input style={inputStyle} value={form.text} onChange={(e) => setForm({ ...form, text: e.target.value })} placeholder="送料無料" />
-        <HintText>トップ上部を横に流れる 1 行のキャッチです（例: 送料無料・即日発送）。</HintText>
-      </div>
-      <div>
-        <label style={labelStyle}>並び順 <OptionalMark /></label>
-        <input style={inputStyle} type="number" value={form.display_order} onChange={(e) => setForm({ ...form, display_order: e.target.value })} />
-        <HintText>数字が小さいほど先に流れます。</HintText>
+      {/* patch 0196-fu2 (2026-04-28): マーキーにも accepting_tags を追加。条件表示やキャンペーンタグ運用の起点 */}
+      <div style={{
+        background: al(T.c, 0.04),
+        border: `1px dashed ${al(T.c, 0.3)}`,
+        borderRadius: 8,
+        padding: '12px 14px',
+      }}>
+        <div style={{fontSize: 12, fontWeight: 700, color: color.text, marginBottom: 6}}>
+          🏷️ 受け入れタグ <OptionalMark />
+        </div>
+        <div style={{fontSize: 11, color: color.textSecondary, marginBottom: 10}}>
+          💡 マーキー文の運用タグです。例: <code>banner-target:spring-sale</code>
+        </div>
+        <TagPicker
+          id={`accepting-tags-marquee-${editing || 'new'}`}
+          value={form.accepting_tags || ''}
+          onChange={(v) => setForm({...form, accepting_tags: v})}
+          placeholder="banner-target:spring-sale など"
+        />
       </div>
     </div>
   );
