@@ -21,6 +21,8 @@ import {Wizard, type WizardStep} from '~/components/admin/ds/Wizard';
 import {UrlPicker} from '~/components/admin/ds/UrlPicker';
 // patch 0172 (P1): 画像入力を <input type="text"> から ImagePicker に置換 (HeroBanners と同じ silent drop 経路を排除)
 import {ImagePicker} from '~/components/admin/ds/ImagePicker';
+// patch 0196 (2026-04-28): バナークリック後の表示商品を絞り込む accepting_tags 入力
+import TagPicker from '~/components/admin/TagPicker';
 import {
   type IpBanner,
   type SectionProps,
@@ -114,6 +116,22 @@ export function IpBannersSection({pushToast, confirm}: SectionProps) {
           linkUrl: form.linkUrl || undefined,
         };
     const res = await apiPost('/api/admin/homepage', body);
+    // patch 0196 (2026-04-28): create_collab/update_collab は accepting_tags を扱わないため、
+    // /api/admin/cms に follow-up update を打って Metaobject の accepting_tags フィールドを書く。
+    // create 時は res.id (or 戻り値の collab.id) が必要なので、ここで取得して update。
+    try {
+      const at = (form as Partial<IpBanner> & {acceptingTags?: string | null}).acceptingTags;
+      if (typeof at === 'string') {
+        const moId = (form.id as string | undefined) ?? ((res as {collab?: {id?: string}}).collab?.id);
+        if (moId) {
+          await fetch('/api/admin/cms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': (document.querySelector<HTMLMetaElement>('meta[name="_csrf"]')?.content || '')},
+            body: JSON.stringify({action: 'update', type: 'astromeda_ip_banner', id: moId, fields: [{key: 'accepting_tags', value: at}]}),
+          });
+        }
+      }
+    } catch (e) { /* accepting_tags の保存失敗は本処理を止めない */ console.warn('[IpBanners] accepting_tags update failed', e); }
     setSaving(false);
     if (res.success) {
       // patch 0172 (P1): image silent drop の検知 (HeroBanners と同じ事故防止)
@@ -555,6 +573,8 @@ function IpBannerForm({
   const [featured, setFeatured] = useState(initial.featured ?? true);
   // patch 0152 (2026-04-24): 自由リンク先 (空のときは shopHandle から自動算出)
   const [linkUrl, setLinkUrl] = useState(initial.linkUrl || '');
+  // patch 0196 (2026-04-28): クリック後の表示商品を絞り込む受け入れタグ (banner-target:* 推奨)
+  const [acceptingTags, setAcceptingTags] = useState((initial as unknown as {acceptingTags?: string}).acceptingTags || '');
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
   // patch 0006: Live preview — Shopify collection 画像フォールバックを image URL に組込
@@ -646,6 +666,28 @@ function IpBannerForm({
             label=""
           />
         </div>
+        {/* patch 0196 (2026-04-28): クリック後に表示する商品の受け入れタグ。
+            ここに「banner-target:lovelive-pc」等を入れて、商品にも同じタグをつけると、
+            このバナーをクリックしたお客様には絞り込まれた商品だけ表示されます。 */}
+        <div style={{
+          background: al(T.c, 0.04),
+          border: `1px dashed ${al(T.c, 0.3)}`,
+          borderRadius: 8,
+          padding: '12px 14px',
+        }}>
+          <div style={{fontSize: 12, fontWeight: 700, color: T.tx, marginBottom: 6}}>
+            🏷️ 受け入れタグ (任意・このバナーがクリックされた後に表示する商品を絞り込む)
+          </div>
+          <div style={{fontSize: 11, color: T.t4, marginBottom: 10}}>
+            💡 商品にも同じタグをつけると、その商品だけがクリック後の画面に表示されます。例: <code>banner-target:lovelive-pc</code>
+          </div>
+          <TagPicker
+            id={`accepting-tags-ipbanner-${initial.id || 'new'}`}
+            value={acceptingTags}
+            onChange={setAcceptingTags}
+            placeholder="banner-target:lovelive-pc など"
+          />
+        </div>
         <div>
           <ToggleSwitch
             checked={featured}
@@ -658,7 +700,7 @@ function IpBannerForm({
           <button type="button" onClick={onCancel} style={btn()} disabled={saving}>キャンセル</button>
           <button
             type="button"
-            onClick={() => onSubmit({id: initial.id, handle, name, shopHandle, image, tagline, label, sortOrder, featured, linkUrl: linkUrl || null})}
+            onClick={() => onSubmit({id: initial.id, handle, name, shopHandle, image, tagline, label, sortOrder, featured, linkUrl: linkUrl || null, acceptingTags: acceptingTags || null} as Partial<IpBanner> & {handle?: string; acceptingTags?: string | null})}
             style={btn(true)}
             disabled={saving}
           >
