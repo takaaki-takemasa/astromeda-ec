@@ -340,6 +340,116 @@ export function classifyTag(name: string): TagInfo {
   };
 }
 
+// ────────────────────────────────────────────────────────────
+// patch 0190 (2026-04-28): タグ用途を 4 種に分けた canonical prefix 分類
+// CEO 指示「個別製品につけるタグ構造を用途に分け、ウィンドウも分けた内容に変更したい」
+//
+// 4 用途:
+//   banner-target:   バナークリック後の表示商品ソート (例: banner-target:lovelive-nijigasaki)
+//   category:        商品の大分類 (例: category:gaming-pc / category:keyboard)
+//   content:         商品個別ページ下段の説明セクション (例: content:lovelive-nijigasaki-pc-spec)
+//   related-group:   商品個別ページ下段の関連製品グループ (例: related-group:lovelive-nijigasaki-pc)
+// ────────────────────────────────────────────────────────────
+
+export type TagWindow = 'banner-target' | 'category' | 'content' | 'related-group' | 'other-4window';
+
+export interface TagWindowMeta {
+  window: TagWindow;
+  prefix: string;
+  icon: string;
+  label: string;
+  description: string;
+}
+
+export const TAG_WINDOW_META: Record<TagWindow, TagWindowMeta> = {
+  'banner-target': {
+    window: 'banner-target',
+    prefix: 'banner-target:',
+    icon: '🏷️',
+    label: 'メインバナータグ',
+    description:
+      'バナーをクリックした後の商品一覧で表示される商品を絞り込むタグ。バナー設定画面で「受け入れタグ」として指定し、商品にも同じタグを付与すると連携します。',
+  },
+  'category': {
+    window: 'category',
+    prefix: 'category:',
+    icon: '📦',
+    label: '製品カテゴリタグ',
+    description:
+      'コラボPC・アストロメダPC・キーボード・マウスパッドなど、商品の大分類を表すタグ。例: category:gaming-pc / category:keyboard / category:mousepad / category:goods',
+  },
+  'content': {
+    window: 'content',
+    prefix: 'content:',
+    icon: '📝',
+    label: '製品コンテンツタグ',
+    description:
+      '商品個別ページ下段の説明セクション (画像+H2+テキスト) と商品を繋ぐタグ。astromeda_product_content の target_tag に同じ値を設定し、商品にもタグ付与すると下段に表示されます。',
+  },
+  'related-group': {
+    window: 'related-group',
+    prefix: 'related-group:',
+    icon: '🔗',
+    label: '関連製品タグ',
+    description:
+      '商品個別ページ下段「その他モデル」「マウスパッド」等のグループ表示に使うタグ。同じ related-group: タグを持つ商品が同じグループとして関連表示されます。',
+  },
+  'other-4window': {
+    window: 'other-4window',
+    prefix: '',
+    icon: '🏷️',
+    label: 'その他のタグ',
+    description: '4 用途のいずれにも該当しないタグ (旧来のタグ・PC スペック・色名・IP 名等)',
+  },
+};
+
+/** TagWindow を順序付きで返す (admin sub-tabs 描画用) */
+export const TAG_WINDOW_ORDER: TagWindow[] = ['banner-target', 'category', 'content', 'related-group', 'other-4window'];
+
+/** 1 タグを 4 用途のどのウィンドウに属するか判定 */
+export function classifyTagBy4Window(name: string): TagWindow {
+  const n = (name || '').trim();
+  if (!n) return 'other-4window';
+  if (n.startsWith('banner-target:')) return 'banner-target';
+  if (n.startsWith('category:')) return 'category';
+  if (n.startsWith('content:')) return 'content';
+  if (n.startsWith('related-group:')) return 'related-group';
+  return 'other-4window';
+}
+
+/** 複数タグを 4 用途別にグループ化 (admin の 4 sub-tabs 用) */
+export function groupTagsBy4Window(
+  tags: Array<{name: string; productCount?: number}>,
+): Record<TagWindow, Array<{name: string; productCount: number}>> {
+  const result: Record<TagWindow, Array<{name: string; productCount: number}>> = {
+    'banner-target': [],
+    'category': [],
+    'content': [],
+    'related-group': [],
+    'other-4window': [],
+  };
+  for (const t of tags) {
+    const w = classifyTagBy4Window(t.name);
+    result[w].push({name: t.name, productCount: t.productCount ?? 0});
+  }
+  for (const w of Object.keys(result) as TagWindow[]) {
+    result[w].sort((a, b) => b.productCount - a.productCount);
+  }
+  return result;
+}
+
+/** canonical prefix を必須化したい入力欄のための prefix 強制ヘルパー */
+export function ensureCanonicalPrefix(name: string, window: Exclude<TagWindow, 'other-4window'>): string {
+  const prefix = TAG_WINDOW_META[window].prefix;
+  if (!name) return prefix;
+  if (name.startsWith(prefix)) return name;
+  return prefix + name.replace(/^[a-z-]+:/, ''); // 別 prefix が付いていたら剥がして付け直す
+}
+
+// ────────────────────────────────────────────────────────────
+// (既存) 7 カテゴリ分類 (patch 0134 P0)
+// ────────────────────────────────────────────────────────────
+
 /**
  * 複数タグをカテゴリ別にグループ化 (UI のタブ切り替え用)
  */

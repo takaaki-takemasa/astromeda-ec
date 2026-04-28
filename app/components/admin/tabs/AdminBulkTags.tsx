@@ -31,6 +31,8 @@ import {TAG_CATEGORY_META, type TagCategory} from '~/lib/tag-classifier';
 import {TagWorkflowGuide} from '~/components/admin/ds/TagWorkflowGuide';
 // patch 0142 P0: 「タグとは何か」の定義カード
 import {TagDefinitionCard} from '~/components/admin/ds/TagDefinitionCard';
+// patch 0190 (2026-04-28): タグ用途を 4 種に分けたウィンドウ分割
+import {TAG_WINDOW_META, TAG_WINDOW_ORDER, classifyTagBy4Window, type TagWindow} from '~/lib/tag-classifier';
 
 // ── Types ──
 interface ProductListItem {
@@ -186,6 +188,9 @@ export default function AdminBulkTags() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [tagInput, setTagInput] = useState('');
+  // patch 0190 (2026-04-28): 4 用途別 sub-tabs (banner-target / category / content / related-group / other)
+  // 選択中の window に該当する prefix を新規タグ作成時に強制付与し、製品検索時もその prefix で絞り込みヒントを表示
+  const [tagWindow, setTagWindow] = useState<TagWindow>('other-4window');
   const [running, setRunning] = useState(false);
   const [lastResults, setLastResults] = useState<BulkResult[] | null>(null);
   const [lastAction, setLastAction] = useState<'add' | 'remove' | null>(null);
@@ -374,6 +379,48 @@ export default function AdminBulkTags() {
     <TagDefinitionCard />
     {/* patch 0136 P0: 「一括 vs 個別」の使い分けを冒頭で必ず示す */}
     <TagWorkflowGuide highlight="bulk" />
+
+    {/* patch 0190 (2026-04-28): タグ用途を 4 ウィンドウに分割。CEO 指示「個別製品につけるタグ
+        構造を用途に分け、ウィンドウも分けた内容に変更したい」への対応。選択中のウィンドウに
+        該当する canonical prefix を新規タグ作成時に強制付与する。 */}
+    <div style={{marginBottom: 16, padding: 14, background: color.bg1, border: `1px solid ${color.border}`, borderRadius: 8}}>
+      <div style={{fontSize: 13, fontWeight: 800, color: color.text, marginBottom: 10}}>
+        🏷️ タグの用途を選んでください
+      </div>
+      <div style={{display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10}}>
+        {TAG_WINDOW_ORDER.map((w) => {
+          const meta = TAG_WINDOW_META[w];
+          const active = tagWindow === w;
+          return (
+            <button
+              key={w}
+              type="button"
+              onClick={() => setTagWindow(w)}
+              style={{
+                padding: '8px 14px',
+                fontSize: 12,
+                fontWeight: 700,
+                borderRadius: 6,
+                border: `1px solid ${active ? '#00b496' : color.border}`,
+                background: active ? '#00b496' : color.bg0,
+                color: active ? '#fff' : color.text,
+                cursor: 'pointer',
+              }}
+            >
+              {meta.icon} {meta.label}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{fontSize: 12, color: color.textSecondary, lineHeight: 1.6}}>
+        {TAG_WINDOW_META[tagWindow].description}
+      </div>
+      {tagWindow !== 'other-4window' && (
+        <div style={{marginTop: 8, padding: 8, background: 'rgba(0,180,150,.08)', borderRadius: 4, fontSize: 11, color: color.text}}>
+          💡 このウィンドウで新規タグを作成すると、自動的に <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3, fontWeight: 700}}>{TAG_WINDOW_META[tagWindow].prefix}</code> が先頭に付きます。例: <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3}}>{TAG_WINDOW_META[tagWindow].prefix}lovelive-nijigasaki</code>
+        </div>
+      )}
+    </div>
       <Toast />
       <Dialog {...dialogProps} />
 
