@@ -25,7 +25,9 @@ import { useToast } from '~/components/admin/ds/Toast';
 import { ToggleSwitch } from '~/components/admin/ds/ToggleSwitch';
 import { useConfirmDialog } from '~/hooks/useConfirmDialog';
 import TagPicker from '~/components/admin/TagPicker';
-import CustomizationMatrix from '~/components/admin/CustomizationMatrix';
+// patch 0198 (2026-04-28): カスタマイズマトリックス → 商品種類別ビューに全面置換。
+// CEO 「マトリックス全然分からない」「ゲーミングPC専用と全IP適用が区別不能」への根本対処。
+import ProductCategoryView from '~/components/admin/ProductCategoryView';
 import { TabHeaderHint } from '~/components/admin/ds/TabHeaderHint';
 // patch 0135 Phase B: 選択中タグの効果リアルタイムプレビュー
 import { TagEffectCard } from '~/components/admin/ds/TagEffectCard';
@@ -169,9 +171,9 @@ export default function AdminCustomization() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [initStatus, setInitStatus] = useState<string | null>(null);
 
-  // patch 0098: ビュー切替（一覧 / マトリックス）
-  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
-  const [matrixError, setMatrixError] = useState<string | null>(null);
+  // patch 0198 (2026-04-28): ビュー切替（商品種類別 / プルダウン一覧）
+  // 既定は「商品種類別」(CEO がこの画面に来た時に「ゲーミングPC にどのプルダウンが出るか」を最初に見たいため)
+  const [viewMode, setViewMode] = useState<'byCategory' | 'list'>('byCategory');
 
   // patch 0098: モーダル内ライブ件数（-1 = 全商品適用セマンティクス）
   const [affectedCount, setAffectedCount] = useState<number>(-1);
@@ -798,7 +800,9 @@ export default function AdminCustomization() {
         作ったプルダウンは「対象商品タグ」に合致する商品だけに表示されます。
       </div>
 
-      {/* patch 0098 R1: ビュー切替サブタブ */}
+      {/* patch 0198 (2026-04-28): ビュー切替サブタブ
+          旧マトリックス (タグ × option の 2D 表) は CEO 「全然分からない」フィードバックを受けて廃止。
+          代わりに「📂 商品種類別」(ゲーミングPC/マウスパッド等のカテゴリ毎にプルダウン一覧) を既定表示。 */}
       <div
         role="tablist"
         aria-label="表示モード切替"
@@ -809,6 +813,26 @@ export default function AdminCustomization() {
           borderBottom: `1px solid ${color.border}`,
         }}
       >
+        <button
+          type="button"
+          role="tab"
+          aria-selected={viewMode === 'byCategory'}
+          onClick={() => setViewMode('byCategory')}
+          style={{
+            padding: '10px 18px',
+            fontSize: font.sm,
+            fontWeight: viewMode === 'byCategory' ? 700 : 500,
+            color: viewMode === 'byCategory' ? color.cyan : color.textMuted,
+            background: 'transparent',
+            border: 'none',
+            borderBottom: `2px solid ${viewMode === 'byCategory' ? color.cyan : 'transparent'}`,
+            marginBottom: -1,
+            cursor: 'pointer',
+            fontFamily: font.family,
+          }}
+        >
+          📂 商品種類別
+        </button>
         <button
           type="button"
           role="tab"
@@ -829,46 +853,16 @@ export default function AdminCustomization() {
         >
           📋 プルダウン一覧
         </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={viewMode === 'matrix'}
-          onClick={() => setViewMode('matrix')}
-          style={{
-            padding: '10px 18px',
-            fontSize: font.sm,
-            fontWeight: viewMode === 'matrix' ? 700 : 500,
-            color: viewMode === 'matrix' ? color.cyan : color.textMuted,
-            background: 'transparent',
-            border: 'none',
-            borderBottom: `2px solid ${viewMode === 'matrix' ? color.cyan : 'transparent'}`,
-            marginBottom: -1,
-            cursor: 'pointer',
-            fontFamily: font.family,
-          }}
-        >
-          🗂️ タグ × プルダウン マトリックス
-        </button>
       </div>
 
-      {viewMode === 'matrix' && (
-        <>
-          {matrixError && (
-            <div
-              style={{
-                color: '#ff6b6b',
-                fontSize: font.sm,
-                padding: space[4],
-                background: '#3a1515',
-                borderRadius: radius.md,
-                marginBottom: 16,
-              }}
-            >
-              {matrixError}
-            </div>
-          )}
-          <CustomizationMatrix onSaveError={setMatrixError} />
-        </>
+      {viewMode === 'byCategory' && (
+        <ProductCategoryView
+          options={entries}
+          onEditOption={(id) => {
+            const target = entries.find((e) => e.id === id);
+            if (target) openEdit(target);
+          }}
+        />
       )}
 
       {viewMode === 'list' && (
