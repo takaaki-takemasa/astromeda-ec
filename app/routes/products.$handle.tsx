@@ -181,39 +181,59 @@ export async function loader(args: Route.LoaderArgs) {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 
   // patch 0192 (2026-04-28): 製品コンテンツ matching (target_tag が product.tags に含まれる)
-  const productContents = productContentResult
-    .map((mo) => {
-      const f: Record<string, string> = {};
-      for (const kv of mo.fields) f[kv.key] = kv.value;
-      return {
-        id: mo.id,
-        targetTag: (f.target_tag || '').toLowerCase(),
-        heading: f.heading || '',
-        contentHtml: f.content_html || '',
-        imageUrl: f.image_url || '',
-        displayOrder: parseInt(f.display_order || '0', 10),
-        isActive: f.is_active === 'true',
-      };
-    })
-    .filter((c) => c.isActive && c.targetTag && productTags.includes(c.targetTag))
-    .sort((a, b) => a.displayOrder - b.displayOrder);
+  // patch 0192-fu (2026-04-28): null safety + try/catch で 500 エラー防止
+  let productContents: Array<{id: string; targetTag: string; heading: string; contentHtml: string; imageUrl: string; displayOrder: number; isActive: boolean}> = [];
+  try {
+    productContents = (productContentResult || [])
+      .filter((mo) => mo && Array.isArray(mo.fields))
+      .map((mo) => {
+        const f: Record<string, string> = {};
+        for (const kv of mo.fields) {
+          if (kv && typeof kv.key === 'string') f[kv.key] = (kv.value as string) || '';
+        }
+        return {
+          id: mo.id,
+          targetTag: (f.target_tag || '').toLowerCase(),
+          heading: f.heading || '',
+          contentHtml: f.content_html || '',
+          imageUrl: f.image_url || '',
+          displayOrder: parseInt(f.display_order || '0', 10),
+          isActive: f.is_active === 'true',
+        };
+      })
+      .filter((c) => c.isActive && c.targetTag && productTags.includes(c.targetTag))
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  } catch (e) {
+    console.warn('[products] productContents parse failed:', (e as Error).message);
+    productContents = [];
+  }
 
   // patch 0193 (2026-04-28): 関連製品グループ definitions (group_tag → group_label)
-  const relatedGroups = relatedGroupResult
-    .map((mo) => {
-      const f: Record<string, string> = {};
-      for (const kv of mo.fields) f[kv.key] = kv.value;
-      return {
-        id: mo.id,
-        groupTag: (f.group_tag || '').toLowerCase(),
-        groupLabel: f.group_label || '',
-        displayOrder: parseInt(f.display_order || '0', 10),
-        maxItems: parseInt(f.max_items || '4', 10),
-        isActive: f.is_active === 'true',
-      };
-    })
-    .filter((g) => g.isActive && g.groupTag && productTags.includes(g.groupTag))
-    .sort((a, b) => a.displayOrder - b.displayOrder);
+  // patch 0193-fu (2026-04-28): null safety + try/catch で 500 エラー防止
+  let relatedGroups: Array<{id: string; groupTag: string; groupLabel: string; displayOrder: number; maxItems: number; isActive: boolean}> = [];
+  try {
+    relatedGroups = (relatedGroupResult || [])
+      .filter((mo) => mo && Array.isArray(mo.fields))
+      .map((mo) => {
+        const f: Record<string, string> = {};
+        for (const kv of mo.fields) {
+          if (kv && typeof kv.key === 'string') f[kv.key] = (kv.value as string) || '';
+        }
+        return {
+          id: mo.id,
+          groupTag: (f.group_tag || '').toLowerCase(),
+          groupLabel: f.group_label || '',
+          displayOrder: parseInt(f.display_order || '0', 10),
+          maxItems: parseInt(f.max_items || '4', 10),
+          isActive: f.is_active === 'true',
+        };
+      })
+      .filter((g) => g.isActive && g.groupTag && productTags.includes(g.groupTag))
+      .sort((a, b) => a.displayOrder - b.displayOrder);
+  } catch (e) {
+    console.warn('[products] relatedGroups parse failed:', (e as Error).message);
+    relatedGroups = [];
+  }
 
   return {...deferredData, ...criticalData, metaCustomOptions, productContents, relatedGroups};
 }
