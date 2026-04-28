@@ -19,6 +19,8 @@ import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 // patch 0171 (P0): 画像入力を <input type="text"> から ImagePicker に置換
 // (CDN URL 直貼り → file_reference 変換失敗 → silent drop 経路を排除)
 import {ImagePicker} from '~/components/admin/ds/ImagePicker';
+// patch 0196-fu (2026-04-28): バナークリック後の表示商品を絞り込む accepting_tags
+import TagPicker from '~/components/admin/TagPicker';
 import {
   type HeroBanner,
   type SectionProps,
@@ -136,6 +138,20 @@ export function HeroBannersSection({pushToast, confirm}: SectionProps) {
           endAt: form.endAt || undefined,
         };
     const res = await apiPost('/api/admin/homepage', body);
+    // patch 0196-fu (2026-04-28): hero banner の accepting_tags は /api/admin/cms 経由で別保存
+    try {
+      const at = (form as Partial<HeroBanner> & {acceptingTags?: string | null}).acceptingTags;
+      if (typeof at === 'string') {
+        const moId = (form.id as string | undefined) ?? ((res as {banner?: {id?: string}}).banner?.id);
+        if (moId) {
+          await fetch('/api/admin/cms', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': (document.querySelector<HTMLMetaElement>('meta[name="_csrf"]')?.content || '')},
+            body: JSON.stringify({action: 'update', type: 'astromeda_hero_banner', id: moId, fields: [{key: 'accepting_tags', value: at}]}),
+          });
+        }
+      }
+    } catch (e) { console.warn('[HeroBanners] accepting_tags update failed', e); }
     setSaving(false);
     if (res.success) {
       // patch 0171 (P0): image silent drop の検知 — image-resolver が GID 解決失敗時に
@@ -444,6 +460,8 @@ function HeroBannerForm({
   const [active, setActive] = useState(initial.active ?? true);
   const [startAt, setStartAt] = useState(initial.startAt || '');
   const [endAt, setEndAt] = useState(initial.endAt || '');
+  // patch 0196-fu (2026-04-28): クリック後の表示商品絞り込みタグ
+  const [acceptingTags, setAcceptingTags] = useState((initial as unknown as {acceptingTags?: string}).acceptingTags || '');
   const [device, setDevice] = useState<PreviewDevice>('desktop');
 
   // patch 0006: Live preview — Shopify collection 画像フォールバック
@@ -530,6 +548,26 @@ function HeroBannerForm({
           <label style={labelStyle}>表示順</label>
           <input type="number" value={sortOrder} onChange={(e) => setSortOrder(parseInt(e.target.value, 10) || 0)} style={inputStyle} />
         </div>
+        {/* patch 0196-fu (2026-04-28): クリック後に表示する商品の受け入れタグ */}
+        <div style={{
+          background: al(T.c, 0.04),
+          border: `1px dashed ${al(T.c, 0.3)}`,
+          borderRadius: 8,
+          padding: '12px 14px',
+        }}>
+          <div style={{fontSize: 12, fontWeight: 700, color: T.tx, marginBottom: 6}}>
+            🏷️ 受け入れタグ (任意・このバナーがクリックされた後に表示する商品を絞り込む)
+          </div>
+          <div style={{fontSize: 11, color: T.t4, marginBottom: 10}}>
+            💡 商品にも同じタグをつけると、その商品だけがクリック後の画面に表示されます。例: <code>banner-target:spring-sale</code>
+          </div>
+          <TagPicker
+            id={`accepting-tags-hero-${initial.id || 'new'}`}
+            value={acceptingTags}
+            onChange={setAcceptingTags}
+            placeholder="banner-target:spring-sale など"
+          />
+        </div>
         <div>
           <ToggleSwitch
             checked={active}
@@ -555,7 +593,8 @@ function HeroBannerForm({
                 active,
                 startAt,
                 endAt,
-              })
+                acceptingTags: acceptingTags || null,
+              } as Partial<HeroBanner> & {handle?: string; acceptingTags?: string | null})
             }
             style={btn(true)}
             disabled={saving}
