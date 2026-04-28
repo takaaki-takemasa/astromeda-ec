@@ -395,7 +395,17 @@ export default function AdminBulkTags() {
             <button
               key={w}
               type="button"
-              onClick={() => setTagWindow(w)}
+              onClick={() => {
+                setTagWindow(w);
+                // patch 0197 (2026-04-28): sub-tab 切替で商品検索を該当 prefix の tag で自動 filter
+                if (w === 'other-4window') {
+                  setSearchQuery('');
+                } else {
+                  const prefix = TAG_WINDOW_META[w].prefix;
+                  setSearchQuery(`tag:${prefix}*`);
+                }
+                setCursor(null);
+              }}
               style={{
                 padding: '8px 14px',
                 fontSize: 12,
@@ -416,8 +426,32 @@ export default function AdminBulkTags() {
         {TAG_WINDOW_META[tagWindow].description}
       </div>
       {tagWindow !== 'other-4window' && (
-        <div style={{marginTop: 8, padding: 8, background: 'rgba(0,180,150,.08)', borderRadius: 4, fontSize: 11, color: color.text}}>
-          💡 このウィンドウで新規タグを作成すると、自動的に <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3, fontWeight: 700}}>{TAG_WINDOW_META[tagWindow].prefix}</code> が先頭に付きます。例: <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3}}>{TAG_WINDOW_META[tagWindow].prefix}lovelive-nijigasaki</code>
+        <div style={{marginTop: 8, padding: 8, background: 'rgba(0,180,150,.08)', borderRadius: 4, fontSize: 11, color: color.text, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12}}>
+          <div>
+            💡 このウィンドウで新規タグを作成すると、自動的に <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3, fontWeight: 700}}>{TAG_WINDOW_META[tagWindow].prefix}</code> が先頭に付きます。例: <code style={{background: color.bg0, padding: '2px 6px', borderRadius: 3}}>{TAG_WINDOW_META[tagWindow].prefix}lovelive-nijigasaki</code>
+          </div>
+          {/* patch 0197 (2026-04-28): 「+ 新規タグを作る」ボタン — タグ入力欄に prefix を自動入力してフォーカス */}
+          <button
+            type="button"
+            onClick={() => {
+              const prefix = TAG_WINDOW_META[tagWindow].prefix;
+              const newName = window.prompt(`新しい「${TAG_WINDOW_META[tagWindow].label}」のタグ名を入れてください:\n(自動的に "${prefix}" が先頭に付きます)`);
+              if (!newName || !newName.trim()) return;
+              const tagName = prefix + newName.trim().replace(/^[a-z-]+:/, '');
+              const cur = (tagInput || '').trim();
+              setTagInput(cur ? `${cur}, ${tagName}` : tagName);
+              showToast(`「${tagName}」をタグ入力欄に追加しました。あとは商品を選んで「＋ 一括付与」を押してください。`, 'success');
+            }}
+            style={{padding: '8px 14px', background: '#00b496', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 800, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap', flexShrink: 0}}
+          >
+            + 新規タグを作る
+          </button>
+        </div>
+      )}
+      {/* patch 0197 (2026-04-28): tag-window フィルタが適用されていることを視覚的に明示 */}
+      {tagWindow !== 'other-4window' && (
+        <div style={{marginTop: 6, padding: '6px 10px', background: 'rgba(52,152,219,.1)', borderRadius: 4, fontSize: 11, color: color.text}}>
+          🔍 商品一覧は「{TAG_WINDOW_META[tagWindow].label}」(<code>{TAG_WINDOW_META[tagWindow].prefix}*</code>) のタグを持つ商品だけに自動フィルタしています。
         </div>
       )}
     </div>
