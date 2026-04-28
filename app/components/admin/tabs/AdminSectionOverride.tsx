@@ -26,6 +26,8 @@ import {AdminListSkeleton, AdminEmptyCard} from '~/components/admin/ds/InlineLis
 import {TabHeaderHint} from '~/components/admin/ds/TabHeaderHint';
 import {ToggleSwitch} from '~/components/admin/ds/ToggleSwitch';
 import {SECTION_KEYS, MODE_LABEL, type SectionKey, type OverrideMode} from '~/lib/section-override';
+// patch 0189 (2026-04-28): 「かんたん編集」フォーム — 非エンジニア向け管理 UI
+import {getEasyForm, hasEasyForm} from './section-override/EasyEditForms';
 
 interface OverrideEntry {
   id: string;
@@ -438,6 +440,12 @@ function OverrideForm({
   const [customCss, setCustomCss] = useState(initial?.customCss || '');
   const [isActive, setIsActive] = useState(initial?.isActive ?? false);
   const [notes, setNotes] = useState(initial?.notes || '');
+  // patch 0189 (2026-04-28): 「かんたん編集 (フォーム)」 / 「上級 (HTML 直接編集)」
+  // 切替。CEO 指示「非エンジニア管理 + エンジニア HTML 編集の二種類」への対応。
+  // hasEasyForm(sectionKey) が true の section のみ「かんたん編集」モード有効。
+  const [editMode, setEditMode] = useState<'easy' | 'html'>(
+    hasEasyForm(initial?.sectionKey || '') ? 'easy' : 'html',
+  );
 
   const sectionDef = SECTION_KEYS.find((s) => s.key === sectionKey);
 
@@ -541,30 +549,65 @@ function OverrideForm({
           {/* HTML 入力 (mode=custom_html 時のみ) */}
           {mode === 'custom_html' && (
             <div>
-              <label style={{display: 'block', fontSize: 12, fontWeight: 700, color: color.text, marginBottom: 6}}>
-                カスタム HTML
-              </label>
-              <textarea
-                value={customHtml}
-                onChange={(e) => setCustomHtml(e.target.value)}
-                rows={12}
-                placeholder={`<section>\n  <h2>Hello</h2>\n  <p>このセクションを完全にこの HTML で置き換えます</p>\n</section>`}
-                style={{
-                  width: '100%',
-                  padding: space[2],
-                  background: color.bg1,
-                  color: color.text,
-                  border: `1px solid ${color.border}`,
-                  borderRadius: 4,
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                  lineHeight: 1.5,
-                  resize: 'vertical',
-                }}
-              />
-              <div style={{fontSize: 11, color: color.textSecondary, marginTop: 4}}>
-                {customHtml.length.toLocaleString()} / 100,000 文字
-              </div>
+              {/* patch 0189: 「かんたん編集 / 上級 (HTML 編集)」segmented control。
+                  hasEasyForm(sectionKey) が true の section のみ easy 選択肢を出す。 */}
+              {hasEasyForm(sectionKey) && (
+                <div style={{display: 'flex', gap: 0, marginBottom: 12, border: `1px solid ${color.border}`, borderRadius: 6, overflow: 'hidden', width: 'fit-content'}}>
+                  <button
+                    type="button"
+                    onClick={() => setEditMode('easy')}
+                    style={{
+                      padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
+                      background: editMode === 'easy' ? '#00b496' : color.bg1,
+                      color: editMode === 'easy' ? '#fff' : color.text,
+                    }}
+                  >
+                    🧑 かんたん編集
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditMode('html')}
+                    style={{
+                      padding: '8px 16px', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none',
+                      background: editMode === 'html' ? '#00b496' : color.bg1,
+                      color: editMode === 'html' ? '#fff' : color.text,
+                    }}
+                  >
+                    💻 上級 (HTML 直接編集)
+                  </button>
+                </div>
+              )}
+
+              {editMode === 'easy' && hasEasyForm(sectionKey) ? (
+                getEasyForm(sectionKey, customHtml, setCustomHtml)
+              ) : (
+                <>
+                  <label style={{display: 'block', fontSize: 12, fontWeight: 700, color: color.text, marginBottom: 6}}>
+                    カスタム HTML
+                  </label>
+                  <textarea
+                    value={customHtml}
+                    onChange={(e) => setCustomHtml(e.target.value)}
+                    rows={12}
+                    placeholder={`<section>\n  <h2>Hello</h2>\n  <p>このセクションを完全にこの HTML で置き換えます</p>\n</section>`}
+                    style={{
+                      width: '100%',
+                      padding: space[2],
+                      background: color.bg1,
+                      color: color.text,
+                      border: `1px solid ${color.border}`,
+                      borderRadius: 4,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                      lineHeight: 1.5,
+                      resize: 'vertical',
+                    }}
+                  />
+                  <div style={{fontSize: 11, color: color.textSecondary, marginTop: 4}}>
+                    {customHtml.length.toLocaleString()} / 100,000 文字
+                  </div>
+                </>
+              )}
             </div>
           )}
 
