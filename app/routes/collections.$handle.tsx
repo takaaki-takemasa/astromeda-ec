@@ -365,6 +365,17 @@ export default function Collection() {
         />
       )}
 
+      {/* patch 0187 (2026-04-27): /collections/gaming-pc は旧サイト /pages/gaming-pc 完全踏襲 (CEO 指令)。
+          GamingPCLanding 描画後、商品 grid / フィルタ / ABOUT / HOW TO / FAQ / 関連ガイドはすべて非表示にする。
+          (旧サイトは page tmpl で grid/ABOUT/FAQ 無し)
+          isGamingLanding 時に "gpc-hide-after" class が body 直下から子要素を CSS で非表示にする */}
+      {isGamingLanding && (
+        <style dangerouslySetInnerHTML={{__html:`
+          [data-collection-handle="gaming-pc"] .post-landing-content { display: none !important; }
+        `}} />
+      )}
+      <div className={isGamingLanding ? 'post-landing-content' : undefined} data-collection-handle={collection.handle}>
+
       {/* Filter & Sort bar — ボタン形式: 製品群 → 素材 → IP → 並べ替え */}
       <div style={{
         padding: '14px clamp(16px, 4vw, 48px) 10px',
@@ -1067,6 +1078,7 @@ export default function Collection() {
       <style dangerouslySetInnerHTML={{__html: `
         .astro-products-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: clamp(10px, 1.5vw, 16px); }
       `}} />
+      </div>{/* /post-landing-content (patch 0187) */}
     </div>
   );
 }
