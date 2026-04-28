@@ -289,13 +289,16 @@ export default function Collection() {
     >
       {/* パンくずリスト削除 — ナビゲーションで十分 */}
 
-      {/* Collection header */}
+      {/* Collection header — patch 0188 (2026-04-28): /collections/gaming-pc は旧サイト踏襲のため
+          collection title H1 + description + Citability statement を全て非表示。
+          GamingPCLanding 内のヒーローバナー (gpc_hero) のみを最上部に出す。*/}
       <div
         style={{
           padding: 'clamp(24px, 3vw, 48px) clamp(16px, 4vw, 48px)',
           paddingTop: 0,
           background: `linear-gradient(160deg, ${al(accent, 0.08)}, transparent 60%)`,
           borderBottom: `1px solid ${al(accent, 0.12)}`,
+          ...(isGamingLanding ? {display: 'none' as const} : {}),
         }}
       >
         {collabData?.tag && (
