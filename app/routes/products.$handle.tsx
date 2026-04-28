@@ -235,7 +235,44 @@ export async function loader(args: Route.LoaderArgs) {
     relatedGroups = [];
   }
 
-  return {...deferredData, ...criticalData, metaCustomOptions, productContents, relatedGroups};
+  // patch 0193-full (2026-04-28): 各 relatedGroup に対し group_tag を持つ他商品 (max_items 件) を fetch
+  // 商品ページ下段に「その他モデル」「マウスパッド」等のグループ別商品グリッドを表示するため。
+  // RBAC: storefront 表示用 (admin client 経由で安全)。失敗時は products=[] でグループ自体は見出しのみ表示
+  type RelatedGroupWithProducts = (typeof relatedGroups)[number] & {
+    products: Array<{id: string; handle: string; title: string; imageUrl: string | null; priceMin: string}>;
+  };
+  let relatedGroupsWithProducts: RelatedGroupWithProducts[] = [];
+  if (adminClient && relatedGroups.length > 0) {
+    const currentProductId = (criticalData as unknown as {product?: {id?: string}}).product?.id || '';
+    relatedGroupsWithProducts = await Promise.all(
+      relatedGroups.map(async (g) => {
+        try {
+          const q = `tag:'${g.groupTag.replace(/'/g, "")}' AND status:active${currentProductId ? ` AND -id:${currentProductId.replace('gid://shopify/Product/','')}` : ''}`;
+          const products = await adminClient.getProducts(g.maxItems + 1, q).catch(() => []);
+          const items = (products || [])
+            .filter((p) => p && p.id !== currentProductId)
+            .slice(0, g.maxItems)
+            .map((p) => ({
+              id: p.id,
+              handle: p.handle || '',
+              title: p.title || '',
+              imageUrl: (p as unknown as {featuredImage?: {url?: string}; images?: Array<{url?: string}>}).featuredImage?.url
+                || (p as unknown as {images?: Array<{url?: string}>}).images?.[0]?.url
+                || null,
+              priceMin: ((p as unknown as {priceRangeV2?: {minVariantPrice?: {amount?: string}}}).priceRangeV2?.minVariantPrice?.amount) || '0',
+            }));
+          return {...g, products: items};
+        } catch (e) {
+          console.warn('[products] relatedGroup fetch failed for', g.groupTag, (e as Error).message);
+          return {...g, products: []};
+        }
+      }),
+    );
+  } else {
+    relatedGroupsWithProducts = relatedGroups.map((g) => ({...g, products: []}));
+  }
+
+  return {...deferredData, ...criticalData, metaCustomOptions, productContents, relatedGroups: relatedGroupsWithProducts};
 }
 
 /* ═══════════════════════════════════════════════════
@@ -1034,18 +1071,62 @@ export default function Product() {
           target_tag が product.tags に含まれる astromeda_product_content を表示 */}
       <ProductContentSection contents={productContents || []} />
 
-      {/* patch 0193 (2026-04-28): 関連製品グループ (Phase 4 MVP - matched groups info)
-          実際の商品取得は次 patch で実装予定。今回は group 一致確認のみログ出力。 */}
+      {/* patch 0193-full (2026-04-28): 関連製品グループ (Phase 4 完全版)
+          見出し + 各 group_tag を持つ実商品を商品グリッドで表示。
+          旧サイト「その他モデル」「ゲーミングマウスパッド」相当の表示。 */}
       {relatedGroups && relatedGroups.length > 0 && (
         <section
           aria-label="関連製品グループ"
           data-related-groups
-          style={{padding: '24px clamp(16px, 4vw, 48px)', maxWidth: 1200, margin: '0 auto'}}
+          style={{padding: '32px clamp(16px, 4vw, 48px)', maxWidth: 1200, margin: '0 auto'}}
         >
-          {relatedGroups.map((g) => (
-            <div key={g.id} style={{marginBottom: 16, padding: 12, border: `1px solid ${T.t1}`, borderRadius: 8}}>
-              <h2 style={{fontSize: 18, fontWeight: 800, marginBottom: 8}}>{g.groupLabel || g.groupTag}</h2>
-              <p style={{fontSize: 12, opacity: 0.65}}>このグループ ({g.groupTag}) の関連商品が表示されます (MVP)</p>
+          {(relatedGroups as Array<{id:string;groupTag:string;groupLabel:string;products:Array<{id:string;handle:string;title:string;imageUrl:string|null;priceMin:string}>}>).map((g) => (
+            <div key={g.id} style={{marginBottom: 40}}>
+              <h2 style={{fontSize: 'clamp(18px, 2.2vw, 26px)', fontWeight: 800, marginBottom: 16, color: T.tx}}>
+                {g.groupLabel || g.groupTag}
+              </h2>
+              {g.products && g.products.length > 0 ? (
+                <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16}}>
+                  {g.products.map((p) => (
+                    <a
+                      key={p.id}
+                      href={`/products/${p.handle}`}
+                      style={{
+                        textDecoration: 'none',
+                        background: T.bg1 || '#11172a',
+                        border: `1px solid ${T.t1}`,
+                        borderRadius: 12,
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                      }}
+                    >
+                      {p.imageUrl ? (
+                        <img
+                          src={p.imageUrl}
+                          alt={p.title}
+                          loading="lazy"
+                          style={{width: '100%', aspectRatio: '1/1', objectFit: 'cover', display: 'block'}}
+                        />
+                      ) : (
+                        <div style={{width: '100%', aspectRatio: '1/1', background: T.t1}} />
+                      )}
+                      <div style={{padding: 12, display: 'flex', flexDirection: 'column', gap: 6}}>
+                        <div style={{fontSize: 13, fontWeight: 700, color: T.tx, lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'}}>
+                          {p.title}
+                        </div>
+                        {p.priceMin && p.priceMin !== '0' && (
+                          <div style={{fontSize: 14, fontWeight: 800, color: T.c}}>
+                            ¥{Number(p.priceMin).toLocaleString()}
+                          </div>
+                        )}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p style={{fontSize: 12, opacity: 0.6}}>このグループの商品はまだありません</p>
+              )}
             </div>
           ))}
         </section>
