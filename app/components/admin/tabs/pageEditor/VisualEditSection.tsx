@@ -602,16 +602,15 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
 
         {/* RIGHT: section shortcuts — 色分け＋番号バッジ (patch 0029)
             patch 0200 (2026-04-29): CEO 指摘「①② が見えない」←
-            ページ全体スクロール時にサイドバーが流れていた → sticky + 自前 maxHeight + scroll */}
+            ページ全体スクロール時にサイドバーが流れていた → sticky で固定。
+            patch 0200-fu: maxHeight + overflow を撤去 (内部スクロールで①が隠れる
+            副作用が起きていた)。サイドバー全体が常に viewport 内に表示される。 */}
         <div style={{
           flex: '0 0 300px',
           minWidth: 280,
           alignSelf: 'flex-start',
           position: 'sticky',
           top: 12,
-          maxHeight: 'calc(100vh - 24px)',
-          overflowY: 'auto',
-          paddingRight: 4,
         }}>
           <div
             style={{
