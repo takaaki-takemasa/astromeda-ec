@@ -293,18 +293,37 @@ export function loadDeferredData(
       const productCollections = data?.product?.collections?.nodes || [];
       if (productCollections.length === 0) return [];
 
-      // patch 0202: IP コラボ系コレクションを優先
-      // (1) "-collaboration" 完全一致を最優先 (IP ピンポイント)
+      // patch 0202 + patch 0208-fu2 (2026-05-01): IP コラボ系コレクション選択を 3 段階優先順位で
+      // (0) [patch 0208-fu2] 現在商品の handle/title に含まれる IP keyword を
+      //     handle に含む collection を最優先 (例: NARUTO PC → naruto-shippuden を選ぶ。
+      //     palworld-collaboration ではなく)
+      // (1) "-collaboration" 完全一致を次点 (IP ピンポイント)
       // (2) "collaboration" 部分一致 (旧 IP 系コレクション)
       // (3) gaming-pc / gadget / goods / new-arrivals 等の汎用群を最後
       const GENERIC_HANDLES = new Set([
         'gaming-pc', 'gadgets', 'goods', 'new-arrivals',
         'all', 'all-products', 'frontpage',
       ]);
+      // [patch 0208-fu2] 現在商品の IP keyword を抽出して collection 選別に使う
+      const earlyIpSlug = extractIpSlugFromText(handleLc) || extractIpSlugFromText(productTitle || '');
+      const earlySameIpKeywords = earlyIpSlug
+        ? IP_KEYWORD_MAP.filter((m) => m.ip === earlyIpSlug).map((m) => m.kw)
+        : [];
+      const collectionMatchesIp = (h: string): boolean => {
+        if (!earlySameIpKeywords.length) return false;
+        const hLc = (h || '').toLowerCase();
+        return earlySameIpKeywords.some((kw) => hLc.includes(kw));
+      };
       const ranked = [...productCollections].sort((a, b) => {
+        // (0) 同 IP keyword を含む collection を最優先 (palworld 混入根絶)
+        const aIp = collectionMatchesIp(a.handle || '') ? 0 : 1;
+        const bIp = collectionMatchesIp(b.handle || '') ? 0 : 1;
+        if (aIp !== bIp) return aIp - bIp;
+        // (1) "-collaboration" を含む collection
         const aHas = (a.handle || '').includes('-collaboration') ? 0 : 1;
         const bHas = (b.handle || '').includes('-collaboration') ? 0 : 1;
         if (aHas !== bHas) return aHas - bHas;
+        // (2) generic handle を最後
         const aIsGeneric = GENERIC_HANDLES.has(a.handle || '') ? 1 : 0;
         const bIsGeneric = GENERIC_HANDLES.has(b.handle || '') ? 1 : 0;
         if (aIsGeneric !== bIsGeneric) return aIsGeneric - bIsGeneric;
