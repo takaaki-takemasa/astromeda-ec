@@ -153,9 +153,20 @@ export function loadDeferredData({context, params}: Route.LoaderArgs) {
   const {storefront} = context;
   const {handle} = params;
 
-  // Deferred promise for related products from the same collection
-  // The main loader (loadCriticalData) has the product data, but we defer
-  // fetching products from the same collection for streaming
+  // patch 0202 (2026-05-01): 関連商品の IP マッチング改善
+  // CEO 指摘:
+  //   (1) 同じ IP の他商品が「関連商品」に表示されない (漏れ)
+  //   (2) 関係ない IP の商品が「関連商品」に混ざる (誤混入)
+  //
+  // 旧実装: 商品の collections.nodes[0] から無条件に 6 件取得
+  //   → ONE PIECE PC を見ても、最初の collection が "all-pcs" だと
+  //     NARUTO や ヒロアカ の PC が混ざる
+  //
+  // 新実装: 商品の collections を「IP コラボ系優先 → 一般 fallback」で順序付け
+  //   - 優先 1: handle に "-collaboration" を含む collection (ip-onepiece-collaboration 等)
+  //   - 優先 2: handle に "collaboration" を含む collection
+  //   - fallback: 元の最初の collection
+  //   この優先順序で「同 IP のみ」関連商品を取得することで誤混入を排除する
   const relatedProductsPromise = storefront
     .query<{product?: {collections: {nodes: Array<{handle: string}>}}}>(
       PRODUCT_COLLECTIONS_QUERY,
@@ -167,9 +178,26 @@ export function loadDeferredData({context, params}: Route.LoaderArgs) {
       const productCollections = data?.product?.collections?.nodes || [];
       if (productCollections.length === 0) return [];
 
-      // Get the first collection and fetch 6 other products from it
-      const firstCollection = productCollections[0];
-      if (!firstCollection?.handle) return [];
+      // patch 0202: IP コラボ系コレクションを優先
+      // (1) "-collaboration" 完全一致を最優先 (IP ピンポイント)
+      // (2) "collaboration" 部分一致 (旧 IP 系コレクション)
+      // (3) gaming-pc / gadget / goods / new-arrivals 等の汎用群を最後
+      const GENERIC_HANDLES = new Set([
+        'gaming-pc', 'gadgets', 'goods', 'new-arrivals',
+        'all', 'all-products', 'frontpage',
+      ]);
+      const ranked = [...productCollections].sort((a, b) => {
+        const aHas = (a.handle || '').includes('-collaboration') ? 0 : 1;
+        const bHas = (b.handle || '').includes('-collaboration') ? 0 : 1;
+        if (aHas !== bHas) return aHas - bHas;
+        const aIsGeneric = GENERIC_HANDLES.has(a.handle || '') ? 1 : 0;
+        const bIsGeneric = GENERIC_HANDLES.has(b.handle || '') ? 1 : 0;
+        if (aIsGeneric !== bIsGeneric) return aIsGeneric - bIsGeneric;
+        return 0;
+      });
+
+      const targetCollection = ranked[0];
+      if (!targetCollection?.handle) return [];
 
       const collectionData = await storefront.query<{
         collection?: {
@@ -184,7 +212,7 @@ export function loadDeferredData({context, params}: Route.LoaderArgs) {
           };
         };
       }>(RELATED_PRODUCTS_QUERY, {
-        variables: {collectionHandle: firstCollection.handle, first: 6},
+        variables: {collectionHandle: targetCollection.handle, first: 6},
       });
 
       // Filter out the current product
