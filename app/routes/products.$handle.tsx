@@ -119,7 +119,11 @@ export async function loader(args: Route.LoaderArgs) {
   const productTagsEarly: string[] = (
     (criticalDataEarly as unknown as {product?: {tags?: string[]}}).product?.tags || []
   );
-  const deferredData = loadDeferredData(args, productTagsEarly);
+  const productTitleEarly: string = (
+    (criticalDataEarly as unknown as {product?: {title?: string}}).product?.title || ''
+  );
+  // patch 0208: title も渡して keyword fallback を有効化
+  const deferredData = loadDeferredData(args, productTagsEarly, productTitleEarly);
 
   // Metaobject クライアント準備（失敗時は Storefront フロー継続）
   const adminClient = (() => {

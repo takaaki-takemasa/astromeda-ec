@@ -162,12 +162,71 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
 }
 
 /**
+ * patch 0208 (2026-05-01): IP keyword 抽出ヘルパー
+ * 商品 handle / title から canonical IP slug を抽出する。
+ * Shopify 側で banner-target: タグが付いていない商品でも、
+ * handle や title (例: "pc-naruto-shippuden-gaara-amd") から
+ * IP を推定して同 IP のみフィルタするための第 3 層 fallback。
+ *
+ * CEO 検証: NARUTO PC を見たら Palworld + NOEZ FOXX + 一般 GAMER が混入
+ *  → 商品 tags に banner-target: 無し + 複数 *-collaboration collection に
+ *    所属しているため collection ベースが Palworld を選んでしまっていた
+ *  → handle keyword で確実に NARUTO 系のみを残す
+ */
+const IP_KEYWORD_MAP: Array<{kw: string; ip: string}> = [
+  {kw: 'naruto', ip: 'naruto-shippuden'},
+  {kw: 'one-piece', ip: 'one-piece-bountyrush'},
+  {kw: 'onepiece', ip: 'one-piece-bountyrush'},
+  {kw: 'bountyrush', ip: 'one-piece-bountyrush'},
+  {kw: 'heroaca', ip: 'heroaca'},
+  {kw: 'hero-academia', ip: 'heroaca'},
+  {kw: 'jujutsu', ip: 'jujutsukaisen'},
+  {kw: 'streetfighter', ip: 'streetfighter'},
+  {kw: 'sanrio', ip: 'sanrio-characters'},
+  {kw: 'sonic', ip: 'sega-sonic'},
+  {kw: 'chainsaw', ip: 'chainsawman'},
+  {kw: 'bocchi', ip: 'bocchi-rocks'},
+  {kw: 'hololive', ip: 'hololive-english'},
+  {kw: 'bleach', ip: 'bleach'},
+  {kw: 'geass', ip: 'geass'},
+  {kw: 'tokyoghoul', ip: 'tokyoghoul'},
+  {kw: 'tokyo-ghoul', ip: 'tokyoghoul'},
+  {kw: 'lovelive', ip: 'lovelive-nijigasaki'},
+  {kw: 'nijigasaki', ip: 'lovelive-nijigasaki'},
+  {kw: 'swordart', ip: 'swordart-online'},
+  {kw: 'sao', ip: 'swordart-online'},
+  {kw: 'yurucamp', ip: 'yurucamp'},
+  {kw: 'pacmas', ip: 'pacmas-astromeda'},
+  {kw: 'sumikko', ip: 'sumikko'},
+  {kw: 'girls-und-panzer', ip: 'girls-und-panzer'},
+  {kw: 'palworld', ip: 'palworld'},
+  {kw: 'rilakkuma', ip: 'rilakkuma'},
+  {kw: 'noez-foxx', ip: 'noez-foxx'},
+  {kw: 'noez_foxx', ip: 'noez-foxx'},
+  {kw: 'nitowai', ip: 'nitowai'},
+];
+
+function extractIpSlugFromText(text: string): string | null {
+  const lower = (text || '').toLowerCase();
+  for (const {kw, ip} of IP_KEYWORD_MAP) {
+    if (lower.includes(kw)) return ip;
+  }
+  return null;
+}
+
+/**
  * Load deferred product data (non-blocking)
  * patch 0206 (2026-05-01): productTags パラメータ追加で IP tag-based filtering を有効化
+ * patch 0208 (2026-05-01): productTitle/productHandle 追加で keyword fallback も有効化
  */
-export function loadDeferredData({context, params}: Route.LoaderArgs, productTags?: string[]) {
+export function loadDeferredData(
+  {context, params}: Route.LoaderArgs,
+  productTags?: string[],
+  productTitle?: string,
+) {
   const {storefront} = context;
   const {handle} = params;
+  const handleLc = (handle || '').toLowerCase();
 
   // patch 0206 (2026-05-01): CEO 実機検証で patch 0202 の collection ベース修正が
   // 不十分と判明 — NARUTO PC を見たら Palworld + NOEZ FOXX + 一般 GAMER PC が
@@ -268,11 +327,30 @@ export function loadDeferredData({context, params}: Route.LoaderArgs, productTag
           };
         };
       }>(RELATED_PRODUCTS_QUERY, {
-        variables: {collectionHandle: targetCollection.handle, first: 6},
+        variables: {collectionHandle: targetCollection.handle, first: 24},
       });
 
-      // Filter out the current product
-      return (collectionData?.collection?.products?.nodes || []).filter((p) => p.handle !== handle);
+      // patch 0208 (2026-05-01): collection ベース fallback でも IP keyword で
+      // 厳格にフィルタ。NARUTO PC を見たら Palworld 等が混入する事故を防止。
+      // - 現在商品の handle/title から IP slug を抽出
+      // - 同 IP slug を含む product のみ残す (handle keyword OR title keyword)
+      // - IP 抽出できない商品 (汎用 GAMER PC 等) はフィルタしない (素通し)
+      const currentIpSlug = extractIpSlugFromText(handleLc) || extractIpSlugFromText(productTitle || '');
+      const allRelated = (collectionData?.collection?.products?.nodes || []).filter((p) => p.handle !== handle);
+
+      if (currentIpSlug) {
+        // 同 IP keyword を含む商品のみ残す
+        const sameIpKeywords = IP_KEYWORD_MAP
+          .filter((m) => m.ip === currentIpSlug)
+          .map((m) => m.kw);
+        const filtered = allRelated.filter((p) => {
+          const hLc = (p.handle || '').toLowerCase();
+          const tLc = (p.title || '').toLowerCase();
+          return sameIpKeywords.some((kw) => hLc.includes(kw) || tLc.includes(kw));
+        });
+        return filtered.slice(0, 6);
+      }
+      return allRelated.slice(0, 6);
     })
     .catch((error) => {
       process.env.NODE_ENV === 'development' &&
