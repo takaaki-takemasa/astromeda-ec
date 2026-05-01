@@ -158,10 +158,51 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
 
 /**
  * Load deferred product data (non-blocking)
+ * patch 0206 (2026-05-01): productTags パラメータ追加で IP tag-based filtering を有効化
  */
-export function loadDeferredData({context, params}: Route.LoaderArgs) {
+export function loadDeferredData({context, params}: Route.LoaderArgs, productTags?: string[]) {
   const {storefront} = context;
   const {handle} = params;
+
+  // patch 0206 (2026-05-01): CEO 実機検証で patch 0202 の collection ベース修正が
+  // 不十分と判明 — NARUTO PC を見たら Palworld + NOEZ FOXX + 一般 GAMER PC が
+  // 関連商品に混入していた。原因: 商品が複数の "*-collaboration" コレクションに
+  // 所属している場合 (Shopify 設定ミスや横断分類)、ランダムに別 IP が選ばれる。
+  //
+  // 根本対策: 商品の tags から canonical IP tag (banner-target:xxx) を抽出し、
+  // その tag を持つ他商品のみを Storefront API products query で fetch。
+  // tag が無い商品は既存の collection ベース fallback。
+  const ipTag = (productTags || []).find((t) =>
+    t.toLowerCase().startsWith('banner-target:'),
+  );
+
+  if (ipTag) {
+    const tagBasedPromise = storefront
+      .query<{
+        products: {
+          nodes: Array<{
+            id: string;
+            handle: string;
+            title: string;
+            featuredImage?: {url: string};
+            priceRange: {minVariantPrice: {amount: string}};
+          }>;
+        };
+      }>(PRODUCTS_BY_TAG_QUERY, {
+        variables: {tagQuery: `tag:'${ipTag.replace(/'/g, "")}'`, first: 8},
+      })
+      .then((data) =>
+        (data?.products?.nodes || [])
+          .filter((p) => p.handle !== handle)
+          .slice(0, 6),
+      )
+      .catch((error) => {
+        process.env.NODE_ENV === 'development' &&
+          console.error('[products.$handle] tag-based related fetch failed:', error);
+        return [];
+      });
+    return {relatedProducts: tagBasedPromise};
+  }
 
   // patch 0202 (2026-05-01): 関連商品の IP マッチング改善
   // CEO 指摘:
@@ -414,6 +455,36 @@ export const RELATED_PRODUCTS_QUERY = `#graphql
               amount
               currencyCode
             }
+          }
+        }
+      }
+    }
+  }
+` as const;
+
+/**
+ * patch 0206 (2026-05-01): tag-based 関連商品取得
+ * IP canonical tag (banner-target:naruto-shippuden 等) で products を直接 query。
+ * collection 横断で誤混入が発生しないため、IP マッチング精度が collection より高い。
+ */
+export const PRODUCTS_BY_TAG_QUERY = `#graphql
+  query ProductsByTag(
+    $tagQuery: String!
+    $first: Int
+  ) {
+    products(query: $tagQuery, first: $first) {
+      nodes {
+        id
+        handle
+        title
+        featuredImage {
+          url
+          altText
+        }
+        priceRange {
+          minVariantPrice {
+            amount
+            currencyCode
           }
         }
       }

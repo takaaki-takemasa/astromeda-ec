@@ -112,7 +112,14 @@ export const meta: Route.MetaFunction = ({data}) => {
 };
 
 export async function loader(args: Route.LoaderArgs) {
-  const deferredData = loadDeferredData(args);
+  // patch 0206 (2026-05-01): productTags を loadDeferredData に渡すため
+  // criticalData を先に await し、tag-based 関連商品取得を有効化。
+  // 元の defer streaming は失われるが、IP マッチング精度を優先 (CEO P0 指摘)。
+  const criticalDataEarly = await loadCriticalData(args);
+  const productTagsEarly: string[] = (
+    (criticalDataEarly as unknown as {product?: {tags?: string[]}}).product?.tags || []
+  );
+  const deferredData = loadDeferredData(args, productTagsEarly);
 
   // Metaobject クライアント準備（失敗時は Storefront フロー継続）
   const adminClient = (() => {
@@ -125,7 +132,7 @@ export async function loader(args: Route.LoaderArgs) {
   })();
 
   const [criticalData, metaOptionsResult, productContentResult, relatedGroupResult] = await Promise.all([
-    loadCriticalData(args),
+    Promise.resolve(criticalDataEarly), // patch 0206: 既に取得済みを再利用 (二重 fetch 回避)
     adminClient
       ? adminClient.getMetaobjects('astromeda_custom_option', 100).catch(
           () => [] as Array<{id: string; handle: string; fields: Array<{key: string; value: string}>}>,
