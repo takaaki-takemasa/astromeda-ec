@@ -600,8 +600,19 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
           </div>
         </div>
 
-        {/* RIGHT: section shortcuts — 色分け＋番号バッジ (patch 0029) */}
-        <div style={{flex: '0 0 300px', minWidth: 280}}>
+        {/* RIGHT: section shortcuts — 色分け＋番号バッジ (patch 0029)
+            patch 0200 (2026-04-29): CEO 指摘「①② が見えない」←
+            ページ全体スクロール時にサイドバーが流れていた → sticky + 自前 maxHeight + scroll */}
+        <div style={{
+          flex: '0 0 300px',
+          minWidth: 280,
+          alignSelf: 'flex-start',
+          position: 'sticky',
+          top: 12,
+          maxHeight: 'calc(100vh - 24px)',
+          overflowY: 'auto',
+          paddingRight: 4,
+        }}>
           <div
             style={{
               fontSize: 11,
