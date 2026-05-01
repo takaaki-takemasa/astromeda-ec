@@ -607,13 +607,17 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
             副作用が起きていた)。サイドバー全体が常に viewport 内に表示される。
             patch 0200-fu3 (2026-05-01): 「三より上が見えない」← admin 上部に
             HEADER(z=50, h=48) + DIV(z=10, h=98) が固定で乗っており、top:12 だと
-            ① が admin chrome に隠れていた。top:110 で admin header の下に出す。 */}
+            ① が admin chrome に隠れていた。top:110 で admin header の下に出す。
+            patch 0200-fu4 (2026-05-01): CEO「タブにカーソルを合わせるとヒーローバナーの
+            上が切れる」← 1 段目タブ DIV (h=98) の中に 2段目サブナビ「ヒーロー(Gaming)」
+            等が wrap して y=54〜98 を占有しており、サイドバー上端 y=110 と接触していた。
+            top:160 で 2段目サブナビの下に明確な余白を作る。 */}
         <div style={{
           flex: '0 0 300px',
           minWidth: 280,
           alignSelf: 'flex-start',
           position: 'sticky',
-          top: 110,
+          top: 160,
         }}>
           <div
             style={{
