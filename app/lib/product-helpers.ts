@@ -133,11 +133,21 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     }
   } catch (error) {
     process.env.NODE_ENV === 'development' && console.error('[products.$handle] Storefront API error:', error);
+    // patch 0204 (2026-05-01): CEO 指摘「日本語ハンドル商品 → 500 エラー」修正
+    // Storefront API が 404 を返した場合や、handle に該当する商品がそもそも
+    // 存在しない場合 (旧サイトのみ商品 / 削除済み商品) は 500 ではなく 404 を返す。
+    // エラーメッセージから "not found" / "404" / "404 not found" を検出。
+    const msg = error instanceof Error ? error.message.toLowerCase() : '';
+    if (msg.includes('not found') || msg.includes('404')) {
+      throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
+    }
     throw AppError.externalApi('商品データの取得に失敗しました', {handle, source: 'Storefront API'});
   }
 
   if (!product?.id) {
-    throw AppError.notFound('商品が見つかりません', {handle});
+    // patch 0204 (2026-05-01): handle に対応する商品が無い場合も 404 として扱う
+    // (旧サイト限定商品で gamer-... などが新サイトに存在しない場合に 500 を防ぐ)
+    throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
   }
 
   const {redirectIfHandleIsLocalized} = await import('~/lib/redirect');
