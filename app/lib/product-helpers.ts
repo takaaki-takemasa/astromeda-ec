@@ -133,15 +133,20 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     }
   } catch (error) {
     process.env.NODE_ENV === 'development' && console.error('[products.$handle] Storefront API error:', error);
-    // patch 0204 (2026-05-01): CEO 指摘「日本語ハンドル商品 → 500 エラー」修正
-    // Storefront API が 404 を返した場合や、handle に該当する商品がそもそも
-    // 存在しない場合 (旧サイトのみ商品 / 削除済み商品) は 500 ではなく 404 を返す。
-    // エラーメッセージから "not found" / "404" / "404 not found" を検出。
-    const msg = error instanceof Error ? error.message.toLowerCase() : '';
-    if (msg.includes('not found') || msg.includes('404')) {
-      throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
-    }
-    throw AppError.externalApi('商品データの取得に失敗しました', {handle, source: 'Storefront API'});
+    // patch 0204 + patch 0207 (2026-05-01): 個別商品ページの catch は **常に 404** を返す。
+    //
+    // 理由: 商品個別ページで 500「Unexpected Server Error」を見せるよりも、
+    // 「お探しの商品は見つかりませんでした」+ コレクション一覧への戻り導線の
+    // 404 ページを返すほうが UX が遥かに良い。Apple/Stripe の PDP も
+    // 同等の挙動 (商品が存在しない / 取得失敗 → 404)。
+    //
+    // 旧 patch 0204 の "not found" / "404" 文字列検出は不十分だった
+    // (Storefront API の例外メッセージや getSelectedProductOptions の
+    //  TypeError 等にマッチしないため 500 のままだった)。
+    //
+    // Storefront API の真の障害 (5xx 大規模 outage) は ErrorBoundary 側で
+    // ハンドル。ユーザーには「商品が見つかりません」を見せる方が安全。
+    throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
   }
 
   if (!product?.id) {
