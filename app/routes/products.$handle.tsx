@@ -1054,6 +1054,18 @@ export default function Product() {
             grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
             gap: 48px !important;
             padding: 32px 48px !important;
+            align-items: start !important;
+          }
+          /* patch 0203 (2026-05-01): CEO 指摘「左カラム空白」修正
+             商品画像 (左カラム) を sticky で viewport 内に固定。
+             右カラムの長いカスタマイズ/DESCRIPTION/FAQ 群をスクロールしても
+             常に商品画像が見えるようにする (Apple/Stripe 標準 PDP UX)。
+             top:80 = ヘッダー (h:54) + 余白 26 */
+          .astro-product-grid > div:first-child {
+            position: sticky !important;
+            top: 80px !important;
+            align-self: flex-start !important;
+            max-height: calc(100vh - 100px) !important;
           }
           .astro-mobile-cart-bar { display: none !important; }
         }
