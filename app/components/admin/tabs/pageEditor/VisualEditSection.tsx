@@ -604,13 +604,16 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
             patch 0200 (2026-04-29): CEO 指摘「①② が見えない」←
             ページ全体スクロール時にサイドバーが流れていた → sticky で固定。
             patch 0200-fu: maxHeight + overflow を撤去 (内部スクロールで①が隠れる
-            副作用が起きていた)。サイドバー全体が常に viewport 内に表示される。 */}
+            副作用が起きていた)。サイドバー全体が常に viewport 内に表示される。
+            patch 0200-fu3 (2026-05-01): 「三より上が見えない」← admin 上部に
+            HEADER(z=50, h=48) + DIV(z=10, h=98) が固定で乗っており、top:12 だと
+            ① が admin chrome に隠れていた。top:110 で admin header の下に出す。 */}
         <div style={{
           flex: '0 0 300px',
           minWidth: 280,
           alignSelf: 'flex-start',
           position: 'sticky',
-          top: 12,
+          top: 110,
         }}>
           <div
             style={{
