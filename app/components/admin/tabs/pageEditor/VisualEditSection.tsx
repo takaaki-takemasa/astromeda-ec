@@ -711,26 +711,31 @@ export function VisualEditSection({onNavigate, pushToast}: VisualEditSectionProp
               </button>
             ))}
           </div>
-
-          <div
-            style={{
-              marginTop: 20,
-              padding: 12,
-              background: al(T.g, 0.08),
-              border: `1px solid ${al(T.g, 0.25)}`,
-              borderRadius: 6,
-              fontSize: 11,
-              color: T.t4,
-              lineHeight: 1.6,
-            }}
-          >
-            💡 <b style={{color: T.g}}>使い方</b><br />
-            1. 左プレビューを見て、直したい場所の色と番号を覚える<br />
-            2. 右の同じ色のボタンにマウスを置くと場所が光って分かる<br />
-            3. クリックすれば該当編集タブに切り替わる<br />
-            4. 保存後「🔄 再読込」で反映を確認
-          </div>
+          {/* patch 0200-fu2 (2026-04-29): 使い方 box を sticky サイドバーから外した。
+              CEO 「①ヒーローバナーが見えない」の真因 — sidebar 高さ (807px) が
+              viewport (855px) と同じで、parent 内で sticky が押し上げられて ①が消えていた。
+              使い方を下に配置し、sidebar を 9 sections だけにして高さ ~600px → 確実に収まる。 */}
         </div>
+      </div>
+
+      <div
+        style={{
+          marginTop: 20,
+          padding: 12,
+          background: al(T.g, 0.08),
+          border: `1px solid ${al(T.g, 0.25)}`,
+          borderRadius: 6,
+          fontSize: 11,
+          color: T.t4,
+          lineHeight: 1.6,
+          maxWidth: 900,
+        }}
+      >
+        💡 <b style={{color: T.g}}>使い方</b><br />
+        1. 左プレビューを見て、直したい場所の色と番号を覚える<br />
+        2. 右の同じ色のボタンにマウスを置くと場所が光って分かる<br />
+        3. クリックすれば該当編集タブに切り替わる<br />
+        4. 保存後「🔄 再読込」で反映を確認
       </div>
     </div>
   );
