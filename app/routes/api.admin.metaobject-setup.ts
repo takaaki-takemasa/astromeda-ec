@@ -310,6 +310,23 @@ const METAOBJECT_DEFINITIONS: MetaobjectDefinitionSpec[] = [
       { key: 'is_active', name: '表示中', type: 'boolean' },
     ],
   },
+  // ── 17b. フッター設定 ── patch 0205 (2026-05-01)
+  // CEO E2E 監査で発覚: AstroFooter.tsx は astromeda_footer_config を期待するが
+  // Shopify に定義が無く、5 件全部ハードコード fallback 表示になっていた。
+  // 定義を追加することで admin 「ページ編集 > フッター」タブから CRUD 可能になり、
+  // 5 件 (会社概要/特商法/保証/プライバシー/配送) を seed すれば自動的に
+  // footerMetaMode=true で Metaobject 駆動 UI に切り替わる。
+  {
+    type: 'astromeda_footer_config',
+    name: 'Astromeda フッター設定',
+    description: 'フッターのリンクセクション (会社概要/特商法/保証/プライバシー/配送等)。管理画面「ページ編集 > フッター」で管理。',
+    fieldDefinitions: [
+      { key: 'section_title', name: 'セクション見出し（例: 会社概要）', type: 'single_line_text_field' },
+      { key: 'links', name: 'リンクJSON配列 [{label,url}]', type: 'multi_line_text_field' },
+      { key: 'sort_order', name: '表示順', type: 'number_integer' },
+      { key: 'is_active', name: '表示中', type: 'boolean' },
+    ],
+  },
   // ── 18. ゲーミングPC LP 特集カード ──（/collections/gaming-pc の FEATURE セクション）
   {
     type: 'astromeda_gaming_feature_card',
