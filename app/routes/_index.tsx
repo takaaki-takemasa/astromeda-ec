@@ -375,11 +375,14 @@ export async function loader({context}: Route.LoaderArgs) {
     return {
       id: mo.id,
       handle: mo.handle,
-      title: f['title'] || '',
-      description: f['description'] || null,
+      // patch 0201 (2026-05-01): admin が `name` フィールドにも保存しているため
+      // フォールバックで読む。CEO E2E 監査で「カテゴリ admin 編集が storefront に
+      // 反映されない」P0 ギャップ発覚 → 後方互換つきで両方読む (description→subtitle 同様)。
+      title: f['title'] || f['name'] || '',
+      description: f['description'] || f['subtitle'] || null,
       priceFrom: priceRaw ? parseInt(priceRaw, 10) : null,
       image: f['image'] || null,
-      linkUrl: f['link_url'] || null,
+      linkUrl: f['link_url'] || f['route'] || null,
       sortOrder: parseInt(f['display_order'] || '0', 10),
       isActive: f['is_active'] === 'true',
     };
