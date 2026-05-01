@@ -348,7 +348,27 @@ export function loadDeferredData(
           const tLc = (p.title || '').toLowerCase();
           return sameIpKeywords.some((kw) => hLc.includes(kw) || tLc.includes(kw));
         });
-        return filtered.slice(0, 6);
+        // patch 0208-fu (2026-05-01): keyword フィルタが厳しすぎて 0 件になる事故防止。
+        // CEO 実機検証: NARUTO PC で混入は消えたが、NARUTO 系も全部消えて
+        // 「関連商品」セクションが空白になる事故が発生。
+        // 最低 3 件は表示する: フィルタ済 >= 3 件ならそれを使い、
+        // 不足する場合は除外された商品を tail に追加して 6 件まで埋める。
+        if (filtered.length >= 3) {
+          return filtered.slice(0, 6);
+        }
+        // 不足分は handle/title に**他の登録 IP keyword を一切含まない**商品で埋める
+        // (= 汎用 GAMER PC / CREATOR PC 等は OK、別 IP 商品は混入させない)
+        const allOtherKeywords = IP_KEYWORD_MAP
+          .filter((m) => m.ip !== currentIpSlug)
+          .map((m) => m.kw);
+        const neutralFill = allRelated.filter((p) => {
+          if (filtered.find((f) => f.handle === p.handle)) return false; // 既に filtered に入ってる
+          const hLc = (p.handle || '').toLowerCase();
+          const tLc = (p.title || '').toLowerCase();
+          // 他 IP keyword を含む商品は除外
+          return !allOtherKeywords.some((kw) => hLc.includes(kw) || tLc.includes(kw));
+        });
+        return [...filtered, ...neutralFill].slice(0, 6);
       }
       return allRelated.slice(0, 6);
     })
