@@ -68,7 +68,7 @@ export default function AdminProductContent() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<ContentItem | null>(null);
   const [isNew, setIsNew] = useState(false);
-  const {showToast, Toast} = useToast();
+  const {pushToast: showToast, Toast} = useToast();
   const {confirm, dialogProps} = useConfirmDialog();
 
   const refresh = useCallback(async () => {
