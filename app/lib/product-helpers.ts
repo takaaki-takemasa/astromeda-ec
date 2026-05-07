@@ -133,26 +133,25 @@ export async function loadCriticalData({context, params, request}: Route.LoaderA
     }
   } catch (error) {
     process.env.NODE_ENV === 'development' && console.error('[products.$handle] Storefront API error:', error);
-    // patch 0204 + patch 0207 (2026-05-01): 個別商品ページの catch は **常に 404** を返す。
-    //
-    // 理由: 商品個別ページで 500「Unexpected Server Error」を見せるよりも、
-    // 「お探しの商品は見つかりませんでした」+ コレクション一覧への戻り導線の
-    // 404 ページを返すほうが UX が遥かに良い。Apple/Stripe の PDP も
-    // 同等の挙動 (商品が存在しない / 取得失敗 → 404)。
-    //
-    // 旧 patch 0204 の "not found" / "404" 文字列検出は不十分だった
-    // (Storefront API の例外メッセージや getSelectedProductOptions の
-    //  TypeError 等にマッチしないため 500 のままだった)。
-    //
-    // Storefront API の真の障害 (5xx 大規模 outage) は ErrorBoundary 側で
-    // ハンドル。ユーザーには「商品が見つかりません」を見せる方が安全。
-    throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
+    // patch 0207-fu (2026-05-01): 真因究明 — AppError extends Error なので
+    // React Router/Hydrogen は普通の Error を自動的に 500 として扱う。
+    // Response オブジェクトを直接 throw しないと 404 にならない。
+    // 旧 patch 0204/0207 で AppError.notFound を throw していたが、
+    // CEO 実機検証で 500 残存を確認 → Response 直接 throw に修正。
+    throw new Response('お探しの商品は見つかりませんでした', {
+      status: 404,
+      statusText: 'Not Found',
+      headers: {'Content-Type': 'text/plain; charset=utf-8'},
+    });
   }
 
   if (!product?.id) {
-    // patch 0204 (2026-05-01): handle に対応する商品が無い場合も 404 として扱う
-    // (旧サイト限定商品で gamer-... などが新サイトに存在しない場合に 500 を防ぐ)
-    throw AppError.notFound('お探しの商品は見つかりませんでした', {handle});
+    // patch 0207-fu: Response 直接 throw で確実に 404 を返す
+    throw new Response('お探しの商品は見つかりませんでした', {
+      status: 404,
+      statusText: 'Not Found',
+      headers: {'Content-Type': 'text/plain; charset=utf-8'},
+    });
   }
 
   const {redirectIfHandleIsLocalized} = await import('~/lib/redirect');
