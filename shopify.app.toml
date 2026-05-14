@@ -1,29 +1,24 @@
-# Astromeda Cart Transform - Shopify App Configuration
-# Cart Transform + Reviews App Proxy (Phase 4 / 2026-05-14)
-
-name = "Astromeda Cart Transform"
-client_id = "573c291525d9e13ed79e7119dba74b22"
-application_url = "https://shopify.dev/apps/default-app-home"
+name = "Astromeda Product Manager"
+client_id = "0410f99d6afc44e3ca2f8140e2e7c50f"
+application_url = "https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev"
 embedded = true
 
 [build]
-automatically_update_urls_on_dev = true
 include_config_on_deploy = true
 
 [webhooks]
-api_version = "2026-07"
+api_version = "2026-04"
 
 [[webhooks.subscriptions]]
 topics = ["orders/fulfilled"]
 uri = "https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev/webhooks/orders/fulfilled"
 
 [access_scopes]
-scopes = ""
+scopes = "read_customers,write_files,write_inventory,read_inventory,read_metaobject_definitions,write_metaobject_definitions,read_metaobjects,write_metaobjects,read_online_store_navigation,write_online_store_navigation,read_online_store_pages,write_online_store_pages,read_orders,write_orders,read_products,write_products,read_publications,write_publications,read_content,write_content,read_themes,write_themes"
 
 [auth]
-redirect_urls = ["https://shopify.dev/apps/default-app-home/api/auth"]
+redirect_urls = ["https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev/api/auth"]
 
-# Reviews App Proxy
 [app_proxy]
 url = "https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev/apps/reviews"
 subpath = "reviews"
