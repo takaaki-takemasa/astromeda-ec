@@ -30,5 +30,5 @@ jobs:
       - name: Deploy Shopify App config
         env:
           SHOPIFY_CLI_PARTNERS_TOKEN: ${{ secrets.SHOPIFY_APP_AUTOMATION_TOKEN }}
-          SHOPIFY_API_KEY: 573c291525d9e13ed79e7119dba74b22
+          SHOPIFY_API_KEY: 0410f99d6afc44e3ca2f8140e2e7c50f
         run: npx shopify app deploy --force
