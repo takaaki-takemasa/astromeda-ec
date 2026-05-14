@@ -1,5 +1,5 @@
-# Astromeda Cart Transform — Shopify App Configuration
-# カスタマイズ価格をカート合計に反映するCart Transform拡張
+# Astromeda Cart Transform - Shopify App Configuration
+# Cart Transform + Reviews App Proxy (Phase 4 / 2026-05-14)
 
 name = "Astromeda Cart Transform"
 client_id = "573c291525d9e13ed79e7119dba74b22"
@@ -13,8 +13,18 @@ include_config_on_deploy = true
 [webhooks]
 api_version = "2026-07"
 
+[[webhooks.subscriptions]]
+topics = ["orders/fulfilled"]
+uri = "https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev/webhooks/orders/fulfilled"
+
 [access_scopes]
 scopes = ""
 
 [auth]
 redirect_urls = ["https://shopify.dev/apps/default-app-home/api/auth"]
+
+# Reviews App Proxy
+[app_proxy]
+url = "https://astromeda-ec-273085cdf98d80a57b73.o2.myshopify.dev/apps/reviews"
+subpath = "reviews"
+prefix = "apps"
